@@ -1,0 +1,171 @@
+import type {
+  ChatMessage,
+  KnowledgeNode,
+  MessagePayload,
+  NodeSource,
+  Relation,
+  RelationOrigin,
+  RelationType,
+  Source,
+} from "@/types";
+
+/** 数据库行 ↔ 领域对象映射（snake_case ↔ camelCase）。 */
+
+export interface NodeRow {
+  id: string;
+  user_id: string;
+  parent_id: string | null;
+  title: string;
+  summary: string;
+  status: string;
+  aliases: string[] | null;
+  mastery: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RelationRow {
+  id: string;
+  user_id: string;
+  from_node: string;
+  to_node: string;
+  type: string;
+  confidence: number;
+  origin: string;
+  created_at: string;
+}
+
+export interface SourceRow {
+  id: string;
+  user_id: string;
+  kind: string;
+  question: string;
+  answer: string;
+  image_path: string | null;
+  created_at: string;
+}
+
+export interface NodeSourceRow {
+  user_id: string;
+  node_id: string;
+  source_id: string;
+}
+
+export interface MessageRow {
+  id: string;
+  user_id: string;
+  role: string;
+  content: string;
+  image_name: string | null;
+  payload: unknown;
+  created_at: string;
+}
+
+export function nodeFromRow(row: NodeRow): KnowledgeNode {
+  return {
+    id: row.id,
+    parentId: row.parent_id,
+    title: row.title,
+    summary: row.summary ?? "",
+    status: row.status === "inbox" ? "inbox" : "active",
+    aliases: row.aliases ?? [],
+    mastery: row.mastery,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function nodeToRow(userId: string, node: KnowledgeNode): NodeRow {
+  return {
+    id: node.id,
+    user_id: userId,
+    parent_id: node.parentId,
+    title: node.title,
+    summary: node.summary,
+    status: node.status,
+    aliases: node.aliases,
+    mastery: node.mastery,
+    created_at: node.createdAt,
+    updated_at: node.updatedAt,
+  };
+}
+
+export function relationFromRow(row: RelationRow): Relation {
+  return {
+    id: row.id,
+    fromId: row.from_node,
+    toId: row.to_node,
+    type: row.type as RelationType,
+    confidence: row.confidence,
+    origin: row.origin as RelationOrigin,
+    createdAt: row.created_at,
+  };
+}
+
+export function relationToRow(userId: string, relation: Relation): RelationRow {
+  return {
+    id: relation.id,
+    user_id: userId,
+    from_node: relation.fromId,
+    to_node: relation.toId,
+    type: relation.type,
+    confidence: relation.confidence,
+    origin: relation.origin,
+    created_at: relation.createdAt,
+  };
+}
+
+export function sourceFromRow(row: SourceRow): Source {
+  return {
+    id: row.id,
+    kind: row.kind === "image" ? "image" : "chat",
+    question: row.question ?? "",
+    answer: row.answer ?? "",
+    imagePath: row.image_path,
+    createdAt: row.created_at,
+  };
+}
+
+export function sourceToRow(userId: string, source: Source): SourceRow {
+  return {
+    id: source.id,
+    user_id: userId,
+    kind: source.kind,
+    question: source.question,
+    answer: source.answer,
+    image_path: source.imagePath,
+    created_at: source.createdAt,
+  };
+}
+
+export function nodeSourceFromRow(row: NodeSourceRow): NodeSource {
+  return { nodeId: row.node_id, sourceId: row.source_id };
+}
+
+export function nodeSourceToRow(userId: string, link: NodeSource): NodeSourceRow {
+  return { user_id: userId, node_id: link.nodeId, source_id: link.sourceId };
+}
+
+export function messageFromRow(row: MessageRow): ChatMessage {
+  const payload = (row.payload ?? {}) as MessagePayload;
+  return {
+    id: row.id,
+    role: row.role === "assistant" ? "assistant" : "user",
+    content: row.content ?? "",
+    imageName: row.image_name,
+    payload,
+    createdAt: row.created_at,
+  };
+}
+
+export function messageToRow(userId: string, message: ChatMessage): MessageRow {
+  return {
+    id: message.id,
+    user_id: userId,
+    role: message.role,
+    content: message.content,
+    image_name: message.imageName,
+    payload: message.payload,
+    created_at: message.createdAt,
+  };
+}

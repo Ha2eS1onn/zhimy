@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+.pnpm-store/
+.npm-cache/
+
+# next.js
+.next/
+out/
+build/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+
+# test / coverage
+coverage/
+
+# local scratch (dsh sandbox bookkeeping & verification artifacts)
+_acl_recovery/
+_verify/
+_verify-*/
+_read_plan.py
+_qa_plan.py
+
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
