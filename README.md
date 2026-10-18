@@ -6,6 +6,8 @@
 
 这是 **P0 原型**（方案见 [docs/知脉-知识地图产品方案-v1.0.docx](docs/知脉-知识地图产品方案-v1.0.docx)）：用真实可交互的产品验证「收编 → 归位 → 命中」闭环是否成立。
 
+> 🤝 **开发进度 / 架构说明 / 后续计划 / 交接文档：[docs/HANDOFF.md](docs/HANDOFF.md)**
+
 ![综合页](docs/screenshots/home-desktop.png)
 ![对话与收编](docs/screenshots/chat-desktop.png)
 ![3D 知识库](docs/screenshots/atlas-desktop.png)
