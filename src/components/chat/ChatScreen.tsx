@@ -15,10 +15,21 @@ import { useUIStore } from "@/store/uiStore";
 import { pathLabel } from "@/lib/path";
 import { resolveQuestion } from "@/lib/search";
 import { mockExtract } from "@/lib/ai/mock";
+import { extractWithLlm } from "@/lib/ai/extract";
+import type { Suggestion } from "@/types";
 import { MessageBubble } from "./MessageBubble";
 import { Composer, type ImagePayload } from "./Composer";
 
 const EXAMPLES = ["电阻并联怎么算？", "浮力怎么理解？", "化学方程式怎么配平？"];
+
+/** 取最近几条消息作为抽取上下文，帮助模型理解「再详细讲一道」这类追问。 */
+function buildRecentContext(): string {
+  return useChatStore
+    .getState()
+    .messages.slice(-5)
+    .map((message) => `${message.role === "user" ? "学生" : "助教"}：${message.content.slice(0, 300)}`)
+    .join("\n");
+}
 
 export function ChatScreen() {
   const searchParams = useSearchParams();
@@ -30,6 +41,7 @@ export function ChatScreen() {
 
   const [streamingText, setStreamingText] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -44,7 +56,7 @@ export function ChatScreen() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [messages, streamingText, error]);
+  }, [messages, streamingText, error, extracting]);
 
   const handleSend = async (rawText: string, image: ImagePayload | null) => {
     if (busy) return;
@@ -125,7 +137,33 @@ export function ChatScreen() {
       }
 
       const source = await addSource({ question: text || "（图片提问）", answer });
-      const suggestions = mockExtract(question, useGraphStore.getState().nodes, source.id);
+
+      let suggestions: Suggestion[] = [];
+      if (llm.mode === "real") {
+        // 真实模式：让用户自己的模型从这次解答里抽取知识点，并从候选节点里选择落点。
+        setExtracting(true);
+        try {
+          suggestions = await extractWithLlm({
+            settings: llm,
+            question,
+            answer,
+            nodes: useGraphStore.getState().nodes,
+            sourceId: source.id,
+            context: buildRecentContext(),
+          });
+          if (suggestions.length === 0) {
+            toast("这段对话里没有识别到可收编的知识点", "info");
+          }
+        } catch (extractError) {
+          const detail = extractError instanceof Error ? extractError.message : "未知错误";
+          toast(`知识点整理失败：${detail}`, "error");
+        } finally {
+          setExtracting(false);
+        }
+      } else {
+        suggestions = mockExtract(question, useGraphStore.getState().nodes, source.id);
+      }
+
       await append({ role: "assistant", content: answer, payload: { suggestions } });
     } catch (sendError) {
       const message = sendError instanceof Error ? sendError.message : "发送失败，请重试";
@@ -167,7 +205,8 @@ export function ChatScreen() {
             <div className="card mt-6 p-6 text-center">
               <p className="text-sm font-medium text-ink">第一次提问，从一道不会的题开始</p>
               <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted">
-                演示模式下你会看到一段分步解答，以及 1–3 个可收编的知识点建议；收编后它们会出现在 3D 知识库里，下次再问同一个知识点会直接给出路径。
+                你会看到一段分步解答，以及 1–3 个可收编的知识点建议；收编后它们会出现在 3D
+                知识库里，下次再问同一个知识点会直接给出路径。
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 {EXAMPLES.map((example) => (
@@ -194,6 +233,13 @@ export function ChatScreen() {
                 {streamingText || "正在思考…"}
                 <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-accent align-middle" />
               </p>
+            </div>
+          ) : null}
+
+          {extracting ? (
+            <div className="flex items-center gap-2 text-xs text-muted">
+              <span className="inline-block size-3 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+              正在从这次解答里整理知识点…
             </div>
           ) : null}
 

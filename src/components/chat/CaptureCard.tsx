@@ -114,13 +114,14 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <label className="label" htmlFor={`title-${suggestion.id}`}>
-            知识点名称
+            知识点名称 · 可修改
           </label>
           <input
             id={`title-${suggestion.id}`}
-            className="mt-1 w-full rounded-lg border border-transparent bg-transparent py-1 text-sm font-medium text-ink outline-none hover:border-line focus:border-accent/60 focus:bg-surface-2"
+            className="mt-1 w-full rounded-lg border border-line bg-surface-2 px-2 py-1 text-sm font-medium text-ink outline-none focus:border-accent/60"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
+            placeholder="用学科概念命名，例如「电阻的并联」"
           />
         </div>
         <span
@@ -134,12 +135,13 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
       </div>
 
       <label className="mt-2 block">
-        <span className="label">一句话摘要</span>
+        <span className="label">一句话摘要 · 可修改</span>
         <textarea
-          className="mt-1 w-full resize-none rounded-lg border border-transparent bg-transparent py-1 text-xs leading-relaxed text-muted outline-none hover:border-line focus:border-accent/60 focus:bg-surface-2"
+          className="mt-1 w-full resize-none rounded-lg border border-line bg-surface-2 px-2 py-1 text-xs leading-relaxed text-ink outline-none focus:border-accent/60"
           rows={2}
           value={summary}
           onChange={(event) => setSummary(event.target.value)}
+          placeholder="一句话说明这个知识点讲什么"
         />
       </label>
 
@@ -174,7 +176,7 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
       <p className="mt-2 text-[11px] text-muted">
         {lowConfidence
           ? "置信度较低：收下后会先进入待处理，稍后可以再归位。"
-          : "来源：本次对话 · 可编辑名称与摘要后再收编。"}
+          : "来源：本次对话；名称与摘要都可以直接改，改好再收编。"}
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">

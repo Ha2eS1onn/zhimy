@@ -12,6 +12,7 @@ interface ProxyBody {
   model?: string;
   messages?: ChatTurn[];
   temperature?: number;
+  maxTokens?: number;
 }
 
 const MAX_MESSAGES_BYTES = 200_000;
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { message: "请求体不是合法的 JSON" } }, { status: 400 });
   }
 
-  const { baseUrl, apiKey, model, messages, temperature } = body;
+  const { baseUrl, apiKey, model, messages, temperature, maxTokens } = body;
   if (!baseUrl || !apiKey || !model || !Array.isArray(messages) || messages.length === 0) {
     return NextResponse.json(
       { error: { message: "缺少 baseUrl / apiKey / model / messages" } },
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
         messages,
         stream: true,
         ...(typeof temperature === "number" ? { temperature } : {}),
+        ...(typeof maxTokens === "number" ? { max_tokens: maxTokens } : {}),
       }),
       redirect: "error",
       signal: AbortSignal.timeout(90_000),

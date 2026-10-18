@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { describeAuthError } from "@/lib/authErrors";
 import { LLM_PRESETS } from "@/lib/ai/types";
 import { testConnection } from "@/lib/ai/llmClient";
 import { isDemoMode } from "@/lib/env";
@@ -257,11 +258,18 @@ function AccountSection({ demo }: { demo: boolean }) {
   const router = useRouter();
   const user = useSessionStore((state) => state.user);
   const signOut = useSessionStore((state) => state.signOut);
+  const signIn = useSessionStore((state) => state.signIn);
   const bindAccount = useSessionStore((state) => state.bindAccount);
+  const closeSettings = useUIStore((state) => state.closeSettings);
+  const [mode, setMode] = useState<"bind" | "login">("bind");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    tone: "ok" | "error";
+    text: string;
+    hint?: string;
+  } | null>(null);
 
   const handleBind = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -277,10 +285,29 @@ function AccountSection({ demo }: { demo: boolean }) {
       setEmail("");
       setPassword("");
     } catch (error) {
-      setMessage({
-        tone: "error",
-        text: error instanceof Error ? error.message : "绑定失败，请稍后重试",
-      });
+      const info = describeAuthError(error instanceof Error ? error.message : "绑定失败，请稍后重试");
+      setMessage({ tone: "error", text: info.text, hint: info.hint });
+      // 邮箱已注册时，直接把用户引导到"登录已有账号"。
+      if (info.canLogin) setMode("login");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await signIn(email.trim(), password);
+      toast("登录成功，正在同步云端数据…", "success");
+      setEmail("");
+      setPassword("");
+      closeSettings();
+    } catch (error) {
+      const info = describeAuthError(error instanceof Error ? error.message : "登录失败");
+      setMessage({ tone: "error", text: info.text, hint: info.hint });
     } finally {
       setBusy(false);
     }
@@ -324,12 +351,44 @@ function AccountSection({ demo }: { demo: boolean }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-warn/30 bg-warn/5 p-3 text-[11px] leading-relaxed text-warn">
-        当前是游客账号：数据已经保存在云端，但换设备/清浏览器缓存前请先绑定邮箱，否则会失去访问入口。
+      <div className="segmented w-full">
+        <button
+          type="button"
+          className="flex-1"
+          data-active={mode === "bind"}
+          onClick={() => {
+            setMode("bind");
+            setMessage(null);
+          }}
+        >
+          绑定游客账号
+        </button>
+        <button
+          type="button"
+          className="flex-1"
+          data-active={mode === "login"}
+          onClick={() => {
+            setMode("login");
+            setMessage(null);
+          }}
+        >
+          登录已有账号
+        </button>
       </div>
-      <form className="space-y-3" onSubmit={handleBind}>
+
+      {mode === "bind" ? (
+        <div className="rounded-xl border border-warn/30 bg-warn/5 p-3 text-[11px] leading-relaxed text-warn">
+          当前是游客账号：数据已经保存在云端，但换设备/清浏览器缓存前请先绑定邮箱，否则会失去访问入口。
+        </div>
+      ) : (
+        <div className="rounded-xl border border-line bg-surface-2 p-3 text-[11px] leading-relaxed text-muted">
+          用绑定过的邮箱密码登录，会切换到该账号的云端数据；当前游客账号的数据不会合并进来。
+        </div>
+      )}
+
+      <form className="space-y-3" onSubmit={mode === "bind" ? handleBind : handleLogin}>
         <label className="block">
-          <span className="label">绑定邮箱</span>
+          <span className="label">{mode === "bind" ? "绑定邮箱" : "邮箱"}</span>
           <input
             className="input mt-1"
             type="email"
@@ -340,7 +399,7 @@ function AccountSection({ demo }: { demo: boolean }) {
           />
         </label>
         <label className="block">
-          <span className="label">设置密码</span>
+          <span className="label">{mode === "bind" ? "设置密码" : "密码"}</span>
           <input
             className="input mt-1"
             type="password"
@@ -352,14 +411,37 @@ function AccountSection({ demo }: { demo: boolean }) {
           />
         </label>
         <button type="submit" className="btn-primary w-full" disabled={busy}>
-          {busy ? "提交中…" : "绑定并发送确认邮件"}
+          {busy ? "请稍候…" : mode === "bind" ? "绑定并发送确认邮件" : "登录"}
         </button>
       </form>
+
       {message ? (
-        <p className={`text-xs ${message.tone === "ok" ? "text-ok" : "text-danger"}`}>
-          {message.text}
-        </p>
+        <div className="space-y-1">
+          <p className={`text-xs ${message.tone === "ok" ? "text-ok" : "text-danger"}`}>
+            {message.text}
+          </p>
+          {message.hint ? <p className="text-[11px] text-muted">{message.hint}</p> : null}
+        </div>
       ) : null}
+
+      <p className="text-[11px] text-muted">
+        {mode === "bind" ? (
+          <>
+            已经有账号了？
+            <button type="button" className="text-accent hover:underline" onClick={() => setMode("login")}>
+              直接登录
+            </button>
+          </>
+        ) : (
+          <>
+            没有账号？
+            <button type="button" className="text-accent hover:underline" onClick={() => setMode("bind")}>
+              以游客身份继续并绑定
+            </button>
+          </>
+        )}
+      </p>
+
       <button type="button" className="btn-ghost w-full" onClick={() => void signOut()}>
         退出登录
       </button>

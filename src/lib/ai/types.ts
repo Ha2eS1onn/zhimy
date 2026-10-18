@@ -78,6 +78,8 @@ export interface StreamChatOptions {
   settings: LlmSettings;
   messages: ChatTurn[];
   signal?: AbortSignal;
+  temperature?: number;
+  maxTokens?: number;
   onDelta: (chunk: string) => void;
 }
 

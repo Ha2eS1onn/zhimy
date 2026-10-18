@@ -22,13 +22,19 @@ export function normalizeBaseUrl(raw: string): string {
   return trimmed;
 }
 
-function buildRequest(settings: LlmSettings, messages: ChatTurn[]) {
+function buildRequest(
+  settings: LlmSettings,
+  messages: ChatTurn[],
+  options: { temperature?: number; maxTokens?: number } = {},
+) {
   const baseUrl = normalizeBaseUrl(settings.baseUrl);
   const body = {
     baseUrl,
     apiKey: settings.apiKey.trim(),
     model: settings.model.trim(),
     messages,
+    ...(typeof options.temperature === "number" ? { temperature: options.temperature } : {}),
+    ...(typeof options.maxTokens === "number" ? { maxTokens: options.maxTokens } : {}),
   };
   return { baseUrl, body };
 }
@@ -78,7 +84,7 @@ async function consumeResponse(
 
 /** 发起一次流式对话，返回完整文本。 */
 export async function streamChat(options: StreamChatOptions): Promise<string> {
-  const { settings, messages, signal, onDelta } = options;
+  const { settings, messages, signal, onDelta, temperature, maxTokens } = options;
   if (settings.mode !== "real") {
     throw new LlmError("当前是演示模式，请先在设置里接入自己的模型");
   }
@@ -89,7 +95,7 @@ export async function streamChat(options: StreamChatOptions): Promise<string> {
     throw new LlmError("还没有填写模型名", { hint: "例如 deepseek-chat、gpt-4o-mini。" });
   }
 
-  const { baseUrl, body } = buildRequest(settings, messages);
+  const { baseUrl, body } = buildRequest(settings, messages, { temperature, maxTokens });
 
   let response: Response;
   try {
@@ -100,7 +106,13 @@ export async function streamChat(options: StreamChatOptions): Promise<string> {
           "content-type": "application/json",
           authorization: `Bearer ${body.apiKey}`,
         },
-        body: JSON.stringify({ model: body.model, messages, stream: true }),
+        body: JSON.stringify({
+          model: body.model,
+          messages,
+          stream: true,
+          ...(temperature !== undefined ? { temperature } : {}),
+          ...(maxTokens !== undefined ? { max_tokens: maxTokens } : {}),
+        }),
         signal,
       });
     } else {

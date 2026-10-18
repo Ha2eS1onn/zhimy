@@ -42,7 +42,7 @@ export default function HomePage() {
   const derived = useMemo(() => {
     const active = nodes.filter((node) => node.status === "active");
     const inbox = nodes.filter((node) => node.status === "inbox");
-    const subjects = nodes.filter((node) => !node.parentId);
+    const subjects = nodes.filter((node) => !node.parentId && node.status === "active");
     const recent = [...active]
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
       .slice(0, 3);

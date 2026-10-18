@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { useChatStore } from "@/store/chatStore";
 import { useGraphStore } from "@/store/graphStore";
@@ -17,6 +17,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
   const user = useSessionStore((state) => state.user);
   const error = useSessionStore((state) => state.error);
   const errorHint = useSessionStore((state) => state.errorHint);
+  const previousUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     void useSettingsStore.persist.rehydrate();
@@ -25,6 +26,12 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (status !== "ready" || !user) return;
+    // 切换账号（例如从游客登录到已有账号）时，先清空上一个账号的本地缓存再拉取。
+    if (previousUserIdRef.current && previousUserIdRef.current !== user.id) {
+      useGraphStore.getState().resetLocal();
+      useChatStore.getState().resetLocal();
+    }
+    previousUserIdRef.current = user.id;
     void useGraphStore.getState().ensureLoaded();
     void useChatStore.getState().ensureLoaded();
     const refreshOnVisible = () => {

@@ -339,6 +339,7 @@ export function AtlasScreen() {
         {/* 详情面板 */}
         {selectedNode ? (
           <AtlasPanel
+            key={selectedNode.id}
             node={selectedNode}
             nodes={nodes}
             relations={relations}

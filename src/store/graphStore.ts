@@ -36,6 +36,10 @@ interface GraphState {
   }) => Promise<{ nodeId: string; status: NodeStatus }>;
   reparent: (nodeId: string, parentId: string | null) => Promise<void>;
   setStatus: (nodeId: string, status: NodeStatus) => Promise<void>;
+  /** 修改知识点名称 / 摘要（详情面板里的编辑功能）。 */
+  updateDetails: (nodeId: string, patch: { title?: string; summary?: string }) => Promise<void>;
+  /** 切换账号时清空本地缓存，等待重新加载。 */
+  resetLocal: () => void;
   seedExample: () => Promise<void>;
   clearGraph: () => Promise<void>;
   exportJson: () => string;
@@ -108,7 +112,13 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
 
   adopt: async ({ suggestion, parentId, title, summary }) => {
     const userId = currentUserId();
-    const status: NodeStatus = suggestion.confidence >= 0.75 ? "active" : "inbox";
+    // 没有选到父节点时（尤其图谱已有数据），先进入待处理，避免把临时条目当成"学科"挂在顶层。
+    const status: NodeStatus =
+      parentId === null && get().nodes.length > 0
+        ? "inbox"
+        : suggestion.confidence >= 0.75
+          ? "active"
+          : "inbox";
     const createdAt = nowIso();
     const node: KnowledgeNode = {
       id: newId(),
@@ -195,6 +205,42 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
       set({ nodes: previous });
       throw error;
     }
+  },
+
+  updateDetails: async (nodeId, patch) => {
+    const userId = currentUserId();
+    const previous = get().nodes;
+    const clean: { title?: string; summary?: string } = {};
+    if (patch.title !== undefined) {
+      const title = patch.title.trim();
+      if (!title) throw new Error("知识点名称不能为空");
+      clean.title = title;
+    }
+    if (patch.summary !== undefined) clean.summary = patch.summary.trim();
+
+    set({
+      nodes: previous.map((node) =>
+        node.id === nodeId ? { ...node, ...clean, updatedAt: nowIso() } : node,
+      ),
+    });
+    try {
+      await getRepo().updateNode(userId, nodeId, clean);
+    } catch (error) {
+      set({ nodes: previous });
+      throw error;
+    }
+  },
+
+  resetLocal: () => {
+    set({
+      nodes: [],
+      relations: [],
+      sources: [],
+      nodeSources: [],
+      loading: false,
+      error: null,
+      loadedFor: null,
+    });
   },
 
   seedExample: async () => {

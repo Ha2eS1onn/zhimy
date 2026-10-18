@@ -270,6 +270,18 @@ export async function streamMockAnswer(
   return answer;
 }
 
+/** 兜底标题：过滤「再详细讲一道」「继续」这类对话指令，避免把废话收编成知识点。 */
+export function fallbackKnowledgeTitle(question: string): string {
+  const cleaned = question.replace(/[？?。！!，,\s]+$/g, "").trim();
+  const stripped = cleaned.replace(/^(再|继续|然后|详细|具体|讲|解释|举例|说)/g, "").trim();
+  const candidate = stripped.length >= 2 ? stripped : cleaned;
+  if (!candidate || candidate.length < 2) return "待整理知识点";
+  if (/^(再|继续|然后|详细|具体|讲|解释|举例|说|这道|这道题|题目)/.test(candidate)) {
+    return "待整理知识点";
+  }
+  return candidate.slice(0, 18);
+}
+
 /** 演示抽取：根据问题关键词给出 1–3 个知识点建议。 */
 export function mockExtract(
   question: string,
@@ -278,12 +290,15 @@ export function mockExtract(
 ): Suggestion[] {
   const scenario = pickScenario(question);
   if (!scenario) {
-    const title = question.replace(/[？?。！!，,\s]+$/g, "").slice(0, 18) || "待整理知识点";
+    const title = fallbackKnowledgeTitle(question);
     return [
       {
         id: newId(),
         title,
-        summary: "来自一次提问的临时知识点，等待归位。",
+        summary:
+          title === "待整理知识点"
+            ? "这句提问没有包含具体学科内容，先作为临时条目放着，稍后补充。"
+            : "来自一次提问的临时知识点，等待归位。",
         suggestedParentId: null,
         confidence: 0.38,
         relations: [],

@@ -24,6 +24,8 @@ interface ChatState {
     patch: Partial<Suggestion>,
   ) => Promise<void>;
   clear: () => Promise<void>;
+  /** 切换账号时清空本地缓存，等待重新加载。 */
+  resetLocal: () => void;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
@@ -96,4 +98,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     await getRepo().clearMessages(user.id);
     set({ messages: [] });
   },
+
+  resetLocal: () => set({ messages: [], loading: false, error: null, loadedFor: null }),
 }));

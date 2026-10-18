@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mockAnswerFor, mockExtract, pickScenario } from "@/lib/ai/mock";
+import { fallbackKnowledgeTitle, mockAnswerFor, mockExtract, pickScenario } from "@/lib/ai/mock";
 import { sampleNodes } from "./helpers";
 
 describe("演示模式脚本与抽取", () => {
@@ -32,5 +32,14 @@ describe("演示模式脚本与抽取", () => {
     expect(suggestions).toHaveLength(1);
     expect(suggestions[0]!.confidence).toBeLessThan(0.75);
     expect(suggestions[0]!.suggestedParentId).toBeNull();
+  });
+
+  it("兜底标题会过滤「再详细讲一道」这类对话指令", () => {
+    expect(fallbackKnowledgeTitle("再详细讲一道")).toBe("待整理知识点");
+    expect(fallbackKnowledgeTitle("继续")).toBe("待整理知识点");
+    expect(fallbackKnowledgeTitle("详细讲讲")).toBe("待整理知识点");
+    expect(fallbackKnowledgeTitle("电路故障分析")).toBe("电路故障分析");
+    const suggestions = mockExtract("再详细讲一道", sampleNodes(), null);
+    expect(suggestions[0]!.title).toBe("待整理知识点");
   });
 });
