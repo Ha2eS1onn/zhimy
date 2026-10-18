@@ -47,8 +47,8 @@ npm install
 1. 打开 [supabase.com](https://supabase.com/dashboard) 创建一个免费项目（建议区域选 **Singapore**）
 2. **Authentication → Sign In / Providers** 里打开 **Anonymous Sign-ins**（匿名游客登录必需）
 3. **Project Settings → API** 复制 `Project URL` 与 `anon public key`
-4. **Project Settings → Database → Connection string → URI** 复制数据库连接串
-5. 把三个值写进项目根目录的 `.env.local`（可参考 `.env.example`）：
+4. **Project Settings → Database → Connection string → URI** 复制数据库连接串（国内网络连不上时跳过，改用第 6 步的「管理 API」方式）
+5. 把值写进项目根目录的 `.env.local`（可参考 `.env.example`）：
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
@@ -62,6 +62,11 @@ SUPABASE_DB_URL=postgresql://postgres:...@db.xxxx.supabase.co:5432/postgres
 npm run db:init
 ```
 
+> 无法直连数据库时（国内网络常见）：在 **Account → Access Tokens** 生成 token，把
+> `SUPABASE_ACCESS_TOKEN=sbp_xxx` 写进 `.env.local`，`db:init` 会自动改走 `api.supabase.com`
+> 的管理 API；也可以直接把 `supabase/schema.sql` 粘贴到 Supabase 控制台的 SQL Editor 执行。
+> `SUPABASE_DB_URL` 也支持只填数据库密码，脚本会按项目 ref 自动拼连接串。
+
 ### 3. 启动
 
 ```powershell
@@ -70,6 +75,22 @@ npm run dev
 ```
 
 打开页面会自动创建匿名游客账号（数据已在云端）。在「设置 → 账号」绑定邮箱密码后，就可以在其他设备用同一账号登录。
+
+### 国内网络 / 需要代理时
+
+浏览器端的 Supabase 请求会自动走系统代理（Clash / v2ray 等）；但终端里的 Node 默认**不走**系统代理，常见现象是登录失败、控制台 `fetch failed`、`ECONNRESET`。
+
+- 启动开发服务器：`npm run dev:proxy`（默认代理 `http://127.0.0.1:7897`，端口不同就改 `scripts/dev-proxy.ps1` 的 `-Proxy` 参数或直接改脚本）
+- 运行 `npm run db:init` / `npm run verify:rls` 前，先在终端设置代理：
+
+```powershell
+$env:HTTPS_PROXY="http://127.0.0.1:7897"
+$env:HTTP_PROXY="http://127.0.0.1:7897"
+$env:NO_PROXY="localhost,127.0.0.1,::1"
+$env:NODE_USE_ENV_PROXY="1"
+```
+
+- 数据库迁移走管理 API 时（见上文），不需要代理。
 
 ### 演示模式（不连接 Supabase）
 
@@ -86,6 +107,7 @@ NEXT_PUBLIC_DEMO_MODE=1
 | 命令 | 说明 |
 | --- | --- |
 | `npm run dev` | 开发服务器（3100 端口） |
+| `npm run dev:proxy` | 走本地代理的开发服务器（国内网络用） |
 | `npm run build` / `npm start` | 生产构建 / 启动 |
 | `npm run typecheck` | TypeScript 类型检查 |
 | `npm run lint` | ESLint |

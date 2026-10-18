@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev": "next dev --port 3100",
+    "dev:proxy": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-proxy.ps1",
     "build": "next build",
     "start": "next start --port 3100",
     "lint": "eslint .",

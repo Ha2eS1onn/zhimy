@@ -29,13 +29,23 @@ function loadEnvFile(file) {
 
 const envPath = path.resolve(process.cwd(), ".env.local");
 const fileEnv = existsSync(envPath) ? loadEnvFile(envPath) : {};
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL || fileEnv.NEXT_PUBLIC_SUPABASE_URL;
+const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || fileEnv.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || fileEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!url || !anonKey) {
+if (!rawUrl || !anonKey) {
   console.error("✗ 缺少 NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY");
   process.exit(1);
 }
+
+// 兼容用户直接粘贴的带路径地址（https://xxx.supabase.co/rest/v1/）
+const url = (() => {
+  try {
+    const parsed = new URL(rawUrl);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return rawUrl.replace(/\/+$/, "");
+  }
+})();
 
 const createAnonClient = () =>
   createClient(url, anonKey, {

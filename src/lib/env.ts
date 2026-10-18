@@ -5,12 +5,33 @@ export interface SupabaseConfig {
   anonKey: string;
 }
 
+/**
+ * 用户经常直接粘贴 Supabase 页面上的带路径地址（如 https://xxx.supabase.co/rest/v1/），
+ * 这里统一归一化成 origin，避免 supabase-js 拼出 /rest/v1/rest/v1/ 这类错误地址。
+ */
+export function normalizeSupabaseUrl(raw: string): string {
+  const trimmed = raw.trim();
+  try {
+    const url = new URL(trimmed);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return trimmed.replace(/\/+$/, "");
+  }
+}
+
 export function getSupabaseConfig(): SupabaseConfig | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  if (!url || !anonKey || url.includes("your-project-ref") || anonKey.includes("your-anon-key")) {
+  if (
+    !rawUrl ||
+    !anonKey ||
+    rawUrl.includes("your-project-ref") ||
+    anonKey.includes("your-anon-key")
+  ) {
     return null;
   }
+  const url = normalizeSupabaseUrl(rawUrl);
+  if (!/^https?:\/\//.test(url)) return null;
   return { url, anonKey };
 }
 
