@@ -74,6 +74,14 @@ export interface RenderInput {
   badges: Map<string, number>;
   timeMs: number;
   showLabels: boolean;
+  /** 显示全量关系线（编辑关系时用），默认只显示选中节点的 1 跳关系。 */
+  showAllRelations?: boolean;
+  /** 正在拖动的节点。 */
+  dragNodeId?: string | null;
+  /** 拖动时的落点目标节点（松手会挂到它下面）。 */
+  dropTargetId?: string | null;
+  /** 连线模式的源节点。 */
+  connectSourceId?: string | null;
   /** 布局 id → 标题（标签渲染用，避免渲染器依赖数据仓库）。 */
   titleOf: (id: string) => string | undefined;
 }
@@ -97,6 +105,10 @@ export function renderScene(input: RenderInput): void {
     neighborIds,
     relations,
     badges,
+    showAllRelations,
+    dragNodeId,
+    dropTargetId,
+    connectSourceId,
   } = input;
 
   ctx.clearRect(0, 0, width, height);
@@ -122,6 +134,23 @@ export function renderScene(input: RenderInput): void {
   }
 
   const pulse = 1 + 0.06 * Math.sin(input.timeMs / 260);
+
+  // 2a. 全量关系线（编辑模式）：只画两端都可见的关系，整体压暗。
+  if (showAllRelations) {
+    for (const relation of relations) {
+      const from = byId.get(relation.fromId);
+      const to = byId.get(relation.toId);
+      if (!from || !to) continue;
+      ctx.strokeStyle = relationColor(relation.type);
+      ctx.globalAlpha = 0.16;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
 
   // 2. 关系线：只在聚焦时画 1 跳邻域，最多 6 条。
   if (selectedId) {
@@ -189,6 +218,32 @@ export function renderScene(input: RenderInput): void {
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(node.x, node.y, radius * 1.6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // 拖动中的节点：虚线白环；落点目标：青色高亮环。
+    if (node.id === dragNodeId) {
+      ctx.setLineDash([4, 3]);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, radius * 2.1, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if (node.id === dropTargetId) {
+      ctx.strokeStyle = "rgba(77, 208, 225, 0.95)";
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, radius * 2.3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // 连线模式的源节点：琥珀色环。
+    if (node.id === connectSourceId) {
+      ctx.strokeStyle = "rgba(255, 179, 0, 0.95)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, radius * 2.1, 0, Math.PI * 2);
       ctx.stroke();
     }
   }

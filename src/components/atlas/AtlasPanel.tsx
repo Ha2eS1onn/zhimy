@@ -5,18 +5,15 @@ import { useState } from "react";
 import { PositionPicker } from "@/components/common/PositionPicker";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { buildPath } from "@/lib/path";
-import {
-  otherEnd,
-  relationColor,
-  relationDirectionText,
-  relationLabel,
-  relationsOf,
-} from "@/lib/relations";
+import { relationsOf } from "@/lib/relations";
 import { useChatStore } from "@/store/chatStore";
 import { useGraphStore } from "@/store/graphStore";
 import { toast } from "@/store/toastStore";
 import type { KnowledgeNode, NodeSource, Relation, Source } from "@/types";
 import { Icon } from "../shell/Icon";
+import { RelationEditor } from "./RelationEditor";
+import { RelationList } from "./RelationList";
+import { RelationSuggestions } from "./RelationSuggestions";
 
 interface AtlasPanelProps {
   node: KnowledgeNode;
@@ -31,7 +28,7 @@ interface AtlasPanelProps {
   onToggleExpand: () => void;
 }
 
-/** 知识点详情：不只展示"长什么样"，而是把位置、来源、命中记录和可编辑信息都摆出来。 */
+/** 知识点详情：位置、来源、命中记录、正文入口与可编辑信息。 */
 export function AtlasPanel({
   node,
   nodes,
@@ -48,16 +45,18 @@ export function AtlasPanel({
   const updateDetails = useGraphStore((state) => state.updateDetails);
   const reparent = useGraphStore((state) => state.reparent);
   const setStatus = useGraphStore((state) => state.setStatus);
+  const clearManualPosition = useGraphStore((state) => state.clearManualPosition);
 
   const [editing, setEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(node.title);
   const [summaryDraft, setSummaryDraft] = useState(node.summary);
   const [saving, setSaving] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [relationEditorOpen, setRelationEditorOpen] = useState(false);
 
   const path = buildPath(nodes, node.id);
   const children = nodes.filter((item) => item.parentId === node.id);
-  const related = relationsOf(relations, node.id);
+  const relatedCount = relationsOf(relations, node.id).length;
   const sourceIds = new Set(
     nodeSources.filter((link) => link.nodeId === node.id).map((link) => link.sourceId),
   );
@@ -117,12 +116,22 @@ export function AtlasPanel({
     }
   };
 
+  const resetPosition = async () => {
+    try {
+      await clearManualPosition(node.id);
+      toast("已恢复自动布局位置", "success");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "恢复失败", "error");
+    }
+  };
+
   return (
-    <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex max-h-[72dvh] flex-col overflow-hidden rounded-t-2xl border-t border-line bg-shell/95 backdrop-blur md:max-h-[48vh] xl:inset-y-0 xl:left-auto xl:right-0 xl:max-h-none xl:w-[360px] xl:rounded-none xl:border-l xl:border-t-0">
+    <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex max-h-[72dvh] flex-col overflow-hidden rounded-t-2xl border-t border-line bg-shell/95 backdrop-blur md:max-h-[48vh] xl:inset-y-0 xl:left-auto xl:right-0 xl:max-h-none xl:w-[380px] xl:rounded-none xl:border-l xl:border-t-0">
       <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
         <span className="text-[11px] text-muted">
           知识点详情 · 深度 {path.length}
           {node.status === "inbox" ? " · 待归位" : ""}
+          {node.manualPosition ? " · 手动定位" : ""}
         </span>
         <button type="button" className="btn-ghost btn-sm" onClick={onClose} aria-label="关闭详情">
           ✕
@@ -193,25 +202,38 @@ export function AtlasPanel({
           <span className={`chip ${node.status === "inbox" ? "border-warn/40 text-warn" : ""}`}>
             {node.status === "inbox" ? "待归位" : "已收编"}
           </span>
-          <span className="chip">关系 {related.length}</span>
+          <span className="chip">关系 {relatedCount}</span>
           <span className="chip">子节点 {children.length}</span>
           <span className="chip">命中 {hitMessages.length}</span>
+          {node.detail ? <span className="chip border-accent/40 text-accent">有讲解正文</span> : null}
           {hiddenChildren > 0 ? <span className="chip">折叠 {hiddenChildren}</span> : null}
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            href={`/node/${node.id}`}
+            className="btn-primary btn-sm"
+            onClick={() => onClose()}
+          >
+            <Icon name="atlas" size={13} /> 完整讲解
+          </Link>
           {editing ? null : (
             <button type="button" className="btn-ghost btn-sm" onClick={startEditing}>
               <Icon name="settings" size={13} /> 编辑
             </button>
           )}
           <button type="button" className="btn-ghost btn-sm" onClick={() => setPickerOpen(true)}>
-            <Icon name="atlas" size={13} /> 调整位置
+            调整位置
           </button>
+          {node.manualPosition ? (
+            <button type="button" className="btn-ghost btn-sm" onClick={() => void resetPosition()}>
+              恢复自动位置
+            </button>
+          ) : null}
           {hiddenChildren > 0 || expanded ? (
             <button type="button" className="btn-ghost btn-sm" onClick={onToggleExpand}>
               <Icon name="chevron-down" size={13} />
-              {expanded ? "收起子节点" : `展开 ${hiddenChildren} 个`}
+              {expanded ? "收起" : `展开 ${hiddenChildren} 个`}
             </button>
           ) : null}
         </div>
@@ -264,46 +286,38 @@ export function AtlasPanel({
                 </li>
               ))}
               {children.length > 8 ? (
-                <li className="text-[11px] text-muted">还有 {children.length - 8} 个子知识点…</li>
+                <li className="text-[11px] text-muted">还有 {children.length - 8} 个…</li>
               ) : null}
             </ul>
           )}
         </section>
 
         <section className="mt-4">
-          <h3 className="label">关系（{related.length}）</h3>
-          {related.length === 0 ? (
-            <p className="mt-1.5 text-xs text-muted">还没有建立关系，收编时会由 AI 提议。</p>
-          ) : (
-            <ul className="mt-1.5 space-y-1.5">
-              {related.map((relation) => {
-                const otherId = otherEnd(relation, node.id);
-                const other = nodes.find((item) => item.id === otherId);
-                if (!other) return null;
-                return (
-                  <li key={relation.id}>
-                    <button
-                      type="button"
-                      onClick={() => onSelect(other.id)}
-                      className="flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-left hover:border-accent/40"
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span
-                          className="size-1.5 shrink-0 rounded-full"
-                          style={{ background: relationColor(relation.type) }}
-                        />
-                        <span className="truncate text-xs text-ink">{other.title}</span>
-                      </span>
-                      <span className="shrink-0 text-[10px] text-muted">
-                        {relationLabel(relation.type)} · {relationDirectionText(relation, node.id)}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <div className="flex items-center justify-between">
+            <h3 className="label">关系</h3>
+            <button
+              type="button"
+              className="btn-ghost btn-sm"
+              onClick={() => setRelationEditorOpen(true)}
+            >
+              <Icon name="plus" size={12} /> 添加关系
+            </button>
+          </div>
+          <RelationList
+            nodeId={node.id}
+            nodes={nodes}
+            relations={relations}
+            onSelect={onSelect}
+            editable
+          />
         </section>
+
+        <RelationSuggestions
+          node={node}
+          nodes={nodes}
+          relations={relations}
+          nodeSources={nodeSources}
+        />
 
         <section className="mt-4">
           <h3 className="label">来源（{nodeSourceList.length}）</h3>
@@ -378,6 +392,15 @@ export function AtlasPanel({
         excludeId={node.id}
         onClose={() => setPickerOpen(false)}
         onSelect={(parentId) => void handleReparent(parentId)}
+      />
+
+      <RelationEditor
+        key={`${relationEditorOpen ? "open" : "closed"}-${node.id}`}
+        open={relationEditorOpen}
+        fromId={node.id}
+        nodes={nodes}
+        relations={relations}
+        onClose={() => setRelationEditorOpen(false)}
       />
     </div>
   );

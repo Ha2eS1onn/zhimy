@@ -49,6 +49,12 @@ function basisFor(axis: Vec3): { u: Vec3; v: Vec3 } {
  */
 export function computeLayout(nodes: KnowledgeNode[]): LayoutResult {
   const nodeIds = new Set(nodes.map((n) => n.id));
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+
+  const manualPositionOf = (id: string) => {
+    const manual = nodeById.get(id)?.manualPosition;
+    return manual ? vec(manual.x, manual.y, manual.z) : null;
+  };
 
   const childrenMap = new Map<string, string[]>();
   for (const node of nodes) {
@@ -66,7 +72,13 @@ export function computeLayout(nodes: KnowledgeNode[]): LayoutResult {
 
   roots.forEach((id, index) => {
     const azimuth = (2 * Math.PI * index) / rootCount;
-    const position = vec(Math.cos(azimuth) * SUBJECT_RADIUS, 0, Math.sin(azimuth) * SUBJECT_RADIUS);
+    const autoPosition = vec(
+      Math.cos(azimuth) * SUBJECT_RADIUS,
+      0,
+      Math.sin(azimuth) * SUBJECT_RADIUS,
+    );
+    // 用户手动拖动过的节点固定在手动位置；其子节点仍以它为基准继续布局。
+    const position = manualPositionOf(id) ?? autoPosition;
     byId.set(id, {
       id,
       parentId: null,
@@ -101,7 +113,8 @@ export function computeLayout(nodes: KnowledgeNode[]): LayoutResult {
       const radial = add(scale(u, Math.cos(phi)), scale(v, Math.sin(phi)));
       const direction = add(scale(parent.axis, Math.cos(halfAngle)), scale(radial, Math.sin(halfAngle)));
       const unit = normalize(direction);
-      const position = add(parent.position, scale(unit, distance));
+      const autoPosition = add(parent.position, scale(unit, distance));
+      const position = manualPositionOf(childId) ?? autoPosition;
 
       let color = parent.color;
       if (depth === 2) {
@@ -127,7 +140,12 @@ export function computeLayout(nodes: KnowledgeNode[]): LayoutResult {
   const missing = nodes.filter((n) => !byId.has(n.id));
   missing.forEach((node, index) => {
     const azimuth = (2 * Math.PI * (roots.length + index)) / Math.max(roots.length + missing.length, 1);
-    const position = vec(Math.cos(azimuth) * SUBJECT_RADIUS, 0, Math.sin(azimuth) * SUBJECT_RADIUS);
+    const autoPosition = vec(
+      Math.cos(azimuth) * SUBJECT_RADIUS,
+      0,
+      Math.sin(azimuth) * SUBJECT_RADIUS,
+    );
+    const position = manualPositionOf(node.id) ?? autoPosition;
     byId.set(node.id, {
       id: node.id,
       parentId: null,

@@ -9,7 +9,7 @@ import type {
   Relation,
   Source,
 } from "@/types";
-import type { DataRepo } from "./types";
+import type { DataRepo, NodeUpdatePatch } from "./types";
 import {
   messageFromRow,
   messageToRow,
@@ -130,7 +130,7 @@ export function createSupabaseRepo(getClient: GetClient): DataRepo {
     async updateNode(
       userId: string,
       nodeId: string,
-      patch: Partial<Pick<KnowledgeNode, "parentId" | "title" | "summary" | "status">>,
+      patch: NodeUpdatePatch,
     ): Promise<void> {
       const client = getClient();
       if (!client) throw new Error("Supabase 未配置");
@@ -139,6 +139,8 @@ export function createSupabaseRepo(getClient: GetClient): DataRepo {
       if (patch.title !== undefined) row.title = patch.title;
       if (patch.summary !== undefined) row.summary = patch.summary;
       if (patch.status !== undefined) row.status = patch.status;
+      if (patch.detail !== undefined) row.detail = patch.detail;
+      if (patch.manualPosition !== undefined) row.manual_position = patch.manualPosition;
       ensure(await client.from("nodes").update(row).eq("id", nodeId).eq("user_id", userId));
     },
 
@@ -163,6 +165,35 @@ export function createSupabaseRepo(getClient: GetClient): DataRepo {
         await client
           .from("relations")
           .upsert(payload, { onConflict: "user_id,from_node,to_node,type", ignoreDuplicates: true }),
+      );
+    },
+
+    async updateRelation(
+      userId: string,
+      relationId: string,
+      patch: Partial<Pick<Relation, "type" | "confidence" | "fromId" | "toId">>,
+    ): Promise<void> {
+      const client = getClient();
+      if (!client) throw new Error("Supabase 未配置");
+      const row: Record<string, unknown> = {};
+      if (patch.type !== undefined) row.type = patch.type;
+      if (patch.confidence !== undefined) row.confidence = patch.confidence;
+      if (patch.fromId !== undefined) row.from_node = patch.fromId;
+      if (patch.toId !== undefined) row.to_node = patch.toId;
+      ensure(
+        await client
+          .from("relations")
+          .update(row)
+          .eq("id", relationId)
+          .eq("user_id", userId),
+      );
+    },
+
+    async deleteRelation(userId: string, relationId: string): Promise<void> {
+      const client = getClient();
+      if (!client) throw new Error("Supabase 未配置");
+      ensure(
+        await client.from("relations").delete().eq("id", relationId).eq("user_id", userId),
       );
     },
 

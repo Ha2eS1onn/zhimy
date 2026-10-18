@@ -18,6 +18,8 @@ export function buildSeedGraph(): GraphData {
     parentId: def.parentSid ? (idBySid.get(def.parentSid) ?? null) : null,
     title: def.title,
     summary: def.summary,
+    detail: "",
+    manualPosition: null,
     status: "active",
     aliases: def.aliases ?? [],
     mastery: null,

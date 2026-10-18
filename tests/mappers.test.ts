@@ -16,6 +16,8 @@ describe("数据库行 ↔ 领域对象映射", () => {
       parentId: null,
       title: "物理",
       summary: "学科",
+      detail: "",
+      manualPosition: null,
       status: "active" as const,
       aliases: ["物理学科"],
       mastery: null,
@@ -35,6 +37,8 @@ describe("数据库行 ↔ 领域对象映射", () => {
       parent_id: null,
       title: "T",
       summary: "",
+      detail: null,
+      manual_position: null,
       status: "weird",
       aliases: null,
       mastery: null,
@@ -44,6 +48,28 @@ describe("数据库行 ↔ 领域对象映射", () => {
     const node = nodeFromRow(row);
     expect(node.status).toBe("active");
     expect(node.aliases).toEqual([]);
+    expect(node.detail).toBe("");
+    expect(node.manualPosition).toBeNull();
+  });
+
+  it("manual_position 脏数据会被忽略", () => {
+    const row = {
+      id: "n2",
+      user_id: "u1",
+      parent_id: null,
+      title: "T2",
+      summary: "",
+      detail: "## 讲解",
+      manual_position: { x: "bad", y: 2, z: 3 },
+      status: "active",
+      aliases: [],
+      mastery: null,
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    } as unknown as NodeRow;
+    const node = nodeFromRow(row);
+    expect(node.manualPosition).toBeNull();
+    expect(node.detail).toBe("## 讲解");
   });
 
   it("relation 往返一致", () => {

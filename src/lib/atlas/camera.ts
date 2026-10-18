@@ -1,5 +1,5 @@
 import type { Vec3 } from "@/lib/math3";
-import { cross, dot, length, normalize, scale, sub, vec } from "@/lib/math3";
+import { add, cross, dot, length, normalize, scale, sub, vec } from "@/lib/math3";
 import {
   BASE_CAMERA_DISTANCE,
   CAMERA_EASE_SPEED,
@@ -66,6 +66,50 @@ export function projectPoint(
   const x = width / 2 + (dot(rel, right) * focal) / z;
   const y = height / 2 - (dot(rel, up) * focal) / z;
   return { x, y, z };
+}
+
+/** 相机基向量（世界坐标），投影与逆投影共用。 */
+export function cameraBasis(camera: CameraState): {
+  position: Vec3;
+  forward: Vec3;
+  right: Vec3;
+  up: Vec3;
+} {
+  const position = cameraPosition(camera);
+  const forward = normalize(scale(position, -1));
+  const right = normalize(cross(forward, vec(0, 1, 0)));
+  const up = cross(right, forward);
+  return { position, forward, right, up };
+}
+
+/** 屏幕坐标 + 视图深度 → 世界坐标（projectPoint 的逆运算），用于拖动节点。 */
+export function unproject(
+  screenX: number,
+  screenY: number,
+  z: number,
+  camera: CameraState,
+  width: number,
+  height: number,
+): Vec3 {
+  const { position, forward, right, up } = cameraBasis(camera);
+  const focal = focalLength(width, height);
+  const x = ((screenX - width / 2) * z) / focal;
+  const y = ((height / 2 - screenY) * z) / focal;
+  return add(position, add(scale(forward, z), add(scale(right, x), scale(up, y))));
+}
+
+/** 屏幕像素位移 → 指定深度上的世界位移（右为 +x、下为 -y 于相机平面）。 */
+export function screenDeltaToWorld(
+  dx: number,
+  dy: number,
+  z: number,
+  camera: CameraState,
+  width: number,
+  height: number,
+): Vec3 {
+  const { right, up } = cameraBasis(camera);
+  const focal = focalLength(width, height);
+  return add(scale(right, (dx * z) / focal), scale(up, (-dy * z) / focal));
 }
 
 /** 点击节点后相机需要转到的朝向：让该节点落在屏幕中心。 */

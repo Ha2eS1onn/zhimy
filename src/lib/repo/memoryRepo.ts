@@ -11,7 +11,7 @@ import type {
   Relation,
   Source,
 } from "@/types";
-import type { DataRepo } from "./types";
+import type { DataRepo, NodeUpdatePatch } from "./types";
 
 /**
  * 演示模式的内存仓库：不连接 Supabase，也没有任何持久化，
@@ -67,6 +67,8 @@ export class MemoryRepo implements DataRepo {
       parentId: chapter?.id ?? null,
       title: "电路故障分析",
       summary: "来自一次提问的临时知识点，还没有确认放在哪一节。",
+      detail: "",
+      manualPosition: null,
       status: "inbox",
       aliases: ["电路故障"],
       mastery: null,
@@ -100,7 +102,7 @@ export class MemoryRepo implements DataRepo {
   async updateNode(
     _userId: string,
     nodeId: string,
-    patch: Partial<Pick<KnowledgeNode, "parentId" | "title" | "summary" | "status">>,
+    patch: NodeUpdatePatch,
   ): Promise<void> {
     this.graph.nodes = this.graph.nodes.map((node) =>
       node.id === nodeId ? { ...node, ...patch, updatedAt: nowIso() } : node,
@@ -135,6 +137,20 @@ export class MemoryRepo implements DataRepo {
   async insertRelations(_userId: string, relations: Relation[]): Promise<void> {
     const merged = dedupeRelations([...this.graph.relations, ...relations]);
     this.graph.relations = merged;
+  }
+
+  async updateRelation(
+    _userId: string,
+    relationId: string,
+    patch: Partial<Pick<Relation, "type" | "confidence" | "fromId" | "toId">>,
+  ): Promise<void> {
+    this.graph.relations = this.graph.relations.map((relation) =>
+      relation.id === relationId ? { ...relation, ...patch } : relation,
+    );
+  }
+
+  async deleteRelation(_userId: string, relationId: string): Promise<void> {
+    this.graph.relations = this.graph.relations.filter((relation) => relation.id !== relationId);
   }
 
   async insertSource(_userId: string, source: Source): Promise<void> {

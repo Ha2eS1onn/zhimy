@@ -17,6 +17,8 @@ export interface NodeRow {
   parent_id: string | null;
   title: string;
   summary: string;
+  detail: string | null;
+  manual_position: { x: number; y: number; z: number } | null;
   status: string;
   aliases: string[] | null;
   mastery: number | null;
@@ -61,12 +63,25 @@ export interface MessageRow {
   created_at: string;
 }
 
+/** 只接受有限数字的三维坐标，脏数据一律当成"未手动定位"。 */
+function parseManualPosition(value: unknown): { x: number; y: number; z: number } | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const x = Number(record.x);
+  const y = Number(record.y);
+  const z = Number(record.z);
+  if (![x, y, z].every((item) => Number.isFinite(item))) return null;
+  return { x, y, z };
+}
+
 export function nodeFromRow(row: NodeRow): KnowledgeNode {
   return {
     id: row.id,
     parentId: row.parent_id,
     title: row.title,
     summary: row.summary ?? "",
+    detail: row.detail ?? "",
+    manualPosition: parseManualPosition(row.manual_position),
     status: row.status === "inbox" ? "inbox" : "active",
     aliases: row.aliases ?? [],
     mastery: row.mastery,
@@ -82,6 +97,8 @@ export function nodeToRow(userId: string, node: KnowledgeNode): NodeRow {
     parent_id: node.parentId,
     title: node.title,
     summary: node.summary,
+    detail: node.detail,
+    manual_position: node.manualPosition,
     status: node.status,
     aliases: node.aliases,
     mastery: node.mastery,

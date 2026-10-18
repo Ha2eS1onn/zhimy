@@ -9,7 +9,7 @@ import {
   useRef,
 } from "react";
 import type { KnowledgeNode, Relation } from "@/types";
-import { computeLayout } from "@/lib/layout/layout";
+import { computeLayout, type LayoutResult } from "@/lib/layout/layout";
 import {
   approach,
   approachAngle,
@@ -17,16 +17,25 @@ import {
   clampPitch,
   clampZoom,
   focusTargetFor,
+  screenDeltaToWorld,
   type CameraState,
 } from "@/lib/atlas/camera";
 import { hitTest } from "@/lib/atlas/hitTest";
 import { projectNodes, renderScene, type ProjectedNode } from "@/lib/atlas/renderer";
 import { AUTO_ROTATE_SPEED, DEFAULT_CAMERA } from "@/lib/layout/constants";
+import type { Vec3 } from "@/lib/math3";
 
 export interface AtlasCanvasHandle {
   focusNode: (id: string) => void;
   resetView: () => void;
   zoomBy: (factor: number) => void;
+  projectNode: (id: string) => { x: number; y: number } | null;
+}
+
+export interface NodeMovePayload {
+  position: Vec3;
+  /** 松手时命中的落点节点；只有它存在时才改父级。 */
+  dropTargetId: string | null;
 }
 
 interface AtlasCanvasProps {
@@ -37,14 +46,56 @@ interface AtlasCanvasProps {
   neighborIds: Set<string>;
   badges: Map<string, number>;
   autoRotate: boolean;
+  showAllRelations?: boolean;
+  connectMode?: boolean;
+  connectSourceId?: string | null;
   onSelect: (id: string | null) => void;
+  onMoveNode: (nodeId: string, payload: NodeMovePayload) => void;
+}
+
+interface NodeDragState {
+  nodeId: string;
+  startScreen: { x: number; y: number };
+  startPosition: Vec3;
+  depth: number;
+  position: Vec3;
+  dropTargetId: string | null;
+  forbiddenIds: Set<string>;
+}
+
+function collectSubtreeIds(nodes: KnowledgeNode[], rootId: string): Set<string> {
+  const ids = new Set<string>([rootId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const node of nodes) {
+      if (node.parentId && ids.has(node.parentId) && !ids.has(node.id)) {
+        ids.add(node.id);
+        changed = true;
+      }
+    }
+  }
+  return ids;
 }
 
 export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(function AtlasCanvas(
   props,
   ref,
 ) {
-  const { nodes, relations, visibleIds, selectedId, neighborIds, badges, autoRotate, onSelect } = props;
+  const {
+    nodes,
+    relations,
+    visibleIds,
+    selectedId,
+    neighborIds,
+    badges,
+    autoRotate,
+    showAllRelations = false,
+    connectMode = false,
+    connectSourceId = null,
+    onSelect,
+    onMoveNode,
+  } = props;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -55,6 +106,7 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
   const layout = useMemo(() => computeLayout(nodes), [nodes]);
   const titleMap = useMemo(() => new Map(nodes.map((node) => [node.id, node.title])), [nodes]);
   const projectedRef = useRef<ProjectedNode[]>([]);
+  const nodesRef = useRef(nodes);
 
   // 渲染循环里读取的“最新值”都放 ref，避免动画闭包拿到旧 props。
   const layoutRef = useRef(layout);
@@ -65,7 +117,13 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
   const neighborRef = useRef(neighborIds);
   const badgesRef = useRef(badges);
   const autoRotateRef = useRef(autoRotate);
+  const showAllRelationsRef = useRef(showAllRelations);
+  const connectSourceRef = useRef(connectSourceId);
   const onSelectRef = useRef(onSelect);
+  const onMoveNodeRef = useRef(onMoveNode);
+  const connectModeRef = useRef(connectMode);
+
+  nodesRef.current = nodes;
   layoutRef.current = layout;
   titleRef.current = titleMap;
   visibleRef.current = visibleIds;
@@ -74,19 +132,26 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
   neighborRef.current = neighborIds;
   badgesRef.current = badges;
   autoRotateRef.current = autoRotate;
+  showAllRelationsRef.current = showAllRelations;
+  connectModeRef.current = connectMode;
+  connectSourceRef.current = connectSourceId;
   onSelectRef.current = onSelect;
+  onMoveNodeRef.current = onMoveNode;
 
   const hoveredRef = useRef<string | null>(null);
   const runningRef = useRef(false);
   const frameRef = useRef<number | null>(null);
   const lastTimeRef = useRef(0);
   const pulseUntilRef = useRef(0);
-  const draggingRef = useRef(false);
+  const rotatingRef = useRef(false);
   const movedRef = useRef(false);
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
   const downPosRef = useRef({ x: 0, y: 0 });
   const cameraInitializedRef = useRef(false);
+  const nodeDragRef = useRef<NodeDragState | null>(null);
+  const draggingNodeIdRef = useRef<string | null>(null);
+  const dropTargetRef = useRef<string | null>(null);
 
   const draw = useCallback(() => {
     const ctx = ctxRef.current;
@@ -94,8 +159,20 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
     if (!ctx || width <= 0 || height <= 0) return;
     const camera = cameraRef.current;
     const isMobile = width < 768;
+
+    // 拖动节点时用临时布局实时绘制（约一百个节点，成本可接受），子树会跟随。
+    const drag = nodeDragRef.current;
+    let activeLayout: LayoutResult = layoutRef.current;
+    if (drag) {
+      activeLayout = computeLayout(
+        nodesRef.current.map((node) =>
+          node.id === drag.nodeId ? { ...node, manualPosition: drag.position } : node,
+        ),
+      );
+    }
+
     const projected = projectNodes({
-      layout: layoutRef.current,
+      layout: activeLayout,
       visibleIds: visibleRef.current,
       camera,
       width,
@@ -118,6 +195,10 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
       badges: badgesRef.current,
       timeMs: performance.now(),
       showLabels: true,
+      showAllRelations: showAllRelationsRef.current,
+      dragNodeId: drag?.nodeId ?? null,
+      dropTargetId: drag?.dropTargetId ?? null,
+      connectSourceId: connectSourceRef.current,
       titleOf: (id) => titleRef.current.get(id),
     });
   }, []);
@@ -137,7 +218,12 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
         if (cameraReached(camera, target)) targetRef.current = null;
         else animating = true;
       }
-      if (autoRotateRef.current && !draggingRef.current && !targetRef.current) {
+      if (
+        autoRotateRef.current &&
+        !rotatingRef.current &&
+        !nodeDragRef.current &&
+        !targetRef.current
+      ) {
         camera.yaw += AUTO_ROTATE_SPEED * dt;
         animating = true;
       }
@@ -218,7 +304,17 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
 
   useEffect(() => {
     requestDraw();
-  }, [visibleIds, relations, neighborIds, badges, nodes, autoRotate, requestDraw]);
+  }, [
+    visibleIds,
+    relations,
+    neighborIds,
+    badges,
+    nodes,
+    autoRotate,
+    showAllRelations,
+    connectSourceId,
+    requestDraw,
+  ]);
 
   useEffect(() => {
     if (autoRotate && !document.hidden) ensureLoop();
@@ -227,6 +323,11 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
   useEffect(() => {
     const onVisibility = () => {
       if (document.hidden) {
+        // 拖动/旋转中途隐藏页面：放弃这次手势，避免写入半成品位置。
+        nodeDragRef.current = null;
+        draggingNodeIdRef.current = null;
+        dropTargetRef.current = null;
+        rotatingRef.current = false;
         if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
         frameRef.current = null;
         runningRef.current = false;
@@ -241,6 +342,25 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
     };
   }, [ensureLoop, requestDraw]);
+
+  // 仅开发环境暴露调试钩子，供无头 E2E 计算节点屏幕坐标；生产构建不挂载。
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const debugTarget = window as unknown as {
+      __zhimyAtlasDebug?: {
+        projectNode: (id: string) => { x: number; y: number } | null;
+      };
+    };
+    debugTarget.__zhimyAtlasDebug = {
+      projectNode: (id: string) => {
+        const node = projectedRef.current.find((item) => item.id === id);
+        return node ? { x: node.x, y: node.y } : null;
+      },
+    };
+    return () => {
+      delete debugTarget.__zhimyAtlasDebug;
+    };
+  }, []);
 
   useImperativeHandle(
     ref,
@@ -261,6 +381,10 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
         targetRef.current = null;
         requestDraw();
       },
+      projectNode: (id: string) => {
+        const node = projectedRef.current.find((item) => item.id === id);
+        return node ? { x: node.x, y: node.y } : null;
+      },
     }),
     [ensureLoop, requestDraw],
   );
@@ -270,21 +394,43 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   };
 
+  const isMobileView = () => sizeRef.current.width < 768;
+
   return (
     <div ref={containerRef} className="absolute inset-0">
       <canvas
         ref={canvasRef}
         className="atlas-canvas"
-        aria-label="3D 知识图谱：拖拽旋转，滚轮缩放，点击节点查看详情"
+        aria-label="3D 知识图谱：拖拽空白处旋转，滚轮缩放；拖动节点可调整位置，拖到另一节点上可改变父级"
         onPointerDown={(event) => {
           event.currentTarget.setPointerCapture(event.pointerId);
           const point = localPoint(event);
           pointersRef.current.set(event.pointerId, point);
           targetRef.current = null;
+
           if (pointersRef.current.size === 1) {
-            draggingRef.current = true;
             movedRef.current = false;
             downPosRef.current = point;
+            const hit = hitTest(projectedRef.current, point.x, point.y, isMobileView());
+            if (hit && !connectModeRef.current) {
+              const hitLayout = layoutRef.current.byId.get(hit.id);
+              if (hitLayout) {
+                nodeDragRef.current = {
+                  nodeId: hit.id,
+                  startScreen: point,
+                  startPosition: { ...hitLayout.position },
+                  depth: hit.z,
+                  position: { ...hitLayout.position },
+                  dropTargetId: null,
+                  forbiddenIds: collectSubtreeIds(nodesRef.current, hit.id),
+                };
+                rotatingRef.current = false;
+              }
+            } else {
+              // 连线模式下点击节点只做"选中/连线"，不进入拖动。
+              rotatingRef.current = true;
+              nodeDragRef.current = null;
+            }
           } else if (pointersRef.current.size === 2) {
             const points = Array.from(pointersRef.current.values());
             const distance = Math.hypot(
@@ -292,7 +438,11 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
               (points[0]?.y ?? 0) - (points[1]?.y ?? 0),
             );
             pinchRef.current = { distance, zoom: cameraRef.current.zoom };
-            draggingRef.current = false;
+            // 第二根手指按下：取消节点拖动，避免和缩放冲突。
+            nodeDragRef.current = null;
+            rotatingRef.current = false;
+            draggingNodeIdRef.current = null;
+            dropTargetRef.current = null;
           }
         }}
         onPointerMove={(event) => {
@@ -300,6 +450,7 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
           const previous = pointersRef.current.get(event.pointerId);
           pointersRef.current.set(event.pointerId, point);
 
+          // 双指缩放优先。
           if (pointersRef.current.size === 2 && pinchRef.current) {
             const points = Array.from(pointersRef.current.values());
             const distance = Math.hypot(
@@ -315,7 +466,46 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
             return;
           }
 
-          if (draggingRef.current && previous) {
+          const drag = nodeDragRef.current;
+          if (drag) {
+            const totalDistance = Math.hypot(
+              point.x - drag.startScreen.x,
+              point.y - drag.startScreen.y,
+            );
+            if (totalDistance < 4 && !movedRef.current) {
+              // 还没超过拖动阈值：保持"点击"判定。
+              return;
+            }
+            movedRef.current = true;
+            draggingNodeIdRef.current = drag.nodeId;
+            const { width, height } = sizeRef.current;
+            const delta = screenDeltaToWorld(
+              point.x - drag.startScreen.x,
+              point.y - drag.startScreen.y,
+              drag.depth,
+              cameraRef.current,
+              width,
+              height,
+            );
+            drag.position = {
+              x: drag.startPosition.x + delta.x,
+              y: drag.startPosition.y + delta.y,
+              z: drag.startPosition.z + delta.z,
+            };
+            requestDraw();
+
+            // 计算落点目标（排除自己和后代，避免成环）。
+            const hit = hitTest(projectedRef.current, point.x, point.y, isMobileView());
+            const nextTarget = hit && !drag.forbiddenIds.has(hit.id) ? hit.id : null;
+            if (nextTarget !== drag.dropTargetId) {
+              drag.dropTargetId = nextTarget;
+              dropTargetRef.current = nextTarget;
+              requestDraw();
+            }
+            return;
+          }
+
+          if (rotatingRef.current && previous) {
             const dx = point.x - previous.x;
             const dy = point.y - previous.y;
             if (Math.hypot(point.x - downPosRef.current.x, point.y - downPosRef.current.y) > 4) {
@@ -328,7 +518,7 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
             return;
           }
 
-          const hit = hitTest(projectedRef.current, point.x, point.y, sizeRef.current.width < 768);
+          const hit = hitTest(projectedRef.current, point.x, point.y, isMobileView());
           const hovered = hit?.id ?? null;
           if (hovered !== hoveredRef.current) {
             hoveredRef.current = hovered;
@@ -339,14 +529,31 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
           const point = localPoint(event);
           pointersRef.current.delete(event.pointerId);
           if (pointersRef.current.size < 2) pinchRef.current = null;
-          const wasDragging = draggingRef.current;
-          const moved = movedRef.current;
-          if (wasDragging && !moved && pointersRef.current.size === 0) {
-            const hit = hitTest(projectedRef.current, point.x, point.y, sizeRef.current.width < 768);
+
+          const drag = nodeDragRef.current;
+          if (drag) {
+            if (movedRef.current) {
+              onMoveNodeRef.current(drag.nodeId, {
+                position: drag.position,
+                dropTargetId: drag.dropTargetId,
+              });
+            } else if (pointersRef.current.size === 0) {
+              onSelectRef.current(drag.nodeId);
+            }
+            nodeDragRef.current = null;
+            draggingNodeIdRef.current = null;
+            dropTargetRef.current = null;
+          } else if (
+            rotatingRef.current &&
+            !movedRef.current &&
+            pointersRef.current.size === 0
+          ) {
+            const hit = hitTest(projectedRef.current, point.x, point.y, isMobileView());
             onSelectRef.current(hit?.id ?? null);
           }
+
           if (pointersRef.current.size === 0) {
-            draggingRef.current = false;
+            rotatingRef.current = false;
             movedRef.current = false;
           }
           requestDraw();
@@ -360,8 +567,12 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
         onPointerCancel={() => {
           pointersRef.current.clear();
           pinchRef.current = null;
-          draggingRef.current = false;
+          rotatingRef.current = false;
           movedRef.current = false;
+          nodeDragRef.current = null;
+          draggingNodeIdRef.current = null;
+          dropTargetRef.current = null;
+          requestDraw();
         }}
         onDoubleClick={() => {
           targetRef.current = { ...DEFAULT_CAMERA };

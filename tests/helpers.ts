@@ -14,6 +14,8 @@ export function makeNode(
     parentId,
     title,
     summary: `${title}的摘要`,
+    detail: "",
+    manualPosition: null,
     status: "active",
     aliases: [],
     mastery: null,

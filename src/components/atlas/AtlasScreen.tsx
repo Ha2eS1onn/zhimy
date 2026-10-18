@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { AtlasCanvas, type AtlasCanvasHandle } from "./CanvasAtlas";
+import { AtlasCanvas, type AtlasCanvasHandle, type NodeMovePayload } from "./CanvasAtlas";
 import { AtlasPanel } from "./AtlasPanel";
+import { RelationEditor } from "./RelationEditor";
 import { Icon } from "../shell/Icon";
 import { buildPath } from "@/lib/path";
 import { searchNodes } from "@/lib/search";
@@ -27,6 +28,8 @@ export function AtlasScreen() {
   const nodeSources = useGraphStore((state) => state.nodeSources);
   const loading = useGraphStore((state) => state.loading);
   const seedExample = useGraphStore((state) => state.seedExample);
+  const moveNode = useGraphStore((state) => state.moveNode);
+  const clearAllManualPositions = useGraphStore((state) => state.clearAllManualPositions);
 
   const density = useSettingsStore((state) => state.density);
   const setDensity = useSettingsStore((state) => state.setDensity);
@@ -40,6 +43,12 @@ export function AtlasScreen() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [showAllRelations, setShowAllRelations] = useState(false);
+  const [connectMode, setConnectMode] = useState(false);
+  const [connectSourceId, setConnectSourceId] = useState<string | null>(null);
+  const [relationDraft, setRelationDraft] = useState<{ fromId: string; targetId: string } | null>(
+    null,
+  );
 
   const layout = useMemo(() => computeLayout(nodes), [nodes]);
   const maxDepth = DENSITY_MAX_DEPTH[density];
@@ -122,10 +131,64 @@ export function AtlasScreen() {
 
   const handleSelect = useCallback(
     (nodeId: string | null) => {
+      // 连线模式：第一次点击定起点，第二次点击选终点并打开关系编辑器。
+      if (connectMode) {
+        if (!nodeId) {
+          setConnectSourceId(null);
+          return;
+        }
+        if (!connectSourceId) {
+          setConnectSourceId(nodeId);
+          setSelectedId(nodeId);
+          toast("已选起点，再点一个知识点连线", "info");
+          return;
+        }
+        if (nodeId === connectSourceId) {
+          setConnectSourceId(null);
+          return;
+        }
+        setRelationDraft({ fromId: connectSourceId, targetId: nodeId });
+        setConnectSourceId(null);
+        return;
+      }
       select(nodeId);
     },
-    [select],
+    [connectMode, connectSourceId, select],
   );
+
+  const handleMoveNode = useCallback(
+    async (nodeId: string, payload: NodeMovePayload) => {
+      const currentNodes = useGraphStore.getState().nodes;
+      const node = currentNodes.find((item) => item.id === nodeId);
+      if (!node) return;
+      const target = payload.dropTargetId
+        ? currentNodes.find((item) => item.id === payload.dropTargetId)
+        : null;
+      try {
+        await moveNode(nodeId, {
+          manualPosition: payload.position,
+          ...(target ? { parentId: target.id } : {}),
+        });
+        toast(
+          target ? `已挂到「${target.title}」下，并保存位置` : "位置已保存到云端",
+          "success",
+        );
+      } catch (error) {
+        toast(error instanceof Error ? error.message : "保存位置失败", "error");
+      }
+    },
+    [moveNode],
+  );
+
+  const resetAllPositions = async () => {
+    if (!window.confirm("把所有手动拖动过的知识点恢复到自动布局？")) return;
+    try {
+      await clearAllManualPositions();
+      toast("已恢复全部自动布局", "success");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "恢复失败", "error");
+    }
+  };
 
   const selectedHiddenChildren = selectedId ? (badges.get(selectedId) ?? 0) : 0;
   const selectedExpanded = selectedId ? expanded.has(selectedId) : false;
@@ -220,7 +283,56 @@ export function AtlasScreen() {
           <span className="text-[11px] text-muted">
             可见 {visibleIds.size} / {nodes.length}
           </span>
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              className={`btn-ghost btn-sm ${showAllRelations ? "border-accent/50 text-accent" : ""}`}
+              aria-pressed={showAllRelations}
+              onClick={() => setShowAllRelations((value) => !value)}
+              title="显示全部关系线"
+            >
+              关系线：{showAllRelations ? "全部" : "聚焦"}
+            </button>
+            <button
+              type="button"
+              className={`btn-ghost btn-sm ${connectMode ? "border-warn/50 text-warn" : ""}`}
+              aria-pressed={connectMode}
+              onClick={() => {
+                setConnectMode((value) => !value);
+                setConnectSourceId(null);
+              }}
+              title="点击两个知识点建立关系"
+            >
+              连线
+            </button>
+            <button
+              type="button"
+              className="btn-ghost btn-sm"
+              onClick={() => void resetAllPositions()}
+              title="清除所有手动拖动的位置"
+            >
+              重置位置
+            </button>
+          </div>
         </div>
+
+        {connectMode ? (
+          <div className="rounded-lg border border-warn/30 bg-warn/5 px-2.5 py-1.5 text-[11px] text-warn">
+            {connectSourceId
+              ? "已选起点：再点击另一个知识点建立关系，点空白处取消。"
+              : "连线模式：先点起点知识点，再点终点知识点。"}
+            <button
+              type="button"
+              className="ml-2 underline"
+              onClick={() => {
+                setConnectMode(false);
+                setConnectSourceId(null);
+              }}
+            >
+              退出连线
+            </button>
+          </div>
+        ) : null}
 
         {searchOpen ? (
           <div className="rounded-xl border border-line bg-surface p-2">
@@ -277,7 +389,11 @@ export function AtlasScreen() {
           neighborIds={neighborSet}
           badges={badges}
           autoRotate={autoRotate}
+          showAllRelations={showAllRelations}
+          connectMode={connectMode}
+          connectSourceId={connectSourceId}
           onSelect={handleSelect}
+          onMoveNode={(nodeId, payload) => void handleMoveNode(nodeId, payload)}
         />
 
         {/* 纯黑画布 + 轻暗角（方案 §5.5） */}
@@ -297,7 +413,7 @@ export function AtlasScreen() {
             <LegendItem color="#FF5252" label="易混" />
           </div>
           <p className="hidden rounded-lg bg-shell/70 px-2 py-1 backdrop-blur md:block">
-            拖拽旋转 · 滚轮缩放 · 点击聚焦 · 双击空白复位
+            拖拽空白旋转 · 拖动节点移动 · 拖到节点上改归属 · 滚轮缩放 · 双击复位
           </p>
         </div>
 
@@ -361,6 +477,18 @@ export function AtlasScreen() {
           />
         ) : null}
       </div>
+
+      <RelationEditor
+        open={relationDraft !== null}
+        fromId={relationDraft?.fromId ?? null}
+        initialTargetId={relationDraft?.targetId ?? null}
+        nodes={nodes}
+        relations={relations}
+        onClose={() => setRelationDraft(null)}
+        onSaved={() => {
+          if (relationDraft?.targetId) setSelectedId(relationDraft.targetId);
+        }}
+      />
     </div>
   );
 }

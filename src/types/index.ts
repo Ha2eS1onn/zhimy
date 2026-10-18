@@ -11,6 +11,10 @@ export interface KnowledgeNode {
   parentId: string | null;
   title: string;
   summary: string;
+  /** 用户在详情页编辑/补充的 Markdown-lite 完整讲解。 */
+  detail: string;
+  /** 手动拖拽后固定的空间位置；null 表示继续使用自动球壳布局。 */
+  manualPosition: { x: number; y: number; z: number } | null;
   status: NodeStatus;
   aliases: string[];
   mastery: number | null;

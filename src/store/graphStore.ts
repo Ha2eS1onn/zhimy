@@ -4,13 +4,15 @@ import { create } from "zustand";
 import { buildSeedGraph } from "@/data/seed";
 import { newId, nowIso } from "@/lib/ids";
 import { getRepo } from "@/lib/repo";
-import { dedupeRelations, makeRelation } from "@/lib/relations";
+import { dedupeRelations, makeRelation, normalizePair, relationKey } from "@/lib/relations";
 import type {
   GraphData,
   KnowledgeNode,
   NodeSource,
   NodeStatus,
   Relation,
+  RelationOrigin,
+  RelationType,
   Source,
   Suggestion,
 } from "@/types";
@@ -36,8 +38,24 @@ interface GraphState {
   }) => Promise<{ nodeId: string; status: NodeStatus }>;
   reparent: (nodeId: string, parentId: string | null) => Promise<void>;
   setStatus: (nodeId: string, status: NodeStatus) => Promise<void>;
-  /** 修改知识点名称 / 摘要（详情面板里的编辑功能）。 */
-  updateDetails: (nodeId: string, patch: { title?: string; summary?: string }) => Promise<void>;
+  /** 修改知识点名称 / 摘要 / 完整讲解（详情页与面板里的编辑功能）。 */
+  updateDetails: (nodeId: string, patch: { title?: string; summary?: string; detail?: string }) => Promise<void>;
+  /** 拖动节点：一次更新父级与手动位置。 */
+  moveNode: (
+    nodeId: string,
+    patch: { parentId?: string | null; manualPosition?: { x: number; y: number; z: number } | null },
+  ) => Promise<void>;
+  clearManualPosition: (nodeId: string) => Promise<void>;
+  clearAllManualPositions: () => Promise<void>;
+  addRelation: (input: {
+    fromId: string;
+    toId: string;
+    type: RelationType;
+    confidence?: number;
+    origin?: RelationOrigin;
+  }) => Promise<Relation>;
+  updateRelationType: (relationId: string, type: RelationType) => Promise<void>;
+  deleteRelation: (relationId: string) => Promise<void>;
   /** 切换账号时清空本地缓存，等待重新加载。 */
   resetLocal: () => void;
   seedExample: () => Promise<void>;
@@ -125,6 +143,8 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
       parentId,
       title: title.trim(),
       summary: summary.trim(),
+      detail: "",
+      manualPosition: null,
       status,
       aliases: [],
       mastery: null,
@@ -210,13 +230,14 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
   updateDetails: async (nodeId, patch) => {
     const userId = currentUserId();
     const previous = get().nodes;
-    const clean: { title?: string; summary?: string } = {};
+    const clean: { title?: string; summary?: string; detail?: string } = {};
     if (patch.title !== undefined) {
       const title = patch.title.trim();
       if (!title) throw new Error("知识点名称不能为空");
       clean.title = title;
     }
     if (patch.summary !== undefined) clean.summary = patch.summary.trim();
+    if (patch.detail !== undefined) clean.detail = patch.detail.replace(/\r\n/g, "\n");
 
     set({
       nodes: previous.map((node) =>
@@ -227,6 +248,118 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
       await getRepo().updateNode(userId, nodeId, clean);
     } catch (error) {
       set({ nodes: previous });
+      throw error;
+    }
+  },
+
+  moveNode: async (nodeId, patch) => {
+    const userId = currentUserId();
+    const previous = get().nodes;
+    set({
+      nodes: previous.map((node) =>
+        node.id === nodeId ? { ...node, ...patch, updatedAt: nowIso() } : node,
+      ),
+    });
+    try {
+      await getRepo().updateNode(userId, nodeId, patch);
+    } catch (error) {
+      set({ nodes: previous });
+      throw error;
+    }
+  },
+
+  clearManualPosition: async (nodeId) => {
+    await get().moveNode(nodeId, { manualPosition: null });
+  },
+
+  clearAllManualPositions: async () => {
+    const userId = currentUserId();
+    const previous = get().nodes;
+    const targets = previous.filter((node) => node.manualPosition !== null);
+    if (targets.length === 0) return;
+    set({
+      nodes: previous.map((node) =>
+        node.manualPosition ? { ...node, manualPosition: null, updatedAt: nowIso() } : node,
+      ),
+    });
+    try {
+      for (const node of targets) {
+        await getRepo().updateNode(userId, node.id, { manualPosition: null });
+      }
+    } catch (error) {
+      set({ nodes: previous });
+      throw error;
+    }
+  },
+
+  addRelation: async ({ fromId, toId, type, confidence = 0.8, origin = "user" }) => {
+    const userId = currentUserId();
+    if (fromId === toId) throw new Error("不能把知识点连到它自己");
+    if (!get().nodes.some((node) => node.id === fromId) || !get().nodes.some((node) => node.id === toId)) {
+      throw new Error("关系两端的知识点必须存在");
+    }
+    const key = relationKey(type, fromId, toId);
+    if (get().relations.some((relation) => relationKey(relation.type, relation.fromId, relation.toId) === key)) {
+      throw new Error("这两个知识点之间已经有同类关系了");
+    }
+    const relation = makeRelation({ id: newId(), fromId, toId, type, confidence, origin });
+    set((state) => ({ relations: dedupeRelations([...state.relations, relation]) }));
+    try {
+      await getRepo().insertRelations(userId, [relation]);
+    } catch (error) {
+      set((state) => ({ relations: state.relations.filter((item) => item.id !== relation.id) }));
+      throw error;
+    }
+    return relation;
+  },
+
+  updateRelationType: async (relationId, type) => {
+    const userId = currentUserId();
+    const previous = get().relations;
+    const current = previous.find((relation) => relation.id === relationId);
+    if (!current) throw new Error("关系不存在");
+    if (current.type === type) return;
+
+    // 无向类型要按 id 重新排序，避免违反数据库方向约束。
+    const pair = normalizePair(type, current.fromId, current.toId);
+    const key = relationKey(type, pair.fromId, pair.toId);
+    if (
+      previous.some(
+        (relation) =>
+          relation.id !== relationId &&
+          relationKey(relation.type, relation.fromId, relation.toId) === key,
+      )
+    ) {
+      throw new Error("这两个知识点之间已经有同类关系了");
+    }
+
+    set({
+      relations: previous.map((relation) =>
+        relation.id === relationId
+          ? { ...relation, type, fromId: pair.fromId, toId: pair.toId }
+          : relation,
+      ),
+    });
+    try {
+      await getRepo().updateRelation(userId, relationId, {
+        type,
+        fromId: pair.fromId,
+        toId: pair.toId,
+      });
+    } catch (error) {
+      set({ relations: previous });
+      throw error;
+    }
+  },
+
+  deleteRelation: async (relationId) => {
+    const userId = currentUserId();
+    const previous = get().relations;
+    set({ relations: previous.filter((relation) => relation.id !== relationId) });
+    try {
+      await getRepo().deleteRelation(userId, relationId);
+    } catch (error) {
+      set({ relations: previous });
       throw error;
     }
   },

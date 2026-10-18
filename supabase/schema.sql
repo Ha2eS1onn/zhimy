@@ -20,12 +20,21 @@ create table if not exists public.nodes (
   parent_id uuid references public.nodes(id) on delete cascade,
   title text not null,
   summary text not null default '',
+  detail text not null default '',
+  manual_position jsonb,
   status text not null default 'active' check (status in ('active', 'inbox')),
   aliases text[] not null default '{}',
   mastery real,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- STATEMENT
+-- 兼容已建库的项目：补上"完整讲解正文"与"手动空间位置"两列（幂等）。
+alter table public.nodes add column if not exists detail text not null default '';
+
+-- STATEMENT
+alter table public.nodes add column if not exists manual_position jsonb;
 
 -- STATEMENT
 create index if not exists nodes_user_parent_idx on public.nodes (user_id, parent_id);
