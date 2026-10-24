@@ -165,7 +165,7 @@ NEXT_PUBLIC_DEMO_MODE=1
 
 [![CI](https://github.com/Ha2eS1onn/zhimy/actions/workflows/ci.yml/badge.svg)](https://github.com/Ha2eS1onn/zhimy/actions/workflows/ci.yml)
 
-> **线上 Demo**：<https://zhimy.vercel.app>（Vercel Hobby，公开访问；打开即自动创建匿名游客账号）
+> **线上 Demo**：<https://zhimy.kasho.fun>（备用：<https://zhimy.vercel.app>；Vercel Hobby，公开访问，打开即自动创建匿名游客账号）
 >
 > 仓库：<https://github.com/Ha2eS1onn/zhimy> ｜ 部署步骤与回滚见 [docs/DEPLOY.md](docs/DEPLOY.md)
 
@@ -220,7 +220,7 @@ tests/                      # 纯逻辑单元测试
 ## 路线图
 
 - **P0（已完成）**：页面骨架、云端账号、收编闭环、3D 知识库与拖拽定位、关系编辑、完整讲解子页、三端布局、BYOK 对话/抽取/讲解/关系建议
-- **P1（进行中）**：真实命中 ✅（pgvector 1024 维 + 关键词兜底）、指标埋点与 insights ✅、拍题缩略图本地缓存 ✅、独立会话与上下文隔离 ✅、部署与 CI ✅（<https://zhimy.vercel.app>，push 自动部署）、抽取效果优化（多轮对话上下文）、跨端 Realtime、复习闭环；图片云端持久化与 OCR 明确不做
+- **P1（进行中）**：真实命中 ✅（pgvector 1024 维 + 关键词兜底）、指标埋点与 insights ✅、拍题缩略图本地缓存 ✅、独立会话与上下文隔离 ✅、部署与 CI ✅（<https://zhimy.kasho.fun>，push 自动部署）、抽取效果优化（多轮对话上下文）、跨端 Realtime、复习闭环；图片云端持久化与 OCR 明确不做
 - **P2**：掌握度与推荐、导入、分享、移动端壳
 
 ## 已知限制

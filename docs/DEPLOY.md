@@ -126,7 +126,7 @@ npm run db:init
 
 ### 4.3 把 Demo 信息写回仓库
 
-部署成功后需要同步三处（当前 `zhimy.vercel.app` 已按此更新）：
+部署成功后需要同步三处（当前 `https://zhimy.kasho.fun` 已按此更新，备用 `https://zhimy.vercel.app`）：
 
 | 位置 | 内容 |
 | --- | --- |
@@ -136,7 +136,7 @@ npm run db:init
 
 ### 4.4 自定义域名（可选）
 
-当前线上地址为 `https://zhimy.vercel.app`；如需挂到自有二级域名（例如 `zhimy.kasho.fun`），按下述步骤操作。**两个地址可以并存**，不加跳转时旧地址仍可访问。
+当前线上主域名为 `https://zhimy.kasho.fun`（2026-10-24 接入，CNAME → `cname.vercel-dns.com`，Let's Encrypt 证书已签发），备用地址 `https://zhimy.vercel.app` 同时保留。若需给其它域名做同样配置，按下述步骤操作。
 
 **第 1 步：Vercel 添加域名**
 
