@@ -112,7 +112,7 @@ P1 子项状态：
 - 演示脚本流式回答（无模型 Key）与 BYOK 真实流式回答（OpenAI 兼容）
 - 命中判定：**向量优先**——`src/lib/ai/hit.ts` 的 `resolveHit`（问题 embed → `match_nodes` top-k → 相似度 ≥ 0.78 视为命中并给出路径）；未配置向量模型、调用异常/超时或相似度不足时**降级关键词**（`src/lib/search.ts` 的 `resolveQuestion`）
 - 真实抽取：`src/lib/ai/extract.ts`（检索候选 → 模型输出 JSON → 系统校验 title/parentId/relations；带最近对话上下文与防注入提示）；候选召回向量优先、关键词补齐
-- 收编卡片：可改名称/摘要、换位置、取消；低置信度进 `inbox`。**「换个位置」支持新建父级路径**（`物理 / 电学`，同父级同名复用、缺失逐级创建，`graphStore.createPath`），用户显式选过位置/新建路径后收编直接 `active`（`adopt({ forceActive })`）
+- 收编卡片：可改名称/摘要、换位置、取消；低置信度进 `inbox`。**「换个位置」支持新建父级路径**（`物理 / 电学`，同父级同名复用、缺失逐级创建，`graphStore.createPath`），用户显式选过位置/新建路径后收编直接 `active`（`adopt({ forceActive })`）。**同名收编复用（2026-10-24）**：`adopt` 先按「同父级 + 标题大小写不敏感」查重，命中则复用已有节点、只补来源与关系（摘要为空时补写），返回 `reused`，卡片显示「已关联」，不再撞唯一索引
 - 拍题图片：原图只在本次请求内使用，**不落库、不上传 Storage**；发送前压到最长边 1600（控制 base64 请求体），图片请求优先使用设置里的视觉模型，未配置时沿用文本模型并提示一次；缩略图（640px / JPEG 0.72）写入本机 IndexedDB，聊天气泡与知识点来源页按 id 读取（换设备/清缓存后只显示文件名）
 - 多会话：`conversations` 存会话标题/更新时间，`chat_messages.conversation_id` 归属；聊天页进入时默认新对话，发送第一条消息才创建会话；历史面板可切换/删除；每个会话独立加载消息，`buildRecentContext` 与模型历史都只读当前会话
 - 流式思维链与打字机：`sse.ts` 同时提取正文与 reasoning；`ChatScreen` 收到 reasoning chunk 后显示「思考过程」面板，正文交给 `useTypewriter` 逐字上屏；完整 reasoning 随 assistant 消息写入 `payload.reasoning`（`MessageBubble` 里默认折叠，可回看）
@@ -125,7 +125,7 @@ P1 子项状态：
 - 渲染：`src/lib/atlas/renderer.ts`（预渲染光晕精灵、层级线、1 跳关系线、全部关系线模式、拖拽/落点高亮、折叠 +N）
 - 交互：`src/components/atlas/CanvasAtlas.tsx`（空白拖拽旋转、节点拖拽移动 + 拖到节点上改父级 + 防环、双指缩放、连线模式点击）
 - 页面/面板/工具栏：`src/components/atlas/AtlasScreen.tsx`、`AtlasPanel.tsx`
-- 位置选择：`src/components/common/PositionPicker.tsx`（搜索/顶层 + 新建父级路径），atlas 面板、详情页、首页整理待处理、收编卡片共用；换位置时会把「自己 + 后代」传给 `createPath` 做循环守卫（`src/lib/path.ts` 的 `blockedSubtree`）
+- 位置选择：`src/components/common/PositionPicker.tsx`（搜索/顶层 + 新建父级路径），atlas 面板、详情页、首页整理待处理、收编卡片共用；换位置时会把「自己 + 后代」传给 `createPath` 做循环守卫（`src/lib/path.ts` 的 `blockedSubtree`）。**2026-10-24 起守卫下沉到 store**：`reparentError` 统一校验，`graphStore.reparent` / `moveNode` 都会先检查，避免其它调用方绕过 UI 造环
 - 关系编辑：`RelationList.tsx`（改类型/删除）、`RelationEditor.tsx`（手动建立）、`RelationSuggestions.tsx`（同源启发式 + AI 推荐，采纳才写入）
 - 只读调试钩子：开发环境 `window.__zhimyAtlasDebug.projectNode(id)`（生产不挂载，供 E2E 用）
 
