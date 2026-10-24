@@ -395,22 +395,19 @@ export function ChatScreen() {
     }
   };
 
-  const visionLabel = llm.visionModel.trim()
-    ? `视觉 ${llm.visionModel.trim()}`
-    : "视觉未配置";
   const modeLabel =
     llm.mode === "real"
-      ? `真实模型 · ${llm.model || "未填写模型"} · ${visionLabel} · 设置`
-      : "演示脚本模式 · 点此接入自己的模型";
+      ? `${llm.model || "模型"} · 设置`
+      : "演示模式 · 接入模型";
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <header className="shrink-0 border-b border-line px-4 py-3 md:px-6">
+    <div className="flex h-full min-h-0 flex-col bg-shell">
+      <header className="shrink-0 bg-shell/80 px-4 py-2.5 backdrop-blur md:px-6 md:py-3">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-base font-semibold text-ink">对话</h1>
+            <h1 className="text-sm font-semibold text-ink md:text-base">对话</h1>
             <p className="truncate text-[11px] text-muted">
-              {conversationReady && activeConversation ? activeConversation.title : "新对话"} · 拍题、代码或任何想弄懂的问题
+              {conversationReady && activeConversation ? activeConversation.title : "新对话"} · 拍题或直接提问
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
@@ -465,18 +462,17 @@ export function ChatScreen() {
           !streaming &&
           !messagesLoading &&
           !conversationsLoading ? (
-            <div className="card mt-6 p-6 text-center">
-              <p className="text-sm font-medium text-ink">从一个想弄懂的问题开始</p>
-              <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted">
-                拍题、问概念、看代码都可以。你会得到分步解答和 1–3 个可收编的知识点；
-                收编后会出现在 3D 知识库里，下次问同一个知识点会直接给出路径。
+            <div className="card mt-2 px-5 py-7 text-center md:mt-8">
+              <p className="text-sm font-medium text-ink">从一个问题开始</p>
+              <p className="mt-1.5 text-xs leading-relaxed text-muted">
+                提问、拍题，把值得留下的知识收进来。
               </p>
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <div className="mt-5 flex flex-wrap justify-center gap-2">
                 {EXAMPLES.map((example) => (
                   <button
                     key={example}
                     type="button"
-                    className="chip hover:text-ink"
+                    className="chip"
                     onClick={() => void handleSend(example, null)}
                   >
                     {example}
@@ -493,10 +489,10 @@ export function ChatScreen() {
           {streaming && streamingReasoning ? (
             <details
               open={!streamingText}
-              className="max-w-[92%] rounded-2xl rounded-bl-md border border-line bg-surface/60 px-3.5 py-2.5"
+              className="max-w-[92%] rounded-2xl rounded-bl-md bg-surface px-4 py-3 shadow-[var(--neu-soft)]"
             >
               <summary className="cursor-pointer text-[11px] text-muted">
-                {streamingText ? "思考过程" : "正在思考…"}
+                {streamingText ? "思考" : "思考中"}
               </summary>
               <div
                 ref={reasoningBoxRef}
@@ -511,9 +507,9 @@ export function ChatScreen() {
           ) : null}
 
           {streaming && (streamingText || !streamingReasoning) ? (
-            <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-line bg-surface/80 px-3.5 py-2.5">
+            <div className="max-w-[92%] rounded-2xl rounded-bl-md bg-surface px-4 py-3 shadow-[var(--neu-soft)]">
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">
-                {streamingText || "正在思考…"}
+                {streamingText || "思考中"}
                 <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-accent align-middle" />
               </p>
             </div>
@@ -522,7 +518,7 @@ export function ChatScreen() {
           {extracting ? (
             <div className="flex items-center gap-2 text-xs text-muted">
               <span className="inline-block size-3 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
-              正在从这次解答里整理知识点…
+              正在整理知识点…
             </div>
           ) : null}
 
@@ -548,7 +544,7 @@ export function ChatScreen() {
       <Sheet
         open={historyOpen}
         title="对话记录"
-        description="选择会话继续；新建会话不会带上旧上下文。"
+        description="继续之前的对话。"
         onClose={() => setHistoryOpen(false)}
       >
         <button
@@ -562,7 +558,7 @@ export function ChatScreen() {
 
         {conversations.length === 0 ? (
           <p className="mt-4 text-xs leading-relaxed text-muted">
-            还没有历史对话。发送第一条消息后会自动保存到当前账号，并出现在这里。
+            暂无历史对话。
           </p>
         ) : (
           <ul className="mt-3 space-y-1.5">

@@ -24,6 +24,9 @@ const TARGETS = [
   { name: "home-mobile", route: "/", width: 390, height: 844 },
   { name: "chat-mobile", route: "/chat", width: 390, height: 844 },
   { name: "atlas-mobile", route: "/atlas", width: 390, height: 844 },
+  { name: "home-mobile-sm", route: "/", width: 320, height: 568 },
+  { name: "chat-mobile-sm", route: "/chat", width: 320, height: 568 },
+  { name: "atlas-mobile-sm", route: "/atlas", width: 320, height: 568 },
 ];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -119,6 +122,14 @@ async function capture(target) {
     deviceScaleFactor: 1,
     mobile: target.width < 768,
   });
+  // 可选：SCREENSHOT_THEME=light|dark 强制系统主题。
+  const mediaFeatures = [];
+  if (process.env.SCREENSHOT_THEME === "light" || process.env.SCREENSHOT_THEME === "dark") {
+    mediaFeatures.push({ name: "prefers-color-scheme", value: process.env.SCREENSHOT_THEME });
+  }
+  if (mediaFeatures.length > 0) {
+    await cdp.send("Emulation.setEmulatedMedia", { features: mediaFeatures });
+  }
   await cdp.send("Page.navigate", { url: `${baseUrl}${target.route}` });
   await sleep(target.route.includes("atlas") ? 3600 : 2600);
 

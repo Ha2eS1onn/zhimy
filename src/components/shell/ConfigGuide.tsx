@@ -8,7 +8,7 @@ export function ConfigGuide() {
     <div className="flex min-h-dvh items-center justify-center bg-shell px-4 py-10">
       <div className="card w-full max-w-xl p-6 md:p-8">
         <div className="flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-accent via-[#b388ff] to-pink text-lg font-bold text-black">
+          <span className="brand-mark size-10 text-lg">
             知
           </span>
           <div>

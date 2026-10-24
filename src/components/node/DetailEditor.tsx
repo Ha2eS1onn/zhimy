@@ -29,7 +29,11 @@ export function DetailEditor({
   return (
     <div className="card overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-2">
-        <div className="segmented">
+        <div
+          className="segmented"
+          data-count={2}
+          data-index={mode === "edit" ? 0 : 1}
+        >
           <button type="button" data-active={mode === "edit"} onClick={() => setMode("edit")}>
             编辑
           </button>
@@ -52,7 +56,7 @@ export function DetailEditor({
       </div>
 
       {mode === "edit" ? (
-        <div className="p-3">
+        <div key="edit" className="motion-fade p-3">
           <textarea
             className="textarea min-h-[420px] font-mono text-[13px] leading-6"
             value={value}
@@ -72,11 +76,11 @@ export function DetailEditor({
           </p>
         </div>
       ) : (
-        <div className="min-h-[420px] p-4">
+        <div key="preview" className="motion-fade min-h-[420px] p-4">
           {value.trim() ? (
             <MarkdownLite markdown={value} />
           ) : (
-            <p className="text-xs text-muted">还没有内容，切回「编辑」开始写。</p>
+            <p className="text-xs text-muted">暂无内容。</p>
           )}
         </div>
       )}

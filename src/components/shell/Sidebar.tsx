@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useSessionStore } from "@/store/sessionStore";
 import { useUIStore } from "@/store/uiStore";
 import { Icon, type IconName } from "./Icon";
+import { ThemeToggle } from "./Theme";
 
 const NAV: Array<{ href: string; label: string; icon: IconName }> = [
   { href: "/", label: "综合", icon: "home" },
@@ -18,13 +19,15 @@ export function Sidebar() {
   const openSettings = useUIStore((state) => state.openSettings);
 
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+    href === "/"
+      ? pathname === "/"
+      : pathname.startsWith(href) || (href === "/atlas" && pathname.startsWith("/node"));
 
   return (
     <aside className="app-sidebar">
       <div className="px-3 py-5 xl:px-4">
         <Link href="/" className="flex items-center gap-2.5" aria-label="知脉首页">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-accent via-[#b388ff] to-pink text-[15px] font-bold text-black">
+          <span className="brand-mark size-10 text-[15px]">
             知
           </span>
           <span className="hidden xl:block">
@@ -34,7 +37,7 @@ export function Sidebar() {
         </Link>
       </div>
 
-      <nav className="flex flex-col gap-1 px-2 xl:px-3">
+      <nav className="mt-4 flex flex-col gap-2 px-3 xl:px-4">
         {NAV.map((item) => (
           <Link
             key={item.href}
@@ -49,7 +52,8 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="mt-auto flex flex-col gap-1 px-2 pb-4 xl:px-3">
+      <div className="mt-auto flex flex-col gap-1.5 px-3 pb-5 xl:px-4">
+        <ThemeToggle className="nav-item w-full justify-center xl:justify-start" />
         <button
           type="button"
           title="账号"

@@ -49,6 +49,7 @@ interface AtlasCanvasProps {
   showAllRelations?: boolean;
   connectMode?: boolean;
   connectSourceId?: string | null;
+  theme: "light" | "dark";
   onSelect: (id: string | null) => void;
   onMoveNode: (nodeId: string, payload: NodeMovePayload) => void;
 }
@@ -93,6 +94,7 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
     showAllRelations = false,
     connectMode = false,
     connectSourceId = null,
+    theme,
     onSelect,
     onMoveNode,
   } = props;
@@ -200,8 +202,9 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
       dropTargetId: drag?.dropTargetId ?? null,
       connectSourceId: connectSourceRef.current,
       titleOf: (id) => titleRef.current.get(id),
+      theme,
     });
-  }, []);
+  }, [theme]);
 
   const loop = useCallback(
     (time: number) => {
@@ -313,6 +316,7 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
     autoRotate,
     showAllRelations,
     connectSourceId,
+    theme,
     requestDraw,
   ]);
 

@@ -46,15 +46,15 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
 
   if (suggestion.status === "dismissed") {
     return (
-      <div className="rounded-xl border border-line bg-surface-2/40 px-3 py-2 text-xs text-muted">
-        这次不收：{suggestion.title}
+      <div className="rounded-2xl bg-surface-2/40 px-3 py-2 text-xs text-muted">
+        已忽略：{suggestion.title}
       </div>
     );
   }
 
   if (suggestion.status === "adopted") {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-accent/30 bg-accent/5 px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-accent/10 px-3 py-2">
         <span className="flex items-center gap-1.5 text-xs text-ink">
           <Icon name="check" size={14} className="text-accent" />
           {suggestion.adoptedReused ? "已关联：" : "已收编："}
@@ -65,7 +65,7 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
           href={`/atlas?node=${suggestion.adoptedNodeId ?? parentId ?? ""}`}
           className="btn-subtle btn-sm"
         >
-          在知识库中查看
+          查看
         </a>
       </div>
     );
@@ -133,51 +133,45 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
   };
 
   return (
-    <div className="rounded-xl border border-line bg-surface p-3">
+    <div className="rounded-2xl bg-surface-2/35 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <label className="label" htmlFor={`title-${suggestion.id}`}>
-            知识点名称 · 可修改
+            名称
           </label>
           <input
             id={`title-${suggestion.id}`}
-            className="mt-1 w-full rounded-lg border border-line bg-surface-2 px-2 py-1 text-sm font-medium text-ink outline-none focus:border-accent/60"
+            className="mt-1 w-full rounded-lg bg-surface px-2.5 py-1.5 text-sm font-medium text-ink outline-none focus:ring-1 focus:ring-accent"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="用学科概念命名，例如「电阻的并联」"
+            placeholder="知识点名称"
           />
         </div>
         <span
-          className={`chip shrink-0 ${
-            lowConfidence ? "border-warn/40 text-warn" : "border-accent/40 text-accent"
-          }`}
-          title="AI 对这次归位的置信度"
+          className={`chip shrink-0 ${lowConfidence ? "text-warn" : "text-accent"}`}
+          title="AI 置信度"
         >
           {confidence}%
         </span>
       </div>
 
       <label className="mt-2 block">
-        <span className="label">一句话摘要 · 可修改</span>
+        <span className="label">摘要</span>
         <textarea
-          className="mt-1 w-full resize-none rounded-lg border border-line bg-surface-2 px-2 py-1 text-xs leading-relaxed text-ink outline-none focus:border-accent/60"
+          className="mt-1 w-full resize-none rounded-lg bg-surface px-2.5 py-1.5 text-xs leading-relaxed text-ink outline-none focus:ring-1 focus:ring-accent"
           rows={2}
           value={summary}
           onChange={(event) => setSummary(event.target.value)}
-          placeholder="一句话说明这个知识点讲什么"
+          placeholder="一句话说明"
         />
       </label>
 
-      <div className="mt-2 rounded-lg bg-surface-2/70 px-2.5 py-2">
+      <div className="mt-2 rounded-xl bg-surface-2/70 px-3 py-2">
         <p className="flex items-center gap-1 text-[11px] text-muted">
           <Icon name="atlas" size={12} /> 建议路径
         </p>
         <p className="mt-0.5 break-all text-xs text-ink">{pathPreview}</p>
-        {!parentId ? (
-          <p className="mt-1 text-[11px] text-muted">
-            还没有父级：点「换个位置 → 新建父级路径」可以先建学科/章节（如 物理 / 电学）。
-          </p>
-        ) : null}
+        {!parentId ? <p className="mt-1 text-[11px] text-muted">尚未归位</p> : null}
       </div>
 
       {relations.length > 0 ? (
@@ -202,9 +196,7 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
       ) : null}
 
       <p className="mt-2 text-[11px] text-muted">
-        {lowConfidence
-          ? "置信度较低：收下后会先进入待处理，稍后可以再归位。"
-          : "来源：本次对话；名称与摘要都可以直接改，改好再收编。"}
+        {lowConfidence ? "置信度较低，将进入待处理。" : "可修改后收编。"}
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -212,10 +204,10 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
           收编
         </button>
         <button type="button" className="btn-ghost btn-sm" onClick={() => setPickerOpen(true)} disabled={busy}>
-          换个位置
+          换位置
         </button>
         <button type="button" className="btn-ghost btn-sm" onClick={() => void handleDismiss()} disabled={busy}>
-          这次不收
+          不收
         </button>
       </div>
 

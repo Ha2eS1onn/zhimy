@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUIStore } from "@/store/uiStore";
 import { Icon, type IconName } from "./Icon";
+import { ThemeToggle } from "./Theme";
 
 const TABS: Array<{ href: string; label: string; icon: IconName }> = [
   { href: "/", label: "首页", icon: "home" },
@@ -14,35 +15,44 @@ const TABS: Array<{ href: string; label: string; icon: IconName }> = [
 export function MobileTopBar() {
   const openSettings = useUIStore((state) => state.openSettings);
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between border-b border-line px-4 md:hidden">
-      <div className="flex items-center gap-2">
-        <span className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-accent via-[#b388ff] to-pink text-[12px] font-bold text-black">
+    <header className="mobile-topbar">
+      <Link href="/" className="flex items-center gap-2.5" aria-label="知脉首页">
+        <span className="brand-mark size-8 rounded-lg text-xs">
           知
         </span>
-        <span className="text-sm font-semibold tracking-wide">知脉</span>
+        <span>
+          <span className="block text-sm font-semibold tracking-wide">知脉</span>
+          <span className="block text-[9px] tracking-wider text-muted">AI 知识地图</span>
+        </span>
+      </Link>
+      <div className="flex items-center gap-1.5">
+        <ThemeToggle className="icon-btn size-10 rounded-xl" />
+        <button
+          type="button"
+          aria-label="设置"
+          onClick={() => openSettings("account")}
+          className="icon-btn size-10 rounded-xl"
+        >
+          <Icon name="settings" size={18} />
+        </button>
       </div>
-      <button
-        type="button"
-        aria-label="设置"
-        onClick={() => openSettings("account")}
-        className="grid size-9 place-items-center rounded-xl text-muted hover:bg-surface hover:text-ink"
-      >
-        <Icon name="settings" size={18} />
-      </button>
     </header>
   );
 }
 
 export function MobileTabBar() {
   const pathname = usePathname();
-  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  const isActive = (href: string) =>
+    href === "/"
+      ? pathname === "/"
+      : pathname.startsWith(href) || (href === "/atlas" && pathname.startsWith("/node"));
   return (
-    <nav className="flex h-14 shrink-0 items-stretch border-t border-line bg-shell md:hidden">
+    <nav className="mobile-tabbar" aria-label="主导航">
       {TABS.map((tab) => (
         <Link
           key={tab.href}
           href={tab.href}
-          className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] text-muted"
+          className="mobile-tab flex min-h-[60px] flex-1 flex-col items-center justify-center gap-0.5 text-[10px] text-muted"
           data-active={isActive(tab.href)}
           aria-current={isActive(tab.href) ? "page" : undefined}
         >

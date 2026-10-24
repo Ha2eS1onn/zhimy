@@ -44,37 +44,35 @@ export const MessageBubble = memo(function MessageBubble({ message }: { message:
   return (
     <div className="space-y-2.5">
       {reasoning ? (
-        <details className="max-w-[92%] rounded-xl border border-line bg-surface/60 px-3 py-2">
-          <summary className="cursor-pointer text-[11px] text-muted">
-            思考过程（{reasoning.length} 字）
-          </summary>
-          <div className="mt-1.5 max-h-64 overflow-y-auto whitespace-pre-wrap text-[12px] leading-relaxed text-muted">
+        <details className="max-w-[92%] rounded-2xl bg-surface px-3 py-2 shadow-[var(--neu-soft)]">
+          <summary className="cursor-pointer text-[11px] text-muted">思考</summary>
+          <div className="details-body mt-1.5 max-h-64 overflow-y-auto whitespace-pre-wrap text-[12px] leading-relaxed text-muted">
             {reasoning}
           </div>
         </details>
       ) : null}
 
-      <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-line bg-surface/80 px-3.5 py-2.5">
+      <div className="max-w-[92%] rounded-2xl rounded-bl-md bg-surface px-4 py-3 shadow-[var(--neu-soft)]">
         <RichText text={message.content} />
       </div>
 
       {hit && hitNode ? (
-        <div className="max-w-[92%] rounded-xl border border-accent/30 bg-accent/5 px-3 py-2.5">
-          <p className="flex items-center gap-1.5 text-[11px] text-accent">已命中知识图谱 · 不再重讲</p>
+        <div className="max-w-[92%] rounded-2xl bg-surface px-4 py-3 shadow-[var(--neu-soft)]">
+          <p className="flex items-center gap-1.5 text-[11px] text-accent">已收录</p>
           <p className="mt-1 break-all text-sm text-ink">
             {buildPath(nodes, hitNode.id)
               .map((node) => node.title)
               .join(" / ")}
           </p>
           <Link href={`/atlas?node=${hitNode.id}`} className="btn-subtle btn-sm mt-2">
-            在知识库中查看
+            查看
           </Link>
         </div>
       ) : null}
 
       {suggestions.length > 0 ? (
         <div className="max-w-[92%] space-y-2">
-          <p className="text-[11px] text-muted">AI 从这次解答里抽出了 {suggestions.length} 个知识点：</p>
+          <p className="text-[11px] text-muted">可收编</p>
           {suggestions.map((suggestion) => (
             <CaptureCard key={suggestion.id} suggestion={suggestion} messageId={message.id} />
           ))}

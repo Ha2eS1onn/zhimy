@@ -29,9 +29,9 @@ export default function HomePage() {
     typeof window === "undefined" ? "你好" : greetingFor(new Date().getHours()),
   );
   const [pickerNode, setPickerNode] = useState<KnowledgeNode | null>(null);
+  const [showMore, setShowMore] = useState(false);
 
   const nodes = useGraphStore((state) => state.nodes);
-  const relations = useGraphStore((state) => state.relations);
   const loading = useGraphStore((state) => state.loading);
   const seedExample = useGraphStore((state) => state.seedExample);
   const reparent = useGraphStore((state) => state.reparent);
@@ -71,26 +71,26 @@ export default function HomePage() {
         <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs text-muted" suppressHydrationWarning>
-            {greeting}，欢迎回到知脉
+            {greeting}
           </p>
-          <h1 className="page-title mt-1">今天想弄懂什么？</h1>
-          <p className="page-subtitle">提问、收编、归位——每个知识点都会在知识地图里有一个位置。</p>
+          <h1 className="page-title mt-2">今天，想弄懂什么？</h1>
+          <p className="page-subtitle hidden sm:block">把问题留下来，把知识放回原位。</p>
         </div>
         {user ? (
           <button
             type="button"
             onClick={() => openSettings("account")}
-            className={`chip ${user.isAnonymous ? "border-warn/40 text-warn" : ""}`}
+            className={`chip hidden sm:inline-flex ${user.isAnonymous ? "text-warn" : ""}`}
             title="账号设置"
           >
             <Icon name="user" size={13} />
-            {user.isAnonymous ? "游客账号 · 绑定防丢" : (user.email ?? "已绑定")}
+            {user.isAnonymous ? "游客 · 去绑定" : (user.email ?? "已绑定")}
           </button>
         ) : null}
       </header>
 
       <form
-        className="card mt-6 flex items-center gap-2 p-2 pl-4"
+        className="ask-box card mt-6 flex items-center gap-2 p-2 pl-5"
         onSubmit={(event) => {
           event.preventDefault();
           ask(question);
@@ -98,8 +98,9 @@ export default function HomePage() {
       >
         <Icon name="spark" size={18} className="shrink-0 text-accent" />
         <input
-          className="min-w-0 flex-1 bg-transparent py-2 text-sm text-ink outline-none placeholder:text-muted/70"
-          placeholder="拍题、追问，或者直接输入一个知识点…"
+          aria-label="输入问题"
+          className="min-w-0 flex-1 bg-transparent py-2 text-sm text-ink outline-none placeholder:text-muted"
+          placeholder="拍题、追问，或输入一个知识点"
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
         />
@@ -107,66 +108,79 @@ export default function HomePage() {
           问 AI
         </button>
       </form>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         {QUICK_QUESTIONS.map((item) => (
-          <button key={item} type="button" className="chip hover:text-ink" onClick={() => ask(item)}>
+          <button key={item} type="button" className="chip" onClick={() => ask(item)}>
             {item}
           </button>
         ))}
       </div>
 
-      <section className="mt-6 grid grid-cols-3 gap-3">
-        <StatCard label="待处理" value={derived.inbox.length} hint="收下但还没归位" href="/chat" />
-        <StatCard label="知识点" value={derived.active.length} hint="已经收编进图谱" href="/atlas" />
-        <StatCard label="学科" value={derived.subjects.length} hint="图谱顶层分支" href="/atlas" />
+      <section className="card mt-5 grid grid-cols-3">
+        <StatCard label="待处理" value={derived.inbox.length} href="/chat" />
+        <StatCard label="知识点" value={derived.active.length} href="/atlas" />
+        <StatCard label="学科" value={derived.subjects.length} href="/atlas" />
       </section>
 
       {nodes.length === 0 && !loading ? (
-        <section className="card mt-6 p-6 text-center">
-          <p className="text-sm font-medium text-ink">你的知识图谱还是空的</p>
-          <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted">
-            先载入一份示例图谱看看 3D 知识库长什么样，或者直接去对话页问一道题——AI 会帮你把知识点收编进来。
-          </p>
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
+        <section className="card mt-4 flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+          <p className="text-xs text-muted">图谱为空</p>
+          <div className="flex gap-2">
             <button
               type="button"
-              className="btn-primary"
+              className="btn-ghost btn-sm"
               onClick={() => {
                 void seedExample()
                   .then(() => toast("已载入示例图谱", "success"))
                   .catch((error) => toast(error instanceof Error ? error.message : "载入失败", "error"));
               }}
             >
-              载入示例图谱
+              载入示例
             </button>
-            <Link href="/chat" className="btn-ghost">
-              去对话提问
+            <Link href="/chat" className="btn-ghost btn-sm">
+              去提问
             </Link>
           </div>
         </section>
       ) : null}
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-5">
-        <section className="card self-start p-4 lg:col-span-3">
+      <button
+        type="button"
+        className="btn-ghost mt-3 w-full justify-between lg:hidden"
+        aria-expanded={showMore}
+        aria-controls="home-details"
+        onClick={() => setShowMore((value) => !value)}
+      >
+        <span>{showMore ? "收起" : "整理与回顾"}</span>
+        <Icon
+          name="chevron-down"
+          size={16}
+          className={`transition-transform duration-200 ease-[var(--ease-standard)] ${showMore ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      <div id="home-details" className={`${showMore ? "block" : "hidden"} motion-reveal lg:block`}>
+      <div className="mt-5 grid gap-5 lg:grid-cols-5">
+        <section className="card self-start p-5 lg:col-span-3">
           <div className="flex items-center justify-between">
-            <h2 className="panel-title text-sm">待处理</h2>
-            <span className="text-[11px] text-muted">{derived.inbox.length} 个知识点等待归位</span>
+            <h2 className="text-sm font-medium text-ink">待处理</h2>
+            <span className="text-[11px] text-muted">{derived.inbox.length}</span>
           </div>
           {derived.inbox.length === 0 ? (
-            <p className="py-8 text-center text-xs text-muted">没有待处理的知识点，收编时会自动归位或进入这里。</p>
+            <p className="py-7 text-center text-xs text-muted">暂无待处理</p>
           ) : (
-            <ul className="mt-3 space-y-2">
+            <ul className="mt-3 space-y-1">
               {derived.inbox.map((node) => {
                 const path = buildPath(nodes, node.id).slice(0, -1);
                 return (
                   <li
                     key={node.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface-2/60 px-3 py-2"
+                    className="flex items-center justify-between gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-surface-2"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm text-ink">{node.title}</p>
                       <p className="truncate text-[11px] text-muted">
-                        {path.length > 0 ? path.map((item) => item.title).join(" / ") : "尚未选择位置"}
+                        {path.length > 0 ? path.map((item) => item.title).join(" / ") : "未归位"}
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-1.5">
@@ -174,7 +188,7 @@ export default function HomePage() {
                         归位
                       </button>
                       <Link href="/chat" className="btn-ghost btn-sm">
-                        去处理
+                        对话
                       </Link>
                     </div>
                   </li>
@@ -184,22 +198,22 @@ export default function HomePage() {
           )}
         </section>
 
-        <section className="card self-start p-4 lg:col-span-2">
+        <section className="card self-start p-5 lg:col-span-2">
           <div className="flex items-center justify-between">
-            <h2 className="panel-title text-sm">最近收编</h2>
-            <Link href="/atlas" className="text-[11px] text-muted hover:text-ink">
-              打开知识库
+            <h2 className="text-sm font-medium text-ink">最近收编</h2>
+            <Link href="/atlas" className="text-[11px] text-muted hover:text-accent">
+              全部
             </Link>
           </div>
           {derived.recent.length === 0 ? (
-            <p className="py-8 text-center text-xs text-muted">还没有收编记录，去对话页试试。</p>
+            <p className="py-7 text-center text-xs text-muted">暂无记录</p>
           ) : (
-            <ul className="mt-3 space-y-2">
+            <ul className="mt-3 space-y-1">
               {derived.recent.map((node) => (
                 <li key={node.id}>
                   <Link
                     href={`/atlas?node=${node.id}`}
-                    className="flex items-center justify-between gap-2 rounded-xl border border-line bg-surface-2/60 px-3 py-2 hover:border-accent/40"
+                    className="flex items-center justify-between gap-2 rounded-xl px-2 py-2 transition-colors hover:bg-surface-2"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm text-ink">{node.title}</p>
@@ -211,35 +225,9 @@ export default function HomePage() {
               ))}
             </ul>
           )}
-          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-line pt-3 text-center text-[11px] text-muted">
-            <span>节点 {nodes.length}</span>
-            <span>关系 {relations.length}</span>
-            <span>学科 {derived.subjects.length}</span>
-          </div>
         </section>
       </div>
-
-      <section className="mt-6 grid gap-2 sm:grid-cols-3">
-        <Link href="/chat" className="btn-ghost justify-start">
-          <Icon name="camera" size={16} /> 拍题提问
-        </Link>
-        <Link href="/atlas" className="btn-ghost justify-start">
-          <Icon name="atlas" size={16} /> 打开知识库
-        </Link>
-        <button
-          type="button"
-          className="btn-ghost justify-start"
-          onClick={() => {
-            if (derived.inbox.length === 0) {
-              toast("当前没有待处理的知识点", "info");
-              return;
-            }
-            setPickerNode(derived.inbox[0]!);
-          }}
-        >
-          <Icon name="check" size={16} /> 整理待处理
-        </button>
-      </section>
+      </div>
 
       <PositionPicker
         open={pickerNode !== null}
@@ -264,22 +252,19 @@ export default function HomePage() {
 function StatCard({
   label,
   value,
-  hint,
   href,
 }: {
   label: string;
   value: number;
-  hint: string;
   href: string;
 }) {
   return (
     <Link
       href={href}
-      className="card flex flex-col gap-1 p-4 transition-colors hover:border-accent/40"
+      className="flex min-w-0 flex-col items-center gap-0.5 px-2 py-3 transition-colors hover:bg-surface-2"
     >
-      <span className="text-xs text-muted">{label}</span>
-      <span className="text-2xl font-semibold text-ink">{value}</span>
-      <span className="text-[11px] text-muted">{hint}</span>
+      <span className="text-xl font-semibold tabular-nums text-ink md:text-2xl">{value}</span>
+      <span className="text-[11px] text-muted">{label}</span>
     </Link>
   );
 }

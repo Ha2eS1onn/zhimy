@@ -84,6 +84,55 @@ export interface RenderInput {
   connectSourceId?: string | null;
   /** 布局 id → 标题（标签渲染用，避免渲染器依赖数据仓库）。 */
   titleOf: (id: string) => string | undefined;
+  theme?: "light" | "dark";
+}
+
+interface ScenePalette {
+  canvas: string;
+  hierarchy: string;
+  selectedRing: string;
+  hoverRing: string;
+  dragRing: string;
+  dropRing: string;
+  sourceRing: string;
+  badgeFill: string;
+  badgeBorder: string;
+  badgeText: string;
+  labelHalo: string;
+  labelText: string;
+}
+
+function scenePalette(theme: "light" | "dark"): ScenePalette {
+  if (theme === "light") {
+    return {
+      canvas: "#eaf1f9",
+      hierarchy: "23, 38, 61",
+      selectedRing: "rgba(23, 38, 61, 0.82)",
+      hoverRing: "rgba(23, 38, 61, 0.5)",
+      dragRing: "rgba(23, 38, 61, 0.8)",
+      dropRing: "rgba(37, 99, 235, 0.95)",
+      sourceRing: "rgba(163, 95, 0, 0.95)",
+      badgeFill: "rgba(248, 251, 255, 0.94)",
+      badgeBorder: "rgba(23, 38, 61, 0.22)",
+      badgeText: "rgba(23, 38, 61, 0.88)",
+      labelHalo: "rgba(243, 247, 252, 0.92)",
+      labelText: "rgba(23, 38, 61, 0.95)",
+    };
+  }
+  return {
+    canvas: "#07111f",
+    hierarchy: "207, 226, 250",
+    selectedRing: "rgba(255, 255, 255, 0.85)",
+    hoverRing: "rgba(255, 255, 255, 0.55)",
+    dragRing: "rgba(255, 255, 255, 0.9)",
+    dropRing: "rgba(121, 174, 252, 0.95)",
+    sourceRing: "rgba(241, 202, 114, 0.95)",
+    badgeFill: "rgba(10, 20, 36, 0.9)",
+    badgeBorder: "rgba(255, 255, 255, 0.22)",
+    badgeText: "rgba(237, 245, 255, 0.92)",
+    labelHalo: "rgba(7, 17, 31, 0.88)",
+    labelText: "rgba(237, 245, 255, 0.96)",
+  };
 }
 
 function depthFade(z: number, camera: CameraState, min = 0.22, max = 1): number {
@@ -110,9 +159,10 @@ export function renderScene(input: RenderInput): void {
     dropTargetId,
     connectSourceId,
   } = input;
+  const palette = scenePalette(input.theme ?? "dark");
 
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#000000";
+  ctx.fillStyle = palette.canvas;
   ctx.fillRect(0, 0, width, height);
 
   const byId = new Map(projected.map((node) => [node.id, node]));
@@ -126,7 +176,7 @@ export function renderScene(input: RenderInput): void {
     const parent = byId.get(node.parentId);
     if (!parent) continue;
     const fade = depthFade((node.z + parent.z) / 2, camera, 0.18, 1);
-    ctx.strokeStyle = `rgba(255, 255, 255, ${(focusLineAlpha * fade).toFixed(3)})`;
+    ctx.strokeStyle = `rgba(${palette.hierarchy}, ${(focusLineAlpha * fade).toFixed(3)})`;
     ctx.beginPath();
     ctx.moveTo(parent.x, parent.y);
     ctx.lineTo(node.x, node.y);
@@ -141,7 +191,7 @@ export function renderScene(input: RenderInput): void {
       const from = byId.get(relation.fromId);
       const to = byId.get(relation.toId);
       if (!from || !to) continue;
-      ctx.strokeStyle = relationColor(relation.type);
+      ctx.strokeStyle = relationColor(relation.type, input.theme ?? "dark");
       ctx.globalAlpha = 0.16;
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -163,7 +213,7 @@ export function renderScene(input: RenderInput): void {
         const otherId = relation.fromId === selectedId ? relation.toId : relation.fromId;
         const other = byId.get(otherId);
         if (!other) continue;
-        const color = relationColor(relation.type);
+        const color = relationColor(relation.type, input.theme ?? "dark");
         // 外发光
         ctx.strokeStyle = `${color}22`;
         ctx.lineWidth = RELATION_LINE_WIDTH + 4;
@@ -208,13 +258,13 @@ export function renderScene(input: RenderInput): void {
     }
 
     if (isSelected) {
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.strokeStyle = palette.selectedRing;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.arc(node.x, node.y, radius * 1.9, 0, Math.PI * 2);
       ctx.stroke();
     } else if (node.id === hoveredId) {
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+      ctx.strokeStyle = palette.hoverRing;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(node.x, node.y, radius * 1.6, 0, Math.PI * 2);
@@ -224,7 +274,7 @@ export function renderScene(input: RenderInput): void {
     // 拖动中的节点：虚线白环；落点目标：青色高亮环。
     if (node.id === dragNodeId) {
       ctx.setLineDash([4, 3]);
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.strokeStyle = palette.dragRing;
       ctx.lineWidth = 1.6;
       ctx.beginPath();
       ctx.arc(node.x, node.y, radius * 2.1, 0, Math.PI * 2);
@@ -232,7 +282,7 @@ export function renderScene(input: RenderInput): void {
       ctx.setLineDash([]);
     }
     if (node.id === dropTargetId) {
-      ctx.strokeStyle = "rgba(77, 208, 225, 0.95)";
+      ctx.strokeStyle = palette.dropRing;
       ctx.lineWidth = 2.2;
       ctx.beginPath();
       ctx.arc(node.x, node.y, radius * 2.3, 0, Math.PI * 2);
@@ -240,7 +290,7 @@ export function renderScene(input: RenderInput): void {
     }
     // 连线模式的源节点：琥珀色环。
     if (node.id === connectSourceId) {
-      ctx.strokeStyle = "rgba(255, 179, 0, 0.95)";
+      ctx.strokeStyle = palette.sourceRing;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(node.x, node.y, radius * 2.1, 0, Math.PI * 2);
@@ -263,14 +313,14 @@ export function renderScene(input: RenderInput): void {
     const x = node.x + node.screenRadius + 8;
     const y = node.y - node.screenRadius - 7;
     ctx.globalAlpha = focused ? 1 : 0.72;
-    ctx.fillStyle = "rgba(12, 12, 18, 0.82)";
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+    ctx.fillStyle = palette.badgeFill;
+    ctx.strokeStyle = palette.badgeBorder;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.arc(x, y, 7.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    ctx.fillStyle = "rgba(232, 232, 239, 0.9)";
+    ctx.fillStyle = palette.badgeText;
     ctx.fillText(`+${hidden}`, x, y + 0.5);
     ctx.globalAlpha = 1;
   }
@@ -304,9 +354,9 @@ export function renderScene(input: RenderInput): void {
       const fade = depthFade(node.z, camera, 0.35, 1);
       ctx.globalAlpha = fade;
       ctx.lineWidth = 3;
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.82)";
+      ctx.strokeStyle = palette.labelHalo;
       ctx.strokeText(title, x, y);
-      ctx.fillStyle = "rgba(244, 244, 250, 0.95)";
+      ctx.fillStyle = palette.labelText;
       ctx.fillText(title, x, y);
       ctx.globalAlpha = 1;
     }

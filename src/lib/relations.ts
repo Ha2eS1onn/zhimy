@@ -30,7 +30,15 @@ export function relationLabel(type: RelationType): string {
   return RELATION_META[type]?.label ?? type;
 }
 
-export function relationColor(type: RelationType): string {
+const RELATION_LIGHT_COLOR: Record<RelationType, string> = {
+  prerequisite: "#a35f00",
+  related: "#087d8c",
+  contrast: "#c03546",
+  source: "#5d7484",
+};
+
+export function relationColor(type: RelationType, theme: "light" | "dark" = "dark"): string {
+  if (theme === "light") return RELATION_LIGHT_COLOR[type] ?? "#5d7484";
   return RELATION_META[type]?.color ?? "#90A4AE";
 }
 

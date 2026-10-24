@@ -22,7 +22,10 @@ export type IconName =
   | "zoom-in"
   | "zoom-out"
   | "rotate"
-  | "chevron-down";
+  | "chevron-down"
+  | "sun"
+  | "moon"
+  | "more";
 
 const PATHS: Record<IconName, string> = {
   home: "M3 10.5 12 3l9 7.5M5.5 9.5V21h13V9.5",
@@ -47,6 +50,9 @@ const PATHS: Record<IconName, string> = {
   "zoom-out": "M8 11h6m4.5 9.5L21 21M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z",
   rotate: "M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5",
   "chevron-down": "m6 9 6 6 6-6",
+  sun: "M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z",
+  moon: "M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z",
+  more: "M5 12h.01M12 12h.01M19 12h.01",
 };
 
 interface IconProps extends SVGProps<SVGSVGElement> {

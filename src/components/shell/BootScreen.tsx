@@ -16,7 +16,7 @@ export function BootScreen() {
     <div className="flex h-dvh flex-col items-center justify-center gap-5 bg-shell text-ink">
       <div className="relative grid size-16 place-items-center">
         <span className="absolute inset-0 animate-ping rounded-full bg-accent/20" />
-        <span className="grid size-16 place-items-center rounded-2xl bg-gradient-to-br from-accent via-[#b388ff] to-pink text-2xl font-bold text-black">
+        <span className="brand-mark size-16 rounded-2xl text-2xl">
           知
         </span>
       </div>

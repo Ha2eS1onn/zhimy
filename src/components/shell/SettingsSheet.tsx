@@ -47,7 +47,11 @@ export function SettingsSheet() {
         </div>
       }
     >
-      <div className="segmented mb-4 w-full">
+      <div
+        className="segmented mb-4 w-full"
+        data-count={TABS.length}
+        data-index={Math.max(0, TABS.findIndex((item) => item.id === tab))}
+      >
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -61,9 +65,11 @@ export function SettingsSheet() {
         ))}
       </div>
 
-      {tab === "llm" ? <LlmSection /> : null}
-      {tab === "account" ? <AccountSection demo={demo} /> : null}
-      {tab === "data" ? <DataSection /> : null}
+      <div key={tab} className="motion-fade">
+        {tab === "llm" ? <LlmSection /> : null}
+        {tab === "account" ? <AccountSection demo={demo} /> : null}
+        {tab === "data" ? <DataSection /> : null}
+      </div>
     </Sheet>
   );
 }
@@ -139,7 +145,11 @@ function LlmSection() {
     <div className="space-y-5">
       <div>
         <p className="label">回答模式</p>
-        <div className="segmented mt-2 w-full">
+        <div
+          className="segmented mt-2 w-full"
+          data-count={2}
+          data-index={llm.mode === "mock" ? 0 : 1}
+        >
           <button
             type="button"
             className="flex-1"
@@ -209,7 +219,7 @@ function LlmSection() {
             </button>
           </div>
         </label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="label">文本模型</span>
             <input
@@ -256,7 +266,7 @@ function LlmSection() {
           <summary className="cursor-pointer text-[11px] text-muted">
             向量服务独立配置（可选，默认沿用上面的接口地址与 Key）
           </summary>
-          <div className="mt-2 space-y-2">
+          <div className="details-body mt-2 space-y-2">
             <label className="block">
               <span className="label">向量 Base URL</span>
               <input
@@ -282,7 +292,11 @@ function LlmSection() {
         </details>
         <div>
           <span className="label">请求方式</span>
-          <div className="segmented mt-2 w-full">
+          <div
+            className="segmented mt-2 w-full"
+            data-count={2}
+            data-index={llm.transport === "proxy" ? 0 : 1}
+          >
             <button
               type="button"
               className="flex-1"
@@ -450,7 +464,11 @@ function AccountSection({ demo }: { demo: boolean }) {
 
   return (
     <div className="space-y-4">
-      <div className="segmented w-full">
+      <div
+        className="segmented w-full"
+        data-count={2}
+        data-index={mode === "bind" ? 0 : 1}
+      >
         <button
           type="button"
           className="flex-1"

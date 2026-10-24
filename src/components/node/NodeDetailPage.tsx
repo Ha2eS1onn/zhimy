@@ -51,6 +51,7 @@ export function NodeDetailPage() {
   const [summaryDraft, setSummaryDraft] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [relationEditorOpen, setRelationEditorOpen] = useState(false);
+  const [showMeta, setShowMeta] = useState(false);
 
   const openedNodeRef = useRef<string | null>(null);
 
@@ -213,9 +214,9 @@ export function NodeDetailPage() {
             <span className={`chip ${node.status === "inbox" ? "border-warn/40 text-warn" : ""}`}>
               {node.status === "inbox" ? "待归位" : "已收编"}
             </span>
-            <span className="chip">关系 {related.length}</span>
-            <span className="chip">子节点 {children.length}</span>
-            <span className="chip">命中 {hitCount}</span>
+            <span className="chip hidden sm:inline-flex">关系 {related.length}</span>
+            <span className="chip hidden sm:inline-flex">子节点 {children.length}</span>
+            <span className="chip hidden sm:inline-flex">命中 {hitCount}</span>
             {node.manualPosition ? <span className="chip">手动定位</span> : null}
           </div>
         </div>
@@ -266,11 +267,11 @@ export function NodeDetailPage() {
                 <>
                   <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">{node.title}</h1>
                   <p className="mt-1 text-sm leading-relaxed text-muted">
-                    {node.summary || "还没有摘要。"}
+                    {node.summary || "暂无摘要。"}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button type="button" className="btn-ghost btn-sm" onClick={startProfileEditing}>
-                      <Icon name="settings" size={13} /> 编辑名称/摘要
+                      <Icon name="settings" size={13} /> 编辑
                     </button>
                     <button type="button" className="btn-ghost btn-sm" onClick={() => setPickerOpen(true)}>
                       调整位置
@@ -317,7 +318,7 @@ export function NodeDetailPage() {
             ) : (
               <section className="card p-4 md:p-5">
                 <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-ink">完整讲解</h2>
+                  <h2 className="text-sm font-semibold text-ink">讲解</h2>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -341,14 +342,9 @@ export function NodeDetailPage() {
                 {node.detail.trim() ? (
                   <MarkdownLite markdown={node.detail} />
                 ) : (
-                  <div className="rounded-xl border border-dashed border-line bg-surface/50 px-4 py-10 text-center">
-                    <p className="text-sm text-ink">还没有完整讲解</p>
-                    <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted">
-                      可以让 AI 根据来源对话和关联知识点生成一份，也可以自己写。
-                      {llm.mode === "real"
-                        ? ""
-                        : " 当前是演示模式，会使用模板生成，接入自己的模型后质量更高。"}
-                    </p>
+                  <div className="rounded-2xl bg-surface-2/60 px-4 py-10 text-center">
+                    <p className="text-sm text-ink">暂无讲解</p>
+                    <p className="mt-1 text-xs text-muted">生成一份，或自己写。</p>
                     <div className="mt-4 flex justify-center gap-2">
                       <button
                         type="button"
@@ -356,7 +352,7 @@ export function NodeDetailPage() {
                         onClick={() => void generate()}
                         disabled={generating}
                       >
-                        {generating ? "生成中…" : "AI 生成讲解"}
+                        {generating ? "生成中…" : "生成讲解"}
                       </button>
                       <button type="button" className="btn-ghost btn-sm" onClick={startEditing}>
                         手动写
@@ -368,13 +364,25 @@ export function NodeDetailPage() {
             )}
           </div>
 
-          <aside className="space-y-4">
+          <button
+            type="button"
+            className="btn-ghost w-full justify-between lg:hidden"
+            aria-expanded={showMeta}
+            onClick={() => setShowMeta((value) => !value)}
+          >
+            <span>{showMeta ? "收起" : "更多"}</span>
+            <Icon
+              name="chevron-down"
+              size={15}
+              className={`transition-transform duration-200 ease-[var(--ease-standard)] ${showMeta ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          <aside className={`${showMeta ? "block motion-reveal" : "hidden"} space-y-4 lg:block`}>
             <section className="card p-4">
               <h2 className="text-sm font-semibold text-ink">来源对话（{nodeSourceList.length}）</h2>
               {nodeSourceList.length === 0 ? (
-                <p className="mt-2 text-xs text-muted">
-                  没有来源记录。从对话收编的知识点会自动记录原题与解答。
-                </p>
+                <p className="mt-2 text-xs text-muted">暂无来源。</p>
               ) : (
                 <ul className="mt-2 space-y-2">
                   {nodeSourceList.map((source) => (
@@ -392,7 +400,7 @@ export function NodeDetailPage() {
                       </p>
                       <details className="mt-1">
                         <summary className="cursor-pointer text-[11px] text-accent">查看完整解答</summary>
-                        <p className="mt-1 whitespace-pre-wrap text-[11px] leading-relaxed text-muted">
+                        <p className="details-body mt-1 whitespace-pre-wrap text-[11px] leading-relaxed text-muted">
                           {source.answer}
                         </p>
                       </details>
@@ -425,7 +433,7 @@ export function NodeDetailPage() {
             <section className="card p-4">
               <h2 className="text-sm font-semibold text-ink">子知识点（{children.length}）</h2>
               {children.length === 0 ? (
-                <p className="mt-2 text-xs text-muted">这是叶子节点。</p>
+                <p className="mt-2 text-xs text-muted">暂无子知识点。</p>
               ) : (
                 <ul className="mt-2 space-y-1.5">
                   {children.map((child) => (

@@ -17,7 +17,7 @@ const KATEX_OPTIONS = {
   output: "htmlAndMathml",
   maxExpand: 1000,
   maxSize: 20,
-  errorColor: "#f87171",
+  errorColor: "var(--danger)",
 } as const;
 
 function renderKatex(tex: string, display: boolean): string | null {

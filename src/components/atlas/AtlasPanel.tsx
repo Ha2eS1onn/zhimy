@@ -24,6 +24,7 @@ interface AtlasPanelProps {
   nodeSources: NodeSource[];
   hiddenChildren: number;
   expanded: boolean;
+  animateEnter: boolean;
   onClose: () => void;
   onSelect: (id: string) => void;
   onToggleExpand: () => void;
@@ -38,6 +39,7 @@ export function AtlasPanel({
   nodeSources,
   hiddenChildren,
   expanded,
+  animateEnter,
   onClose,
   onSelect,
   onToggleExpand,
@@ -128,10 +130,13 @@ export function AtlasPanel({
   };
 
   return (
-    <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex max-h-[72dvh] flex-col overflow-hidden rounded-t-2xl border-t border-line bg-shell/95 backdrop-blur md:max-h-[48vh] xl:inset-y-0 xl:left-auto xl:right-0 xl:max-h-none xl:w-[380px] xl:rounded-none xl:border-l xl:border-t-0">
-      <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
+    <div
+      data-enter={animateEnter}
+      className="atlas-panel pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex max-h-[62dvh] flex-col overflow-hidden rounded-t-[24px] bg-shell/95 shadow-[var(--neu-raised)] backdrop-blur md:max-h-[55vh] xl:inset-y-0 xl:left-auto xl:right-0 xl:max-h-none xl:w-[380px] xl:rounded-none xl:rounded-l-[24px]"
+    >
+      <div className="flex items-center justify-between px-4 py-3">
         <span className="text-[11px] text-muted">
-          知识点详情 · 深度 {path.length}
+          知识点 · {path.length}
           {node.status === "inbox" ? " · 待归位" : ""}
           {node.manualPosition ? " · 手动定位" : ""}
         </span>
@@ -140,7 +145,7 @@ export function AtlasPanel({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <div className="atlas-panel-body min-h-0 flex-1 overflow-y-auto px-4 py-3">
         <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted">
           {path.map((item, index) => (
             <span key={item.id} className="flex items-center gap-1">
@@ -195,7 +200,7 @@ export function AtlasPanel({
           <>
             <h2 className="mt-1.5 text-lg font-semibold text-ink">{node.title}</h2>
             <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-ink/80">
-              {node.summary || "还没有摘要，点「编辑」补一句说明。"}
+              {node.summary || "暂无摘要。"}
             </p>
           </>
         )}
@@ -249,7 +254,7 @@ export function AtlasPanel({
             </div>
             <div className="rounded-lg border border-line bg-surface px-2.5 py-2">
               <dt className="text-muted">最近命中</dt>
-              <dd className="mt-0.5 text-ink">{lastHit ? formatRelative(lastHit) : "还没有命中过"}</dd>
+              <dd className="mt-0.5 text-ink">{lastHit ? formatRelative(lastHit) : "暂无"}</dd>
             </div>
             <div className="rounded-lg border border-line bg-surface px-2.5 py-2">
               <dt className="text-muted">命中次数</dt>
@@ -265,7 +270,7 @@ export function AtlasPanel({
         <section className="mt-4">
           <h3 className="label">子知识点（{children.length}）</h3>
           {children.length === 0 ? (
-            <p className="mt-1.5 text-xs text-muted">这是叶子节点，还没有子知识点。</p>
+            <p className="mt-1.5 text-xs text-muted">暂无子知识点。</p>
           ) : (
             <ul className="mt-1.5 space-y-1.5">
               {children.slice(0, 8).map((child) => (
@@ -324,9 +329,7 @@ export function AtlasPanel({
         <section className="mt-4">
           <h3 className="label">来源（{nodeSourceList.length}）</h3>
           {nodeSourceList.length === 0 ? (
-            <p className="mt-1.5 text-xs text-muted">
-              这条知识点来自示例数据，还没有来源对话；从对话收编的知识点会记录原题与解答。
-            </p>
+            <p className="mt-1.5 text-xs text-muted">暂无来源。</p>
           ) : (
             <ul className="mt-1.5 space-y-2">
               {nodeSourceList.map((source) => (
@@ -344,7 +347,7 @@ export function AtlasPanel({
                   </p>
                   <details className="mt-1">
                     <summary className="cursor-pointer text-[11px] text-accent">查看完整解答</summary>
-                    <p className="mt-1 whitespace-pre-wrap text-[11px] leading-relaxed text-muted">
+                    <p className="details-body mt-1 whitespace-pre-wrap text-[11px] leading-relaxed text-muted">
                       {source.answer}
                     </p>
                   </details>
@@ -389,7 +392,7 @@ export function AtlasPanel({
             href={`/chat?q=${encodeURIComponent(node.title)}`}
             className="btn-ghost btn-sm w-full justify-start"
           >
-            <Icon name="chat" size={14} /> 在对话中复习这个知识点
+            <Icon name="chat" size={14} /> 在对话中复习
           </Link>
         </div>
       </div>

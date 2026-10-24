@@ -7,10 +7,11 @@ import { AtlasCanvas, type AtlasCanvasHandle, type NodeMovePayload } from "./Can
 import { AtlasPanel } from "./AtlasPanel";
 import { RelationEditor } from "./RelationEditor";
 import { Icon } from "../shell/Icon";
+import { useResolvedTheme } from "../shell/Theme";
 import { EVENTS, track } from "@/lib/analytics";
 import { buildPath } from "@/lib/path";
 import { searchNodes } from "@/lib/search";
-import { neighborIds } from "@/lib/relations";
+import { neighborIds, relationColor } from "@/lib/relations";
 import { computeLayout } from "@/lib/layout/layout";
 import { computeVisibility } from "@/lib/atlas/visibility";
 import { DENSITY_LABEL, DENSITY_MAX_DEPTH } from "@/lib/layout/constants";
@@ -36,15 +37,19 @@ export function AtlasScreen() {
   const setDensity = useSettingsStore((state) => state.setDensity);
   const autoRotate = useSettingsStore((state) => state.autoRotate);
   const setAutoRotate = useSettingsStore((state) => state.setAutoRotate);
+  const theme = useResolvedTheme();
 
   const canvasRef = useRef<AtlasCanvasHandle | null>(null);
   const appliedParamRef = useRef<string | null>(null);
   // 连续选中同一个节点只在第一次记 node_opened，避免面包屑/重复点击刷量。
   const lastOpenedRef = useRef<string | null>(null);
+  const selectedPanelRef = useRef<string | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [panelAnimateEnter, setPanelAnimateEnter] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [searchOpen, setSearchOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [showAllRelations, setShowAllRelations] = useState(false);
   const [connectMode, setConnectMode] = useState(false);
@@ -69,9 +74,9 @@ export function AtlasScreen() {
     [nodes, query],
   );
 
+  // 手机屏幕窄，自动旋转容易造成眩晕；桌面端保持动效开启。
   useEffect(() => {
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (media.matches || window.innerWidth < 768) setAutoRotate(false);
+    if (window.innerWidth < 768) setAutoRotate(false);
   }, [setAutoRotate]);
 
   // 手机屏幕窄：默认用「概览」密度，避免 40+ 节点挤在一起。
@@ -105,6 +110,9 @@ export function AtlasScreen() {
   const select = useCallback(
     (nodeId: string | null, options: { focus?: boolean; syncUrl?: boolean } = {}) => {
       const { focus = true, syncUrl = true } = options;
+      const entering = nodeId !== null && selectedPanelRef.current === null;
+      selectedPanelRef.current = nodeId;
+      setPanelAnimateEnter(entering);
       setSelectedId(nodeId);
       if (nodeId) {
         if (lastOpenedRef.current !== nodeId) {
@@ -136,7 +144,6 @@ export function AtlasScreen() {
     if (!paramNode || appliedParamRef.current === paramNode) return;
     if (!nodes.some((node) => node.id === paramNode)) return;
     appliedParamRef.current = paramNode;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 同步 URL → 选中态
     select(paramNode, { syncUrl: false });
   }, [paramNode, nodes, select]);
 
@@ -209,7 +216,7 @@ export function AtlasScreen() {
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-canvas">
       {/* 顶栏 */}
-      <header className="z-20 flex shrink-0 flex-col gap-2 border-b border-line bg-shell/85 px-3 py-2 backdrop-blur md:px-4">
+      <header className="z-20 flex shrink-0 flex-col gap-1.5 border-b border-line bg-shell/90 px-3 py-1.5 backdrop-blur md:gap-2 md:px-4 md:py-2">
         <div className="flex items-center gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto text-xs text-muted">
             {selectedNode ? (
@@ -226,14 +233,14 @@ export function AtlasScreen() {
                 </span>
               ))
             ) : (
-              <span>知识库 · {nodes.length} 个知识点</span>
+              <span>知识库 · {nodes.length}</span>
             )}
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
-              className="grid size-8 place-items-center rounded-lg text-muted hover:bg-surface hover:text-ink"
+              className="icon-btn size-8"
               aria-label="搜索知识点"
               onClick={() => setSearchOpen((value) => !value)}
             >
@@ -241,8 +248,8 @@ export function AtlasScreen() {
             </button>
             <button
               type="button"
-              className={`grid size-8 place-items-center rounded-lg hover:bg-surface ${
-                autoRotate ? "text-accent" : "text-muted hover:text-ink"
+              className={`icon-btn hidden size-9 md:grid ${
+                autoRotate ? "text-accent" : "text-muted"
               }`}
               aria-label={autoRotate ? "关闭自动旋转" : "开启自动旋转"}
               aria-pressed={autoRotate}
@@ -252,7 +259,7 @@ export function AtlasScreen() {
             </button>
             <button
               type="button"
-              className="hidden size-8 place-items-center rounded-lg text-muted hover:bg-surface hover:text-ink md:grid"
+              className="icon-btn hidden size-8 md:grid"
               aria-label="放大"
               onClick={() => canvasRef.current?.zoomBy(1.2)}
             >
@@ -260,7 +267,7 @@ export function AtlasScreen() {
             </button>
             <button
               type="button"
-              className="hidden size-8 place-items-center rounded-lg text-muted hover:bg-surface hover:text-ink md:grid"
+              className="icon-btn hidden size-8 md:grid"
               aria-label="缩小"
               onClick={() => canvasRef.current?.zoomBy(1 / 1.2)}
             >
@@ -268,17 +275,36 @@ export function AtlasScreen() {
             </button>
             <button
               type="button"
-              className="hidden size-8 place-items-center rounded-lg text-muted hover:bg-surface hover:text-ink md:grid"
+              className="icon-btn hidden size-9 md:grid"
               aria-label="复位视角"
               onClick={() => canvasRef.current?.resetView()}
             >
               <Icon name="refresh" size={16} />
             </button>
+            <button
+              type="button"
+              className={`icon-btn grid size-9 md:hidden ${
+                toolsOpen || connectMode || showAllRelations ? "text-accent" : "text-muted"
+              }`}
+              aria-label="图谱工具"
+              aria-expanded={toolsOpen}
+              aria-controls="atlas-tools"
+              onClick={() => setToolsOpen((value) => !value)}
+            >
+              <Icon name="more" size={19} />
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="segmented">
+        <div
+          id="atlas-tools"
+          className={`${toolsOpen ? "flex" : "hidden"} motion-reveal flex-wrap items-center gap-2 md:flex`}
+        >
+          <div
+            className="segmented"
+            data-count={DENSITIES.length}
+            data-index={Math.max(0, DENSITIES.indexOf(density))}
+          >
             {DENSITIES.map((item) => (
               <button
                 key={item}
@@ -304,7 +330,7 @@ export function AtlasScreen() {
               onClick={() => setShowAllRelations((value) => !value)}
               title="显示全部关系线"
             >
-              关系线：{showAllRelations ? "全部" : "聚焦"}
+              关系线 {showAllRelations ? "全" : "聚焦"}
             </button>
             <button
               type="button"
@@ -330,7 +356,7 @@ export function AtlasScreen() {
         </div>
 
         {connectMode ? (
-          <div className="rounded-lg border border-warn/30 bg-warn/5 px-2.5 py-1.5 text-[11px] text-warn">
+          <div className="motion-reveal rounded-lg bg-warn/10 px-2.5 py-1.5 text-[11px] text-warn">
             {connectSourceId
               ? "已选起点：再点击另一个知识点建立关系，点空白处取消。"
               : "连线模式：先点起点知识点，再点终点知识点。"}
@@ -348,9 +374,9 @@ export function AtlasScreen() {
         ) : null}
 
         {searchOpen ? (
-          <div className="rounded-xl border border-line bg-surface p-2">
+          <div className="atlas-search motion-reveal rounded-xl bg-surface p-2 shadow-[var(--neu-soft)]">
             <input
-              className="w-full bg-transparent px-2 py-1.5 text-sm text-ink outline-none placeholder:text-muted/70"
+              className="w-full bg-transparent px-2 py-1.5 text-sm text-ink outline-none placeholder:text-muted"
               placeholder="搜索知识点，Enter 定位"
               value={query}
               autoFocus
@@ -405,37 +431,31 @@ export function AtlasScreen() {
           showAllRelations={showAllRelations}
           connectMode={connectMode}
           connectSourceId={connectSourceId}
+          theme={theme}
           onSelect={handleSelect}
           onMoveNode={(nodeId, payload) => void handleMoveNode(nodeId, payload)}
         />
 
-        {/* 纯黑画布 + 轻暗角（方案 §5.5） */}
-        <div
-          className="pointer-events-none absolute inset-0 z-[1]"
-          style={{
-            background:
-              "radial-gradient(ellipse at center, transparent 52%, rgba(0,0,0,0.82) 100%)",
-          }}
-        />
+        <div className="atlas-vignette pointer-events-none absolute inset-0 z-[1]" />
 
         {/* 图例与操作提示 */}
         <div className="pointer-events-none absolute bottom-3 left-3 z-10 space-y-1.5 text-[10px] text-muted">
           <div className="flex items-center gap-3 rounded-lg bg-shell/70 px-2 py-1 backdrop-blur">
-            <LegendItem color="#FFB300" label="先修" />
-            <LegendItem color="#4DD0E1" label="相关" />
-            <LegendItem color="#FF5252" label="易混" />
+            <LegendItem color={relationColor("prerequisite", theme)} label="先修" />
+            <LegendItem color={relationColor("related", theme)} label="相关" />
+            <LegendItem color={relationColor("contrast", theme)} label="易混" />
           </div>
-          <p className="hidden rounded-lg bg-shell/70 px-2 py-1 backdrop-blur md:block">
-            拖拽空白旋转 · 拖动节点移动 · 拖到节点上改归属 · 滚轮缩放 · 双击复位
+          <p className="hidden rounded-lg px-2 py-1 text-muted/90 backdrop-blur md:block">
+            拖动旋转 · 滚轮缩放 · 双击复位
           </p>
         </div>
 
         {nodes.length === 0 && !loading ? (
           <div className="absolute inset-0 z-10 grid place-items-center px-4">
-            <div className="card max-w-sm p-5 text-center">
-              <p className="text-sm font-medium text-ink">知识图谱还没有节点</p>
-              <p className="mt-1 text-xs leading-relaxed text-muted">
-                载入一份示例图谱，看看 3D 知识库的样子；或者先去对话页提一个问题。
+            <div className="card max-w-sm px-5 py-6 text-center">
+              <p className="text-sm font-medium text-ink">还没有知识点</p>
+              <p className="mt-1.5 text-xs leading-relaxed text-muted">
+                载入示例，或从一次提问开始。
               </p>
               <div className="mt-4 flex justify-center gap-2">
                 <button
@@ -447,10 +467,10 @@ export function AtlasScreen() {
                       .catch((error) => toast(error instanceof Error ? error.message : "载入失败", "error"));
                   }}
                 >
-                  载入示例图谱
+                  载入示例
                 </button>
                 <Link href="/chat" className="btn-ghost btn-sm">
-                  去对话
+                  去提问
                 </Link>
               </div>
             </div>
@@ -476,6 +496,7 @@ export function AtlasScreen() {
             nodeSources={nodeSources}
             hiddenChildren={selectedHiddenChildren}
             expanded={selectedExpanded}
+            animateEnter={panelAnimateEnter}
             onClose={() => handleSelect(null)}
             onSelect={(id) => handleSelect(id)}
             onToggleExpand={() => {

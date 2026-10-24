@@ -29,7 +29,8 @@ export function Composer({ busy, streaming, modeLabel, onOpenSettings, onSend, o
     const element = textareaRef.current;
     if (!element) return;
     element.style.height = "auto";
-    element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
+    const maxHeight = window.innerWidth < 768 ? 112 : 160;
+    element.style.height = `${Math.min(element.scrollHeight, maxHeight)}px`;
   }, [text]);
 
   const handleFiles = (files: FileList | null) => {
@@ -58,7 +59,7 @@ export function Composer({ busy, streaming, modeLabel, onOpenSettings, onSend, o
   };
 
   return (
-    <div className="shrink-0 border-t border-line bg-shell/95 px-3 py-3 md:px-5">
+    <div className="shrink-0 bg-shell/95 px-3 pb-3 pt-2.5 backdrop-blur md:px-5 md:py-3">
       <div className="mx-auto w-full max-w-3xl">
         {image ? (
           <div className="mb-2 flex items-center gap-2">
@@ -79,7 +80,7 @@ export function Composer({ busy, streaming, modeLabel, onOpenSettings, onSend, o
           </div>
         ) : null}
 
-        <div className="card flex items-end gap-2 p-2">
+        <div className="composer-box card flex items-end gap-2 p-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -100,9 +101,10 @@ export function Composer({ busy, streaming, modeLabel, onOpenSettings, onSend, o
           </button>
           <textarea
             ref={textareaRef}
-            className="max-h-40 min-h-9 flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-relaxed text-ink outline-none placeholder:text-muted/70"
+            aria-label="输入题目或追问"
+            className="max-h-28 min-h-9 flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-relaxed text-ink outline-none placeholder:text-muted md:max-h-40"
             rows={1}
-            placeholder="输入题目或追问，Enter 发送，Shift+Enter 换行"
+            placeholder="输入题目或追问…"
             value={text}
             onChange={(event) => setText(event.target.value)}
             onKeyDown={(event) => {
@@ -114,27 +116,31 @@ export function Composer({ busy, streaming, modeLabel, onOpenSettings, onSend, o
           />
           {streaming ? (
             <button type="button" className="btn-ghost btn-sm shrink-0" onClick={onStop}>
-              <Icon name="stop" size={14} /> 停止
+              <Icon name="stop" size={14} /> <span className="hidden sm:inline">停止</span>
             </button>
           ) : (
             <button
               type="button"
               className="btn-primary btn-sm shrink-0"
+              aria-label="发送"
               onClick={submit}
               disabled={busy || (!text.trim() && !image)}
             >
-              <Icon name="send" size={14} /> 发送
+              <Icon name="send" size={14} /> <span className="hidden sm:inline">发送</span>
             </button>
           )}
         </div>
 
-        <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted">
-          <button type="button" className="hover:text-ink" onClick={onOpenSettings}>
+        <div className="mt-1.5 flex min-w-0 items-center justify-between gap-3 text-[11px] text-muted">
+          <button
+            type="button"
+            className="min-w-0 max-w-[72%] truncate text-left hover:text-ink sm:max-w-none"
+            onClick={onOpenSettings}
+            title={modeLabel}
+          >
             {modeLabel}
           </button>
-          <span className="hidden sm:inline">
-            图片仅用于本次提问；缩略图保存在本机浏览器（不上传云端）
-          </span>
+          <span className="hidden shrink-0 sm:inline">图片仅本次使用</span>
         </div>
       </div>
     </div>
