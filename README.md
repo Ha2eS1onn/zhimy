@@ -163,11 +163,9 @@ NEXT_PUBLIC_DEMO_MODE=1
 - `.github/workflows/keepalive.yml`：每日 ping 一次 Supabase REST，规避免费项目 7 天不活跃暂停（未配置 secrets 时自动跳过）
 - 支持 `?demo=1` 自动载入示例图谱，适合公开 Demo
 
-> **尚未实际部署**：下面的 CI 徽章与 Live Demo 链接在部署成功后再补填，这里不写占位/编造地址。
->
-> <!-- TODO: 仓库公开且 CI 跑过一轮后，填入真实 <owner>/<repo>，保留 .github/workflows/ci.yml 路径：
-> ![CI](https://github.com/<owner>/<repo>/actions/workflows/ci.yml/badge.svg)
-> -->
+[![CI](https://github.com/Ha2eS1onn/zhimy/actions/workflows/ci.yml/badge.svg)](https://github.com/Ha2eS1onn/zhimy/actions/workflows/ci.yml)
+
+> **状态**：仓库已公开（<https://github.com/Ha2eS1onn/zhimy>），首轮 CI 全绿；线上 Demo 部署完成后在此补填地址。
 >
 > <!-- TODO: 部署成功后补填：Live Demo: https://<your-demo>.vercel.app -->
 
