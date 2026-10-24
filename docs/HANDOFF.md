@@ -10,10 +10,10 @@
 
 - 这是「知脉」——把 AI 答疑沉淀成**可寻址、可联想、可收纳的个人知识图谱**的 Web 应用（Next.js 16 + Supabase）。
 - **P1-A 真实命中（pgvector 1024 维 + 关键词兜底）与 P1-B 指标埋点（events + insights）已完成 ✅**；**P1-C 拍题链路代码完成 🟡**（原图只喂当次请求的模型、视觉模型优先，不上传云端；聊天缩略图存本机 IndexedDB；浏览器验收待执行）；**P1-D 已完成 ✅**——仓库已公开、CI 首跑全绿、Vercel 生产部署上线（主域名 <https://zhimy.kasho.fun>，备用 <https://zhimy.vercel.app>，Let's Encrypt 证书已签发）、keepalive 已配置并手动验证通过、Git 连接已开启 push 自动部署（2026-10-24）。
-- 当前状态（2026-10-24）：**P1 全部改动已提交并推送**（`b659a6b` 向量命中 / `872233b` 会话+埋点+拍题+公式 / `a3654f1` 部署与 CI / `934c6ec` 徽章，后续文档提交在同分支）。整体验证：`typecheck` / `lint` 通过、vitest **26 个文件 201 个用例全绿**、`next build` 通过（8 条路由 + Proxy）、CI 在 GitHub 上实跑全绿（2m36s）、`npm run db:init` 47 条语句全部 ok、线上 `/api/health` 返回 `{"ok":true}`、匿名登录 REST 校验通过（返回 `is_anonymous: true` + session）。**尚未执行**：`verify-rls` 双账号校验、浏览器端 E2E 与向量命中「5 种问法」验收（缺真实 embedding Key）。
+- 当前状态（2026-10-24）：**P1 全部改动已提交并推送**（`b659a6b` 向量命中 / `872233b` 会话+埋点+拍题+公式 / `a3654f1` 部署与 CI / `934c6ec` 徽章 / `5e6ecf4`、`4888c28`、`aa7762c` 部署与域名文档）。整体验证：`typecheck` / `lint` 通过、vitest **26 个文件 201 个用例全绿**、`next build` 通过（8 条路由 + Proxy）、CI 在 GitHub 上实跑全绿（2m36s）、`npm run db:init` 47 条语句全部 ok、线上 `/api/health` 返回 `{"ok":true}`、匿名登录 REST 校验通过。**线上 E2E（Playwright / Chromium headless，2026-10-24）14/14 通过、0 console error / 0 page error / 0 failed request**：`?demo=1` 自动载入 102 节点 → 3D 渲染 → 对话流式回答 → 抽取 2 张收编卡 → 收编写入 → `/atlas?node=` 深链定位 → 详情页 AI 模板生成 → 保存 → 刷新后仍在 → 进入对话页默认新会话。**尚未执行**：`verify-rls` 双账号校验、拍题/公式/思维链的线上自动化验收、向量命中「5 种问法」验收（缺真实 embedding Key）。
 - **向量命中的「5 种问法 ≥4 命中」云端验收尚未执行**：需要维护者配置真实 embedding Key 后按第 9 节 checklist 验证；无 Key 时按设计降级关键词，不影响构建与基础使用。
 - 部署方案：**Vercel Hobby（免费）+ GitHub Actions CI + 每日 keepalive**，定位是公开 Demo 与工程完整度；不做 VPS/Docker/备案/商业合规（详见 P1-D 与 `docs/DEPLOY.md`）。
-- 下一步建议：① 在 Supabase Auth 里把 `Site URL` / `Redirect URLs` 指向 `https://zhimy.kasho.fun`（见 `docs/DEPLOY.md` §3.3）；② 配真实 embedding Key 跑「5 种问法 ≥4 命中」与 `docs/insights.sql` 落库验收；③ 浏览器 E2E 回归；④ P2 增强（复习闭环、Realtime、分享）。P1-C 已按简化方案收口，图片云端持久化与 OCR 不做。
+- 下一步建议：① 在 Supabase Auth 里把 `Site URL` / `Redirect URLs` 指向 `https://zhimy.kasho.fun`（见 `docs/DEPLOY.md` §3.3）；② 配真实 embedding Key 跑「5 种问法 ≥4 命中」与 `docs/insights.sql` 落库验收；③ 补拍题/公式/思维链的线上验收（主闭环已 E2E 通过）；④ P2 增强（复习闭环、Realtime、分享）。P1-C 已按简化方案收口，图片云端持久化与 OCR 不做。
 - 流式体验（2026-10-24）：SSE 支持读取 `reasoning_content` / `reasoning` / `thinking` / `reasoning_details`，聊天里展示可折叠「思考过程」；正文用前端打字机逐字上屏。思维链存入当前账号的 `chat_messages.payload`（上限 2 万字），不写 events。
 - 多会话（2026-10-24）：新增 `conversations`，`chat_messages.conversation_id` 归属；进入 `/chat` 默认新对话（空会话不写库，发第一条消息才建会话），顶部「历史」切换/删除，`?c=` 恢复；每个会话的上下文完全隔离。system prompt 同时放宽到全学科（哲学、编程等）。
 
@@ -245,7 +245,7 @@ P1 子项状态：
 - **会话**：进入对话页默认新对话，旧会话需从「历史」进入；暂不支持重命名、搜索、置顶或跨会话合并。空会话不落库，发送第一条消息时才创建；删除会话会级联删除消息；迁移前的历史消息统一归入「历史对话」。`?c=` 只做恢复提示，不是稳定的分享链接
 - **system prompt**：已放宽到全学科，但知识抽取/讲解生成仍以“知识点”为单位；纯代码项目、长篇创作等可能只抽出少量可收编节点，属于产品模型限制
 - **有基础埋点但没有应用内看板**：`events` 只记事件名与少量属性，聚合查询需在 Supabase SQL Editor 手动执行 `docs/insights.sql`
-- **已上线但未做完整线上验收**：<https://zhimy.kasho.fun> 可访问（证书已签发）、`/api/health` 正常、匿名登录可用；浏览器端「提问 → 收编 → 3D 找到」与拍题/公式/思维链验收尚未在线上跑；Supabase Auth 的 Site URL / Redirect URLs 仍需指向 `https://zhimy.kasho.fun`；无 PWA service worker；Hobby 函数区域美东，国内访问延迟较高
+- **已上线，主闭环 E2E 通过**：<https://zhimy.kasho.fun> 可访问（证书至 2027-01-22）、`/api/health` 正常、匿名登录可用；Playwright 线上跑通「示例图谱 → 对话 → 收编 → 3D 深链 → 详情生成/保存 → 刷新持久化」14 项。**未覆盖**：拍题缩略图、公式渲染、思维链面板的线上自动化验收；Supabase Auth 的 Site URL / Redirect URLs 仍需指向新域名；无 PWA service worker；Hobby 函数区域美东，国内访问延迟较高
 - 无账号删除/数据删除入口；无 JSON 导入（只有导出）
 - 复习闭环（掌握度/间隔重复/到期复习）未做
 - 跨端同步靠"重新打开/切回页面刷新"，无 Realtime
