@@ -24,6 +24,9 @@ _verify-*/
 _read_plan.py
 _qa_plan.py
 
+# 本地 Agent 工作目录（项目记忆 / 会话数据，不随仓库发布）
+.workbuddy/
+
 # os / editor
 .DS_Store
 Thumbs.db

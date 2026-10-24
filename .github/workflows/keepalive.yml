@@ -1,0 +1,41 @@
+name: Supabase Keepalive
+
+# 用途：Supabase 免费项目连续 7 天无请求会被自动暂停（数据保留，需控制台手动恢复）。
+# 这个工作流每天用 anon key 轻量请求一次 REST 接口（RLS 允许匿名 select，返回空数组也算活跃），
+# 让免费 Demo 项目保持唤醒。
+#
+# 配置（一次性，仓库 Settings → Secrets and variables → Actions）：
+#   Variables: SUPABASE_URL            = https://<project-ref>.supabase.co（不要带结尾斜杠）
+#   Secrets:   SUPABASE_ANON_KEY       = Supabase Project Settings → API 里的 anon public key
+# 未配置时下面的 ping 步骤会被 if 跳过，不会让 CI 出现红叉；配置后可在 Actions 页手动
+# workflow_dispatch 触发一次验证。
+on:
+  schedule:
+    # 每天 03:00 UTC（北京时间 11:00）执行一次
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Ping Supabase REST
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    steps:
+      - name: Keepalive request
+        # 未配置 URL / KEY 时跳过（secrets 不能直接写在 if 里，故先经 env 中转）。
+        if: ${{ env.SUPABASE_URL != '' && env.SUPABASE_ANON_KEY != '' }}
+        run: |
+          curl -sf -o /dev/null --max-time 20 \
+            "$SUPABASE_URL/rest/v1/profiles?select=user_id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY"
+
+      - name: Skip notice
+        if: ${{ env.SUPABASE_URL == '' || env.SUPABASE_ANON_KEY == '' }}
+        run: echo "未配置 vars.SUPABASE_URL / secrets.SUPABASE_ANON_KEY，跳过保活请求。"

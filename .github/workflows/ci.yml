@@ -1,0 +1,48 @@
+name: CI
+
+# 每次 push / PR 跑一遍与本地相同的自检：类型检查、Lint、单测、生产构建。
+# 不配置任何 Supabase 密钥：应用在缺少环境变量时会渲染配置引导页，构建不依赖云端。
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+# 同一分支的旧流水线被新提交打断，节省 Actions 额度。
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  verify:
+    name: Typecheck / Lint / Test / Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Build
+        run: npm run build

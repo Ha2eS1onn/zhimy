@@ -1,29 +1,35 @@
 # 知脉 · 进度汇报与后续计划（交接文档）
 
-> 更新：2026-10-18 ｜ 分支 `main` ｜ 最新提交 `c947c7a` ｜ 阅读对象：接手本项目的开发者 / Agent
+> 更新：2026-10-23 ｜ 分支 `main` ｜ 最新提交 `本轮改动未提交` ｜ 阅读对象：接手本项目的开发者 / Agent
 >
 > 本文档只写"事实 + 决策 + 下一步"，产品理念与交互细节见 [产品方案](知脉-知识地图产品方案-v1.0.docx) 与 [README](../README.md)。
+>
+> 项目定位：**个人开源、非商业（MIT）**，重心是技术实现与工程质量；线上 Demo 仅用于技术展示，不以用户量/商业化为目标。
 
 ## 0. TL;DR
 
 - 这是「知脉」——把 AI 答疑沉淀成**可寻址、可联想、可收纳的个人知识图谱**的 Web 应用（Next.js 16 + Supabase）。
-- **方案里的 P0 已完整落地**，P1 的账号/持久化/页面/真实 AI（对话、抽取、讲解、关系建议）已提前完成；**最大缺口是「命中」仍是关键词匹配，以及没有指标埋点与部署**。
-- 当前状态：`typecheck / lint / test（85 个）/ build` 全绿；真实 Supabase 云端 E2E（收编、命中、登录、详情编辑、关系编辑、拖拽定位）已验证通过。
-- 下一步建议：**P1-A 真实命中（pgvector embedding）+ P1-B 指标埋点**（详见第 9、10 节）。
+- **P1-A 真实命中（pgvector 1024 维 + 关键词兜底）与 P1-B 指标埋点（events + insights）已在本轮完成 ✅**；**P1-C 拍题链路代码完成 🟡**（原图只喂当次请求的模型、视觉模型优先，不上传云端；聊天缩略图存本机 IndexedDB；浏览器验收待执行）；**P1-D 的仓库部分已完成 🟡**（`.nvmrc` / CI / keepalive / `?demo=1` / `docs/DEPLOY.md`），**尚未实际部署**（需要 Vercel 与 GitHub 仓库授权）。
+- 当前状态：**本轮改动未提交**。此前整体验证已完成：`typecheck` / `lint` 通过、vitest **23 个文件 177 个用例全绿**、`next build` 通过（含 `/api/llm/embeddings`、`/api/health`；清空 Supabase 环境变量后也能构建，模拟 CI）、本轮 `npm run db:init` 执行 47 条语句全部 ok（新增 conversations / conversation_id / 回填 / RLS）、`node scripts/verify-rls.mjs --direct` 通过（节点/向量 RPC/events/回填列表/会话与消息归属的跨用户隔离）。此前真实 Supabase 云端 E2E（收编、命中、登录、详情编辑、关系编辑、拖拽定位）已验证通过；**本轮浏览器端 E2E 未执行**（本机 HTTPS 到 `*.supabase.co` 被重置且没有真实 embedding Key，见第 10 节）。本轮追加改动：新增 `tests/imageAttachments.test.ts`（10 个用例）、`tests/chatTurns.test.ts`（4 个用例）与 `tests/conversations.test.ts`（4 个用例，总计 26 个文件 / 201 个用例），并重写 `tests/tex.test.ts`（KaTeX/跨行公式）、扩展 `tests/sse.test.ts`（思维链提取），`typecheck` / `lint` 通过；按维护者要求未重复跑 vitest（且本机沙箱下 vitest 启动即 `spawn EPERM`），本次已执行 `db:init`（迁移 conversations 与 chat_messages.conversation_id，旧消息回填「历史对话」），多会话、图片、公式与思考流的浏览器验收待执行（见第 9 节）。
+- **向量命中的「5 种问法 ≥4 命中」云端验收尚未执行**：需要维护者配置真实 embedding Key 后按第 9 节 checklist 验证；无 Key 时按设计降级关键词，不影响构建与基础使用。
+- 部署方案：**Vercel Hobby（免费）+ GitHub Actions CI + 每日 keepalive**，定位是公开 Demo 与工程完整度；不做 VPS/Docker/备案/商业合规（详见 P1-D 与 `docs/DEPLOY.md`）。
+- 下一步建议：执行 P1-D 剩余部分（推送仓库、Vercel 部署、补 README 徽章与 Live Demo）→ P2 增强（复习闭环、Realtime、分享）；P1-C 已按简化方案收口，图片云端持久化与 OCR 不做。
+- 流式体验（2026-10-24）：SSE 支持读取 `reasoning_content` / `reasoning` / `thinking` / `reasoning_details`，聊天里展示可折叠「思考过程」；正文用前端打字机逐字上屏。思维链存入当前账号的 `chat_messages.payload`（上限 2 万字），不写 events。
+- 多会话（2026-10-24）：新增 `conversations`，`chat_messages.conversation_id` 归属；进入 `/chat` 默认新对话（空会话不写库，发第一条消息才建会话），顶部「历史」切换/删除，`?c=` 恢复；每个会话的上下文完全隔离。system prompt 同时放宽到全学科（哲学、编程等）。
 
 ## 1. 运行与自检
 
 ### 环境要求
 
-- Windows（当前开发机）+ Node.js >= 20.19 + npm
-- Supabase 项目（免费版即可）：数据库、Auth 匿名登录已启用
-- 国内网络需要代理：本机 Clash Verge，系统代理 `http://127.0.0.1:7897`
+- Windows（当前开发机）+ Node.js **22**（仓库含 `.nvmrc`，CI 也用它；最低 >= 20.19）+ npm
+- Supabase 项目（免费版即可）：数据库、Auth 匿名登录已启用；本轮 schema 需要 pgvector（`db:init` 自动创建）
+- 国内网络通常需要代理（本机 Clash Verge，系统代理 `http://127.0.0.1:7897`）。**本机 2026-10-23 实测：Postgres 5432 可直连（`db:init` 与 `verify-rls --direct` 可用），但 HTTPS（Auth/PostgREST）会被重置**；浏览器端能否直连取决于当时网络，Node 侧 HTTPS 失败时用 `dev:proxy` 或下文代理环境变量。
 
 ### 启动
 
 ```powershell
 npm install                    # 首次
-npm run dev:proxy              # 开发服务器（Node 请求走代理，必须）
+npm run dev:proxy              # 开发服务器（Node 请求走代理；网络能直连时可省略）
 # 或 npm run dev（网络可直连 supabase 时）
 # http://localhost:3100
 ```
@@ -34,18 +40,24 @@ npm run dev:proxy              # 开发服务器（Node 请求走代理，必须
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
   - `SUPABASE_DB_URL`（也可以只填数据库密码，`db:init` 会自动拼连接串；或改用 `SUPABASE_ACCESS_TOKEN` 走管理 API）
+  - （可选）`EMBEDDING_API_KEY` / `EMBEDDING_BASE_URL` / `EMBEDDING_MODEL`：**仅 `npm run embed:backfill` 本地回填脚本使用**，运行时不读；向量模型本身仍由用户在「设置 → 模型 → 向量模型」里配置（Key 只存本机 localStorage）
 - 模板见 `.env.example`。**不要把真实密钥写进任何文档或提交。**
+- 线上部署（Vercel）**只配两个 `NEXT_PUBLIC_*` 变量**；不要配 `NEXT_PUBLIC_DEMO_MODE` / `SUPABASE_DB_URL` / `SUPABASE_ACCESS_TOKEN`，见 `docs/DEPLOY.md`。
 
 ### 自检命令
 
 ```powershell
 npm run typecheck
 npm run lint
-npm run test          # 85 个纯逻辑单测
-npm run build         # 生产构建；路由含 /、/chat、/atlas、/node/[id]、/api/llm/chat
-npm run db:init       # 幂等：建表/索引/RLS/触发器，并补齐增量列
+npm run test          # 纯逻辑单测（本轮新增向量/埋点/schema 相关用例，数量以实际输出为准）
+npm run build         # 生产构建；路由含 /、/chat、/atlas、/node/[id]、/api/llm/chat、/api/llm/embeddings、/api/health
+npm run db:init       # 幂等：建表/索引/RLS/触发器 + pgvector/embedding 列/HNSW/RPC + events 表
 npm run verify:rls    # 双匿名账号验证 RLS（需代理环境变量）
+node scripts/verify-rls.mjs --direct   # 用 SUPABASE_DB_URL 直连 Postgres 校验同一套 RLS（含 events/向量表/会话归属；HTTPS 被重置时用）
+npm run embed:backfill # 用 BYOK 向量模型回填存量节点向量（读 .env.local 的 SUPABASE_DB_URL + EMBEDDING_*；支持 -- --dry-run/--force）
 ```
+
+CI：`.github/workflows/ci.yml` 在 push / PR 上跑 `npm ci → typecheck → lint → test → build`（不配置任何云端密钥）；Supabase 保活见 `.github/workflows/keepalive.yml`。
 
 代理环境变量（跑 `db:init` / `verify:rls` / 无头脚本前）：
 
@@ -68,8 +80,17 @@ $env:NODE_USE_ENV_PROXY="1"
 | 阶段 | 方案要求 | 状态 | 说明 |
 |---|---|---|---|
 | P0 原型 | 可点击原型、3D 知识库、三端布局 | ✅ 完成 | 额外完成云账号与持久化（原属 P1） |
-| P1 MVP | 账号、真实 AI、数据持久化、三大页面 | 🟡 约 80% | 账号✅ 持久化✅ 三大页面✅；真实 AI 的对话/抽取/讲解/关系建议✅；**命中仍关键词**、**图片未持久化**、**未部署** |
+| P1 MVP | 账号、真实 AI、数据持久化、三大页面 | 🟡 约 95% | 账号✅ 持久化✅ 三大页面✅ 真实 AI✅；**P1-A 向量命中✅**、**P1-B 指标埋点✅**、**P1-C 拍题缩略图（本地）🟡 代码完成**；剩余：**P1-D 实际部署** |
 | P2 增强 | 复习、关系编辑、导出、分享 | 🟡 约 40% | 关系编辑✅ 导出 JSON✅；复习闭环、分享、Realtime、导入/删号未做 |
+
+P1 子项状态：
+
+| 子项 | 状态 | 说明 |
+|---|---|---|
+| P1-A 真实命中 | ✅ 完成 | pgvector 1024 维 + HNSW，余弦相似度 ≥ 0.78 命中；未配置/异常/低分降级关键词 |
+| P1-B 指标埋点 | ✅ 完成 | `events` 表（RLS）+ `src/lib/analytics.ts` + `docs/insights.sql` |
+| P1-C 拍题链路 | 🟡 代码完成，浏览器验收待执行 | 原图只用于当次视觉模型请求，不上传云端；聊天/来源缩略图存本机 IndexedDB（2026-10-24 决策，见第 5 节 #16） |
+| P1-D 部署 + CI | 🟡 仓库部分完成 | CI / keepalive / `.nvmrc` / `?demo=1` / `docs/DEPLOY.md` 已就绪；**未实际部署** |
 
 ## 3. 已实现能力（模块 → 关键文件）
 
@@ -89,10 +110,13 @@ $env:NODE_USE_ENV_PROXY="1"
 ### 3.3 对话 / 收编闭环
 
 - 演示脚本流式回答（无模型 Key）与 BYOK 真实流式回答（OpenAI 兼容）
-- 命中判定：目前是本地关键词（`src/lib/search.ts` 的 `resolveQuestion`）
-- 真实抽取：`src/lib/ai/extract.ts`（检索候选 → 模型输出 JSON → 系统校验 title/parentId/relations；带最近对话上下文与防注入提示）
-- 收编卡片：可改名称/摘要、换位置、取消；低置信度进 `inbox`
-- 文件：`src/components/chat/*`、`src/store/chatStore.ts`、`src/store/graphStore.ts`
+- 命中判定：**向量优先**——`src/lib/ai/hit.ts` 的 `resolveHit`（问题 embed → `match_nodes` top-k → 相似度 ≥ 0.78 视为命中并给出路径）；未配置向量模型、调用异常/超时或相似度不足时**降级关键词**（`src/lib/search.ts` 的 `resolveQuestion`）
+- 真实抽取：`src/lib/ai/extract.ts`（检索候选 → 模型输出 JSON → 系统校验 title/parentId/relations；带最近对话上下文与防注入提示）；候选召回向量优先、关键词补齐
+- 收编卡片：可改名称/摘要、换位置、取消；低置信度进 `inbox`。**「换个位置」支持新建父级路径**（`物理 / 电学`，同父级同名复用、缺失逐级创建，`graphStore.createPath`），用户显式选过位置/新建路径后收编直接 `active`（`adopt({ forceActive })`）
+- 拍题图片：原图只在本次请求内使用，**不落库、不上传 Storage**；发送前压到最长边 1600（控制 base64 请求体），图片请求优先使用设置里的视觉模型，未配置时沿用文本模型并提示一次；缩略图（640px / JPEG 0.72）写入本机 IndexedDB，聊天气泡与知识点来源页按 id 读取（换设备/清缓存后只显示文件名）
+- 多会话：`conversations` 存会话标题/更新时间，`chat_messages.conversation_id` 归属；聊天页进入时默认新对话，发送第一条消息才创建会话；历史面板可切换/删除；每个会话独立加载消息，`buildRecentContext` 与模型历史都只读当前会话
+- 流式思维链与打字机：`sse.ts` 同时提取正文与 reasoning；`ChatScreen` 收到 reasoning chunk 后显示「思考过程」面板，正文交给 `useTypewriter` 逐字上屏；完整 reasoning 随 assistant 消息写入 `payload.reasoning`（`MessageBubble` 里默认折叠，可回看）
+- 文件：`src/components/chat/*`、`src/store/chatStore.ts`、`src/store/graphStore.ts`、`src/lib/ai/hit.ts`、`src/lib/ai/semanticSearch.ts`、`src/lib/ai/semanticClient.ts`
 
 ### 3.4 3D 知识库
 
@@ -101,6 +125,7 @@ $env:NODE_USE_ENV_PROXY="1"
 - 渲染：`src/lib/atlas/renderer.ts`（预渲染光晕精灵、层级线、1 跳关系线、全部关系线模式、拖拽/落点高亮、折叠 +N）
 - 交互：`src/components/atlas/CanvasAtlas.tsx`（空白拖拽旋转、节点拖拽移动 + 拖到节点上改父级 + 防环、双指缩放、连线模式点击）
 - 页面/面板/工具栏：`src/components/atlas/AtlasScreen.tsx`、`AtlasPanel.tsx`
+- 位置选择：`src/components/common/PositionPicker.tsx`（搜索/顶层 + 新建父级路径），atlas 面板、详情页、首页整理待处理、收编卡片共用；换位置时会把「自己 + 后代」传给 `createPath` 做循环守卫（`src/lib/path.ts` 的 `blockedSubtree`）
 - 关系编辑：`RelationList.tsx`（改类型/删除）、`RelationEditor.tsx`（手动建立）、`RelationSuggestions.tsx`（同源启发式 + AI 推荐，采纳才写入）
 - 只读调试钩子：开发环境 `window.__zhimyAtlasDebug.projectNode(id)`（生产不挂载，供 E2E 用）
 
@@ -108,23 +133,53 @@ $env:NODE_USE_ENV_PROXY="1"
 
 - 路由 `/node/[id]`：`src/app/node/[id]/page.tsx` → `src/components/node/NodeDetailPage.tsx`
 - Markdown-lite 渲染/解析：`src/components/node/MarkdownLite.tsx`
+- **数学公式（2026-10-24 改用 KaTeX）**：`src/components/node/TeXMath.tsx` 用 `katex.renderToString` 渲染（`throwOnError:false`、`trust:false`、MathML），KaTeX CSS 在 `layout.tsx` 引入；`src/lib/math/inline.ts` 负责 `$...$`/`$$...$$`/`\(...\)`/`\[...\]` 分词，`src/lib/math/display.ts` 负责聊天里跨行/行中的独立公式；`RichText` 先切 display 段再逐行渲染。自研 `src/lib/math/tex.ts` 已删除；支持 `\overrightarrow`、`\left|...\right|`、矩阵、cases 等复杂写法
 - 编辑/预览 + Ctrl+S：`src/components/node/DetailEditor.tsx`
-- AI 生成讲解：`src/lib/ai/detail.ts`（BYOK 生成 400–900 字结构化讲解；未配置模型时用确定性模板）
-- 侧栏：来源对话（可展开）、关系（可编辑）、子知识点（可进入）、元信息
+- AI 生成讲解：`src/lib/ai/detail.ts`（BYOK 生成 400–900 字结构化讲解；提示词要求公式用 `$...$` / `$$...$$`；未配置模型时用确定性模板）
+- 侧栏：来源对话（可展开，带本机缩略图）、关系（可编辑）、子知识点（可进入）、元信息
 
 ### 3.6 BYOK 模型接入
 
-- 设置：服务商预设、Base URL/Key/模型/视觉模型、代理或直连、测试连接（`SettingsSheet.tsx`）
-- 客户端：`src/lib/ai/llmClient.ts`（SSE、错误映射、AbortSignal、temperature/maxTokens）
-- 服务端代理：`src/app/api/llm/chat/route.ts`（登录校验、https、域名白名单、DNS 私网拦截，防 SSRF；`src/lib/ai/proxyGuard.ts` + `ipGuard.ts`）
-- Key 只存本机 localStorage，不入库、不导出
+- 设置：服务商预设、Base URL/Key/模型、视觉模型（图片提问实际使用的模型；留空沿用文本模型）、代理或直连、测试连接（`SettingsSheet.tsx`）
+- **向量模型（P1-A 新增）**：预设里带 `embeddingModel`（OpenAI `text-embedding-3-small`、智谱 `embedding-3`、硅基流动 `BAAI/bge-m3`）；支持独立「向量 Base URL / 向量 Key」（留空复用对话配置），可「测试向量」并「重建向量索引」
+- 客户端：`src/lib/ai/llmClient.ts`（SSE、错误映射、AbortSignal、temperature/maxTokens）；向量走 `src/lib/ai/embeddings.ts`
+- 服务端代理：`src/app/api/llm/chat/route.ts` 与 `src/app/api/llm/embeddings/route.ts`（登录校验、https、域名白名单、DNS 私网拦截，防 SSRF；`src/lib/ai/proxyGuard.ts` + `ipGuard.ts`）
+- Key 只存本机 localStorage，不入库、不导出；设置 store v2 迁移补齐 embedding 字段（旧配置不会读到 undefined）
 
 ### 3.7 数据与运维
 
-- 数据仓库抽象：`src/lib/repo/*`（Supabase 实现 + 演示模式内存实现）
-- 导入示例图谱、导出 JSON、清空图谱/对话、RLS 校验脚本
+- 数据仓库抽象：`src/lib/repo/*`（Supabase 实现 + 演示模式内存实现）；向量检索通过 RPC，memoryRepo 返回空（自动降级关键词）
+- 导入示例图谱、导出 JSON、清空图谱/对话、RLS 校验脚本 `scripts/verify-rls.mjs`（默认两个匿名账号走 HTTPS/PostgREST；`--direct` 用 `SUPABASE_DB_URL` 直连 Postgres），已覆盖 events、向量 RPC、会话与消息归属的越权校验
 - `db:init` 支持三种执行方式：直连 URI / 只填密码 / Supabase 管理 API（国内网络）
 - 国内网络适配：`npm run dev:proxy`、README 的代理章节、`NODE_USE_ENV_PROXY=1`
+- 健康检查：`src/app/api/health/route.ts`（部署后可用于 curl 探活）
+- 仓库侧部署文件：`.nvmrc`、`.github/workflows/{ci,keepalive}.yml`、`docs/DEPLOY.md`（见 3.10）
+
+### 3.8 真实命中：向量 + 关键词兜底（P1-A）
+
+- 向量客户端：`src/lib/ai/embeddings.ts`（`EMBEDDING_DIM=1024`、`HIT_SIMILARITY_THRESHOLD=0.78`、批量 16 条、超时 30s、维度校验、`cosineSimilarity`、`testEmbedding`；支持 `dimensions` 的模型请求 1024 维，`bge-m3` 原生 1024 维）
+- 代理路由：`src/app/api/llm/embeddings/route.ts`（与对话代理同样的认证/https/白名单/私网拦截）
+- 检索抽象：`src/lib/ai/semanticSearch.ts`（`SemanticSearch` 接口、`decideVectorHit`、`mergeVectorFirst` 向量优先 + 关键词补齐）、`semanticClient.ts`（`getRepo().matchNodesByVector` + `embedTexts`）
+- 命中入口：`src/lib/ai/hit.ts` 的 `resolveHit`（向量命中直接给路径，否则复用 `resolveQuestion`）；ChatScreen 改异步命中
+- 候选召回：`extract.ts` / `relationSuggest.ts` 增加异步向量候选构建（保留原同步函数与单测兼容）
+- 写入链路：`src/lib/ai/nodeIndex.ts` 在收编 / 改标题摘要后异步重嵌入（fire-and-forget，失败只记日志）；`src/lib/ai/backfill.ts` + `scripts/embed-backfill.mjs` 批量回填（按 `embedding_model` 筛缺失）
+- 测试：`tests/embeddings.test.ts`、`tests/proxyGuard.test.ts`、`tests/hit.test.ts`、`tests/semanticCandidates.test.ts`
+
+### 3.9 指标埋点与 insights（P1-B）
+
+- `src/lib/analytics.ts`（+ `analyticsCore.ts`）：`EVENTS` 事件名常量、`sanitizeProps`（只允许标量，最多 12 个键、字符串截断）、`track(name, props?)` fire-and-forget（演示模式/内存仓库 console.debug，失败静默，不抛错）
+- 写入：`repo.insertEvent` → Supabase `events` 表（RLS 只能读写自己的行）
+- 埋点位置：对话发送/命中（ChatScreen）、收编展示/采纳/忽略（CaptureCard）、节点打开/讲解生成保存（NodeDetailPage）、关系创建/采纳/更新/删除（RelationEditor/RelationList/RelationSuggestions）、拖拽/重置位置、登录/绑定（AuthGate）、示例图谱载入（AppProviders `?demo=1` → `graph_seeded`）、清空/导出、向量回填、连接测试
+- 查询：`docs/insights.sql`（每日命中率、周收编率、7 日留存、功能使用计数、命中来源分布、向量覆盖率）；在 Supabase SQL Editor（service role）执行可看全量，应用内无管理看板
+- 测试：`tests/analytics.test.ts`
+
+### 3.10 部署与 CI 仓库部分（P1-D 🟡）
+
+- `.nvmrc`（Node 22）、`.github/workflows/ci.yml`（push/PR：`npm ci → typecheck → lint → test → build`，不配云端密钥）
+- `.github/workflows/keepalive.yml`（每日 03:00 UTC ping 一次 Supabase REST；URL 取 `vars.SUPABASE_URL`、Key 取 `secrets.SUPABASE_ANON_KEY`，未配置时 step 自动跳过）
+- `?demo=1`：`AppProviders` 在账号就绪、图谱加载完成且为空时自动 `seedExample()`；sessionStorage `zhimy:demo-seeded` + ref 去重，先 `history.replaceState` 移除参数，成功 toast「已载入示例图谱（Demo 模式）」并上报 `graph_seeded`，失败只提示不标记
+- `docs/DEPLOY.md`：Vercel Hobby 导入、Supabase Auth/`db:init`、保活 secrets、发布/回滚、已知限制、待填 TODO 清单
+- **未实际部署**；README 的 CI 徽章与 Live Demo 用 `<!-- TODO: -->` 占位，未编造链接
 
 ## 4. 数据模型与迁移
 
@@ -133,21 +188,29 @@ $env:NODE_USE_ENV_PROXY="1"
 | 表 | 关键字段 | 说明 |
 |---|---|---|
 | `profiles` | user_id, display_name, prefs | 账号资料（触发器自动创建） |
-| `nodes` | id, user_id, parent_id, title, summary, **detail**, **manual_position**, status, aliases, mastery | 知识点；`detail`=Markdown 讲解，`manual_position`=绝对空间坐标 |
+| `nodes` | id, user_id, parent_id, title, summary, **detail**, **manual_position**, **embedding**, **embedding_model**, **embedding_updated_at**, status, aliases, mastery | 知识点；`detail`=Markdown 讲解，`manual_position`=绝对空间坐标，`embedding vector(1024)`=语义向量（不随图谱查询下发前端），`embedding_model`=生成该向量的模型（隔离用） |
 | `relations` | from_node, to_node, type, confidence, origin | 四类关系；无向类型按 id 排序，唯一索引 + check 约束 |
-| `sources` | kind, question, answer, image_path | 一次问答/一张图 |
+| `sources` | kind, question, answer, image_path | 一次问答/一张图；`image_path` 为未来云端持久化预留，当前不写（图片只做本地缩略图） |
 | `node_sources` | node_id, source_id | 多对多 |
-| `chat_messages` | role, content, image_name, payload(jsonb) | 对话与命中/建议快照 |
-| `events`（**未建**） | — | 下一步指标埋点用，见第 10 节 |
+| `chat_messages` | role, content, image_name, conversation_id, payload(jsonb) | 对话与命中/建议/思维链快照；`conversation_id` 归属 conversations（旧数据回填「历史对话」） |
+| `conversations` | id, user_id, title, created_at, updated_at | 独立会话；RLS owner-only，删除级联消息 |
+| `events` | id, user_id, name, props(jsonb), created_at | 指标埋点；只存事件名与标量属性，不存问题/答案正文；索引 `(user_id, created_at desc)` 与 `(name, created_at desc)` |
 
-- 所有表启用 RLS，策略统一为 `user_id = auth.uid()`（`supabase/schema.sql` 底部的 DO 块批量创建）
+- 所有表（含 `events`）启用 RLS，策略统一为 `user_id = auth.uid()`（`supabase/schema.sql` 底部的 DO 块批量创建）
+- 向量：`create extension vector`（装到 `extensions` schema）；`nodes_embedding_hnsw_idx` 使用 `hnsw (embedding vector_cosine_ops)`，只索引 `embedding is not null` 的行
+- 3 个 RPC（均 `security invoker` + RLS，只能操作自己的数据）：
+  - `match_nodes(query_embedding vector(1024), match_count int, min_similarity real, p_model text)`：按 `embedding_model` 过滤、返回 `node_id/title/summary/similarity`
+  - `set_node_embedding(p_node_id uuid, p_embedding vector(1024), p_model text)`：写入/覆盖节点向量与模型名，越权或节点不存在明确报错
+  - `list_nodes_missing_embedding(p_model text)`：回填用，返回缺向量或模型不一致的节点（每次上限 500，脚本分批）
+- `loadGraph` 的 nodes 查询是**显式列清单**（不含 `embedding`），避免把 1024 维数组拉到前端
+- 维度守卫：`db:init` 发现 `nodes.embedding` 已是其它维度会直接报错（不允许静默错配）
 - 路径**不落库**：运行时沿 `parent_id` 链拼装（`src/lib/path.ts`），改名/换父自动生效
 - 迁移方式：改 `supabase/schema.sql`（用 `-- STATEMENT` 分隔）→ `npm run db:init`。新增列用 `alter table ... add column if not exists`，保持幂等
-- 本次已新增：`detail text not null default ''`、`manual_position jsonb`
+- 本轮新增：`conversations` 表、`chat_messages.conversation_id` 与旧消息回填、pgvector 扩展、`embedding` / `embedding_model` / `embedding_updated_at` 三列、HNSW 索引、3 个 RPC、`events` 表；更早一轮新增 `detail text not null default ''`、`manual_position jsonb`
 
 ## 5. 关键设计决策（改代码前先理解）
 
-1. **匿名优先账号**：降低学生注册摩擦；代价是未绑定前清缓存会丢入口，所以首页/设置都有绑定提醒。
+1. **匿名优先账号**：降低使用门槛；代价是未绑定前清缓存会丢入口，所以首页/设置都有绑定提醒。
 2. **路径不落库**：只存 `parentId`，避免改名/换父后 path 脏数据。
 3. **关系方向语义**：`from` 是关系主体（先修 = from 是 to 的基础）；相关/易混无向，入库前按 id 排序；改类型时由 store 调 `normalizePair` 重排，避免数据库 check 失败。
 4. **手动位置是绝对坐标**：拖动父节点会带动未手动定位的子节点（布局以父位置重新计算）；已手动定位的节点不随父移动；可"恢复自动位置"。
@@ -155,91 +218,135 @@ $env:NODE_USE_ENV_PROXY="1"
 6. **AI 生成只提议，用户确认才写云**：收编、关系采纳、讲解保存都遵循这一点。
 7. **演示模式与真实模式双轨**：无 Supabase 可内存运行（`NEXT_PUBLIC_DEMO_MODE=1`）；无模型 Key 时对话/抽取/讲解/关系用确定性脚本或模板。所有 UI 与交互都可离线演示。
 8. **BYOK 代理白名单**：服务端不存 Key，但为防 SSRF，只允许 https + 白名单域名 + 拒绝私网解析；新增服务商需改 `src/lib/ai/proxyGuard.ts` 或环境变量 `LLM_PROXY_ALLOWED_HOSTS`。
-9. **Markdown-lite 自研**：不引富文本/渲染依赖；只支持标题、列表、加粗、行内代码、引用、代码块、分割线。
-10. **无新依赖**：3D、SSE、Markdown、关系图均为自研，保持小体量开源。
+9. **Markdown-lite 自研，公式改用 KaTeX**：Markdown 仍是自研轻量渲染；数学公式交给 KaTeX（`katex@^0.19.1`），支持 `$...$`/`$$...$$`/`\(...\)`/`\[...\]` 与复杂 LaTeX，输出 MathML。
+10. **依赖策略**：除公式的 KaTeX 外，3D、SSE、Markdown、关系图仍自研；KaTeX 只进入包含公式的路由 chunk，CSS/字体按需加载。
+11. **向量维度定为 1024**：`nodes.embedding vector(1024)`、`EMBEDDING_DIM=1024` 与设置预设一致；OpenAI `text-embedding-3*` 通过 `dimensions` 参数输出 1024 维，`bge-m3` 原生 1024 维。**维度不可轻改**——换维度需迁移数据库列并全量重建，schema 有守卫。
+12. **命中采用 hybrid（向量优先 + 关键词兜底）**：余弦相似度 ≥ `0.78` 视为命中；未配置向量模型、调用异常/超时或相似度不足时自动降级 `resolveQuestion` 关键词匹配。保证无 Key 用户零配置可用，向量只提升「换说法」命中率，不阻塞主流程。
+13. **向量按模型隔离**：`embedding_model` 记录生成模型，检索 RPC 按当前模型过滤；换模型后旧向量不参与新模型检索，必须「重建向量索引」或 `embed-backfill`。不同模型的向量空间不可比较。
+14. **events 隐私约束**：只写事件名 + `sanitizeProps` 清洗后的标量属性（最多 12 键、字符串截断），**禁止写入问题/答案/图片/Key 等正文或敏感内容**；events 启用 RLS，只能读写自己的行；全量指标聚合在 Supabase SQL Editor（service role）执行。
+15. **`?demo=1` 只在空图谱自动 seed**：sessionStorage + ref 去重、读实时 store 校验（防止 ensureLoaded 竞态误清空已有图谱）、先删 URL 参数再 seed；失败不标记，可重试。仅用于线上 Demo 展示，不改变正常账号流程。
+16. **拍题图片不做云端持久化（2026-10-24）**：原图只用于当次视觉模型请求，请求结束即释放；聊天缩略图压到最长边 640、JPEG 0.72，存浏览器 IndexedDB（`zhimy-media/thumbnails`，最多 200 条，消息与来源各一份）。`sources.image_path` 保留为预留字段但不写。理由：图片是一次性输入，避免 Storage 桶/RLS/签名 URL/额度与清理成本，隐私面更小；代价：不跨设备、清缓存丢失、HEIC 不在支持格式内（需先导出 JPG）。
+17. **图片请求链路（2026-10-24 修复）**：`visionModel` 现在是图片请求**真正使用的模型**（此前只作为“是否附图”的开关，请求仍用文本模型）；未配置视觉模型时不再静默丢图——仍附上图片、沿用文本模型，并在本次会话首次发图时提示一次；请求前把图片压到最长边 1600 / JPEG 0.82（仍超 3.5M 字符则降到 1280），代理消息体上限从 200 KB 提到 4 MB（低于 Vercel Functions 约 4.5 MB 的请求体限制）。
+18. **流式思维链 + 打字机（2026-10-24）**：SSE 兼容 `reasoning_content` / `reasoning` / `thinking` / `reasoning_details`（只被动读取，不主动要求模型输出思考），正文由 `useTypewriter` 以 24ms 的节奏逐字上屏，网络结束时 flush。完整 reasoning 写入 `chat_messages.payload.reasoning`（截断到 2 万字），不写 events、不参与抽取；最终消息里默认折叠，可刷新后回看。
+19. **多会话与上下文隔离（2026-10-24）**：新增 `conversations`，消息按 `conversation_id` 归属；进入 `/chat` 默认新对话草稿（空会话不写库），首条消息才创建会话；顶部历史可切换/删除，`?c=` 恢复。每个会话独立加载消息，主对话历史、抽取上下文、思维链都只作用于当前会话。
+20. **system prompt 放宽（2026-10-24）**：从“中学理科助教”改为不限学段/学科的学习助手，覆盖哲学、编程、语言学习等；同时去掉 400 字硬上限和“只讲题目”的限制，代码问题允许 Markdown 代码块。
 
 ## 6. 已知限制与技术债
 
 ### 产品/功能
 
-- **命中仍是关键词匹配**（`src/lib/search.ts`），换说法容易漏命中；方案目标命中率 > 80% 无法真实保证
-- 图片只做本地预览，不上传、不持久化（BYOK 视觉模型可直传 dataURL，但历史消息/来源里看不到图）
-- 无可观测指标（收编率/命中率/留存/可读性都没有采集）
-- 未部署上线；无 CI；无 PWA service worker
+- **向量命中依赖 BYOK embedding 服务**：需要服务商支持 OpenAI `/embeddings` 协议并输出 1024 维；没配 Key、未填向量模型或调用失败时自动降级关键词，换说法仍可能漏命中，方案目标命中率 > 80% 尚无云端实测数据
+- **5 种问法的云端命中验收尚未执行**：本地/CI 没有真实 Key，只能验证降级路径与纯逻辑；验收需维护者按第 9 节 checklist 在真实配置下跑
+- **存量 / 示例图谱需要回填向量**：已有节点和通过「载入示例图谱」/`?demo=1` 载入的节点默认没有向量，需「重建向量索引」或 `npm run embed:backfill`；换向量模型需重建，维度固定 1024 不能轻改
+- 图片**不做云端持久化**：原图仅当次请求发给模型（发送前压到最长边 1600）；聊天/来源缩略图只存当前浏览器 IndexedDB（最多 200 条，未加密），换设备、无痕窗口、清站点数据后只剩文件名提示；仅支持 JPG/PNG/WebP/GIF（HEIC 需先导出），>10 MB 直接拒绝；**图片识图依赖模型能力**：视觉模型留空时沿用文本模型，纯文本模型（如 deepseek-chat）会拒绝图片，视觉模型需与 Base URL/Key 同服务商；缩略图方向依赖浏览器对 EXIF 的处理；不做 OCR 与原图压缩；同一缩略图在消息与来源各存一份（约 2× 空间）
+- **思维链依赖服务商/模型**：只读取 `reasoning_content` / `reasoning` / `thinking` / `reasoning_details`，普通文本模型通常不返回；不做“强制展示思考”的请求参数。reasoning 存在 `chat_messages.payload`（单条上限 2 万字，超出截断），不写 events；当前「导出 JSON」只导出图谱、不含对话消息，清空对话时删除；不做流式 reasoning 的结构化渲染（按纯文本展示）
+- **会话**：进入对话页默认新对话，旧会话需从「历史」进入；暂不支持重命名、搜索、置顶或跨会话合并。空会话不落库，发送第一条消息时才创建；删除会话会级联删除消息；迁移前的历史消息统一归入「历史对话」。`?c=` 只做恢复提示，不是稳定的分享链接
+- **system prompt**：已放宽到全学科，但知识抽取/讲解生成仍以“知识点”为单位；纯代码项目、长篇创作等可能只抽出少量可收编节点，属于产品模型限制
+- **有基础埋点但没有应用内看板**：`events` 只记事件名与少量属性，聚合查询需在 Supabase SQL Editor 手动执行 `docs/insights.sql`
+- **未实际部署**：仓库侧 CI / keepalive / `?demo=1` / `docs/DEPLOY.md` 已就绪，但 Vercel 与 GitHub Actions 尚未实跑，CI 徽章与 Live Demo 链接待补填；无 PWA service worker
 - 无账号删除/数据删除入口；无 JSON 导入（只有导出）
 - 复习闭环（掌握度/间隔重复/到期复习）未做
 - 跨端同步靠"重新打开/切回页面刷新"，无 Realtime
 - 关系置信度用户端固定 0.8，无滑杆；AI 建议理由不持久化
-- Markdown-lite 不支持表格/图片/公式；详情正文无版本历史/撤销
+- Markdown-lite 不支持表格/图片；公式由 KaTeX 渲染，未安装的扩展（如 mhchem `\ce{}`）会红色高亮；详情正文无版本历史/撤销
 - 演示模式数据在内存，刷新即重置
 - 移动端手势较密（拖节点 vs 旋转靠"是否按中节点"区分），未做专门的编辑模式
 
 ### 工程/环境
 
-- 本地开发强依赖 Clash 代理（`dev:proxy`）；直连 `*.supabase.co` 会被 reset
-- Windows 沙箱/受限终端下 `next build`/`vitest`/无头 Edge 会 `spawn EPERM`（需要正常终端权限）
+- 开发环境在网络受限时依赖 Clash 代理（`dev:proxy`）；本轮实测 Postgres 5432 可直连（`db:init` / `--direct` 可用），但 HTTPS 到 `*.supabase.co` 会被重置；浏览器端 E2E 需要能访问 Supabase HTTPS 的网络或代理
+- **启动屏卡住的已知环境原因（2026-10-23 实测）**：Clash 7897 在监听但 Windows `ProxyEnable=0`（系统代理未开），`npm run dev` 下浏览器直连 Supabase HTTPS 失败 → 一直停在「正在连接你的知识图谱…」。修复：开启 Clash 系统代理/TUN（浏览器侧）并 `npm run dev:proxy`（Node 侧）；无头 Edge 加 `--proxy-server=http://127.0.0.1:7897` 已实测可访问 Supabase。现在启动 6s 显示提示、15s 转错误页；`next.config.ts` 会自动把本机网卡 IPv4 加入 `allowedDevOrigins`（局域网访问不再拦 HMR）
+- Windows 沙箱/受限终端下 `next build`/`vitest`/无头 Edge 会 `spawn EPERM`（需要正常终端权限）；本轮 `typecheck`/`lint` 在沙箱内跑，`test`/`build` 在完整权限下跑，均通过
 - `next-env.d.ts` 会在 dev / build 之间自动切换内容，`git status` 常变脏；提交前 `git checkout -- next-env.d.ts` 即可
-- E2E 脚本在 `_verify/`（未提交，依赖本机 Edge 与测试账号 profile）
+- E2E 脚本在 `_verify/`（未提交，依赖本机 Edge 与测试账号 profile）；向量命中的 E2E 额外需要真实 embedding Key
 - 测试账号数据：Supabase 里有一个匿名账号被载入示例图谱、收编了"电路故障分析"、创建过测试关系、详情页有 E2E 标记；用户自己的浏览器账号是独立的，不受影响
+- CI 工作流尚未在 GitHub 上实际运行；`.github/workflows/keepalive.yml` 需要仓库配置 `vars.SUPABASE_URL` + `secrets.SUPABASE_ANON_KEY` 后才生效（未配置时自动跳过）
 - Supabase 免费项目 7 天不活跃会暂停（数据保留）
 
-## 7. 后续计划（按优先级）
+## 7. 计划与完成情况（按优先级）
 
-> 排序依据：先补齐"产品假设能否成立"的验证能力（真实命中 + 指标），再做真实拍题链路，最后部署与 P2 增强。
+> 排序依据：先把技术主线做扎实（真实命中 + 指标），再做拍题链路与 P2 增强。P1-A / P1-B / P1-C（简化版）已完成；剩余优先级：完成 P1-D 实际部署 → P2 增强（复习闭环、Realtime、分享）。部署只做"公开 Demo + 工程完整度"，不阻塞主线。
 
-### P1-A 真实命中：pgvector embedding（最高优先）
+### P1-A 真实命中：pgvector embedding ✅（2026-10-23 完成）
 
 **目标**：同一知识点换 5 种问法能命中；不同知识点不误命中；命中率可统计。
 
-**改动点**
-1. `supabase/schema.sql`：`create extension if not exists vector;`；`alter table nodes add column if not exists embedding vector(1536);`；HNSW 索引 `using hnsw (embedding vector_cosine_ops)`（维度需与所选 embedding 模型一致，**先决定模型**：OpenAI `text-embedding-3-small`=1536，bge-m3=1024 等，数据库列维度要一次定好）
-2. BYOK 设置（`src/lib/ai/types.ts`、`SettingsSheet.tsx`）：新增 `embeddingModel` 字段 + 连通性测试
-3. 新增 `src/lib/ai/embeddings.ts`：调用 OpenAI 兼容 `/embeddings`（复用 `/api/llm/chat` 的代理思路，新增 `src/app/api/llm/embeddings/route.ts`，同样做认证/白名单/防 SSRF）
-4. 写入链路：节点创建（`graphStore.adopt`）与标题/摘要更新（`updateDetails`）后异步生成向量并更新 `nodes.embedding`（失败只记日志，不阻塞收编）
-5. 读取链路：
-   - `resolveQuestion` 改为异步：embed 问题 → 调用 Supabase RPC（`match_nodes` SQL 函数，`embedding <=> query` + `limit`）→ 阈值判定；无 embedding 配置时降级关键词
-   - `extract.ts` / `relationSuggest.ts` 的候选构建改为向量检索 top-k（关键词兜底）
-6. 迁移注意：存量节点需要回填向量（写一个 `scripts/embed-backfill.mjs` 用 BYOK 配置逐条补）
-7. 测试：余弦相似度/阈值、RPC 参数校验、降级逻辑、候选排序
+**已实现**
 
-**验收**
-- E2E：对同一节点用 5 种不同说法提问，≥4 次命中正确路径；无关问题不命中
-- `npm run test` 新增向量相关单测通过；`npm run build` 通过
-- 为指标埋点提供 hit/miss 事件（配合 P1-B）
+1. **决策**：向量维度 **1024**（`vector(1024)` + HNSW cosine）；命中阈值 `HIT_SIMILARITY_THRESHOLD = 0.78`
+2. **schema**：`create extension vector`（装到 `extensions` schema）、`nodes.embedding` / `embedding_model` / `embedding_updated_at`、HNSW 索引、3 个 RPC（`match_nodes` / `set_node_embedding` / `list_nodes_missing_embedding`），见第 4 节
+3. **BYOK**：`LlmSettings` 新增 `embeddingModel` / `embeddingBaseUrl` / `embeddingApiKey`（留空复用对话配置）；设置里可独立配置并「测试向量」；设置 store v2 迁移
+4. **客户端**：`src/lib/ai/embeddings.ts`（维度/余弦/批量/超时/错误中文化）+ 代理 `src/app/api/llm/embeddings/route.ts`（复用 `proxyGuard` 的 https/白名单/私网防护）
+5. **写入链路**：`graphStore.adopt` / `updateDetails` 后 `nodeIndex` 异步重嵌入（失败不阻塞收编）；`backfill.ts` + `scripts/embed-backfill.mjs` 批量回填（`npm run embed:backfill`，直连 Postgres，按模型筛缺失、支持 `--force` / `--dry-run`）
+6. **读取链路**：`resolveHit` 向量优先（top-k → 阈值 → 命中路径）；`extract.ts` / `relationSuggest.ts` 增加异步向量候选（关键词补齐）；异常 / 超时 / 未配置一律降级关键词
+7. **测试**：`tests/embeddings.test.ts`、`tests/proxyGuard.test.ts`、`tests/hit.test.ts`、`tests/semanticCandidates.test.ts`、`tests/schema.test.ts`
 
-### P1-B 指标埋点与验证（与 A 同迭代）
+**验收状态**
+
+- ✅ 纯逻辑单测覆盖：维度校验、余弦相似度、阈值判定、降级路径、候选合并、RPC 参数与 schema 约定
+- ⏳ **云端 E2E「同一节点 5 种问法 ≥4 命中」未执行**：需要真实 embedding Key；无 Key 环境按设计降级关键词（不影响构建与基础使用）
+
+### P1-B 指标埋点与验证 ✅（2026-10-23 完成）
 
 **目标**：能量化方案第 10 章的 4 个指标。
 
-**改动点**
-1. 迁移：`events` 表（`id, user_id, name, props jsonb, created_at`），RLS 只允许 insert/select 自己的行；索引 `(user_id, created_at)`
-2. `src/lib/analytics.ts`：`track(name, props?)`，失败静默（不影响主流程）；演示模式下 console.debug
-3. 埋点位置：
-   - 对话发送、命中/未命中（`ChatScreen`）
-   - 收编建议展示 / 收编 / 不收（`CaptureCard`）
-   - 打开 3D 节点、详情页生成/保存讲解（`AtlasScreen` / `NodeDetailPage`）
-   - 关系创建/采纳建议、拖拽保存位置
-   - 登录/绑定成功
-4. `docs/insights.sql`：收编率、命中率、7 日留存、功能使用计数等聚合视图（用 service role 在 Supabase SQL Editor 跑；普通用户 RLS 看不到全量）
-5. 可选：`/insights` 简易页（仅本人数据）用于调试埋点是否生效
+**已实现**
 
-**验收**：测试账号产生 10 条事件后，SQL 视图返回非空；埋点不引起页面报错。
+1. **迁移**：`events` 表（`id, user_id, name, props jsonb, created_at`）+ RLS（只读写自己的行）+ 索引 `(user_id, created_at desc)`、`(name, created_at desc)`
+2. **`src/lib/analytics.ts`（+ `analyticsCore.ts`）**：`EVENTS` 事件名常量、`sanitizeProps`（仅标量、最多 12 键、字符串截断）、`track(name, props?)` 同步 fire-and-forget、失败静默；演示模式 / 内存仓库 console.debug
+3. **埋点位置**：对话发送、命中/未命中（ChatScreen）；收编建议展示/采纳/不收（CaptureCard）；打开 3D 节点、详情页生成/保存讲解（AtlasScreen / NodeDetailPage）；关系创建/采纳/改类型/删除；拖拽与重置位置；登录/绑定（AuthGate）；示例图谱载入（`?demo=1` → `graph_seeded`）/清空/导出；向量回填、连接测试
+4. **`docs/insights.sql`**：每日命中率、周收编率、7 日留存、功能使用计数、命中来源分布与平均相似度、向量覆盖率（Supabase SQL Editor / service role 看全量；普通用户 RLS 只能看自己）
+5. 可选 `/insights` 页面未做（非必需）
 
-### P1-C 拍题链路真实化
+**验收状态**
 
-- Supabase Storage 建私有 bucket `chat-images`，RLS 按 `auth.uid()` 分目录
-- Composer 选图后上传，`sources.image_path` 存对象路径；消息/来源/详情页显示签名 URL
-- 视觉模型调用继续用 dataURL（不改协议）；历史记录展示原图
-- 验收：手机拍照 → 提问 → 刷新后仍能看到图片与解答
+- ✅ 埋点不阻塞主流程（纯函数清洗 + 静默失败，单测 `tests/analytics.test.ts`）
+- ⏳ 真实事件落库与 insights SQL 需在配置好 Supabase 的环境跑一次（验收标准：测试账号 ≥10 条事件后视图非空）
 
-### P1-D 部署 + CI（与真实用户试用绑定）
+### P1-C 拍题链路（简化版）🟡 代码完成（浏览器验收待执行）
 
-- 平台选择（待定）：Vercel 最省事；国内访问优先考虑 EdgeOne Pages / 自建 VPS；Supabase 保持 Singapore
-- GitHub Actions：`npm ci` → typecheck → lint → test → build
-- Supabase 生产配置：Site URL / Redirect URLs（邮箱确认回跳）、匿名登录、备份策略
-- 环境变量清单写入 README；`db:init` 作为发布步骤
-- 可选：PWA manifest + 简单离线壳
-- 验收：公网可访问，新用户能完成"提问 → 收编 → 3D 找到"
+**决策**：不做云端图片持久化。原图只在当次请求内以 dataURL 交给模型（视觉模型优先，未配置则沿用文本模型），聊天缩略图压缩后存本机 IndexedDB（见第 5 节 #16/#17）。
+
+**已实现**
+
+1. **校验**：仅 JPG / PNG / WebP / GIF，≤10 MB；`src/lib/media/imageInputCore.ts`（纯函数，单测覆盖）
+2. **图片预处理**：一次解码同时生成缩略图（640px / JPEG 0.72）与视觉输入图（1600px / JPEG 0.82，超 3.5M 字符降到 1280）；`src/lib/media/imageThumbnails.ts`，解码失败返回 null 不阻塞提问
+3. **请求组装**：`src/lib/ai/chatTurns.ts`——有图一定附 `image_url`；有视觉模型时请求模型切换为视觉模型，未配置时沿用文本模型并在本会话首次发图时提示；代理 `/api/llm/chat` 消息体上限 200 KB → 4 MB
+4. **本地缓存**：`src/lib/media/localThumbnailStore.ts`，IndexedDB `zhimy-media/thumbnails`，消息用 `message.id`、来源用 `source.id`，最多 200 条；账号切换清空全部，清空对话只清 `kind=message`
+5. **展示**：`src/components/common/LocalThumbnail.tsx` 接入聊天气泡、详情页来源、3D 面板来源；缺失时自动回退文件名或原问题文案
+6. **来源标记**：`sources.kind` 现在会写 `image`（`image_path` 保留但不写）
+7. **测试**：`tests/imageAttachments.test.ts`（格式/大小/尺寸计算）、`tests/chatTurns.test.ts`（有图必附图、视觉模型选型、历史截断）
+
+**验收状态**
+
+- ✅ `typecheck` / `lint` 通过
+- ⏳ 浏览器验收待执行（见第 9 节）：配置视觉模型后发图，模型能复述题干；刷新缩略图仍在；无痕窗口只显示文件名；Network 无 Storage 请求
+- 明确不做：Supabase Storage / 签名 URL / OCR / 跨设备 / 原图持久化
+
+### P1-D 部署 + CI 🟡（仓库部分完成，待 Vercel/GitHub 授权）
+
+**定位**：个人开源、非商业的小体量项目，部署目标不是承载真实用户，而是「可访问的技术 Demo + 可复现的工程流程」。不阻塞 P1-A/P1-B。
+
+**已完成（仓库侧，2026-10-23）**
+- `.nvmrc` = 22；`.github/workflows/ci.yml`：push / PR 跑 `npm ci → typecheck → lint → test → build`，只读权限、`NEXT_TELEMETRY_DISABLED=1`、**不配置任何 Supabase secrets**
+- `.github/workflows/keepalive.yml`：每日 03:00 UTC + 手动触发，`curl` 一次 Supabase REST；URL 取 `vars.SUPABASE_URL`、Key 取 `secrets.SUPABASE_ANON_KEY`，未配置时 step 自动跳过（不红叉）
+- `?demo=1`：`AppProviders` 自动载入示例图谱（sessionStorage + ref 去重、`history.replaceState` 去参数、成功 toast、`graph_seeded` 埋点；失败不标记、可重试）
+- `/api/health` 健康检查路由（WS2 提供）
+- `docs/DEPLOY.md`：Vercel Hobby 导入、Supabase Auth/`db:init`、保活 secrets 配置、发布/回滚、已知限制、`<!-- TODO: -->` 待填清单
+- README：新增「向量命中（可选）」「部署与 CI」小节；CI 徽章与 Live Demo 用 `<!-- TODO: -->` 占位，**未编造链接**
+
+**待执行（需要账号/授权，本轮不做）**
+1. GitHub 推送仓库并确认 CI 首跑全绿 → 补 README CI 徽章
+2. Vercel 导入仓库、只配 `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`、部署拿到域名
+3. Supabase Auth 的 Site URL / Redirect URLs 指向 Demo 域名；匿名登录保持开启；免费版邮箱确认限制按 `docs/DEPLOY.md` 处理并在 README 注明
+4. 发布前在目标 Supabase 执行 `npm run db:init`（幂等，含 pgvector / events / RPC）
+5. 配置 keepalive 的 `vars.SUPABASE_URL` + `secrets.SUPABASE_ANON_KEY`，手动触发一次验证
+6. README 补 Live Demo；本文档第 0/2/7/8/12 节状态同步
+7. 可选（后置）：Dependabot / CodeQL、Deploy Button、收窄 `src/proxy.ts` 的 matcher
+
+**已知限制**：Hobby 函数区域固定（美东）且时长/并发额度有限，BYOK 长回答流式需实测；Demo 不承诺 SLA 与数据持久性；免费版邮箱确认受限。
+
+**不做**：VPS / Docker / 备案 / 限流 / 监控告警 / 多环境 / Sentry 等（非商业 Demo 无收益，需要时再评估）
 
 ### P2 增强（验证后再排）
 
@@ -250,40 +357,56 @@ $env:NODE_USE_ENV_PROXY="1"
 5. **移动端打磨**：显式"编辑模式"开关（区分旋转与拖拽）、手势提示、长文阅读优化
 6. **3D 性能**：500 节点压力测试、静态帧渲染优化、WebGL 升级评估
 
-## 8. 下一个迭代的具体任务拆解（建议直接照此排期）
+## 8. 本轮任务拆解与状态（2026-10-23）
 
-| # | 任务 | 涉及文件 | 产出/验收 |
-|---|---|---|---|
-| 1 | 定 embedding 模型与维度（与产品确认） | — | 决策记录到本文档 |
-| 2 | schema 迁移：vector 扩展、embedding 列、HNSW、`match_nodes` RPC | `supabase/schema.sql` | `npm run db:init` 幂等通过 |
-| 3 | BYOK 增加 embedding 模型设置 + 代理路由 | `src/lib/ai/types.ts`、`SettingsSheet.tsx`、`src/app/api/llm/embeddings/route.ts` | 测试连接通过 |
-| 4 | embeddings 客户端 + 写入链路（adopt/updateDetails 后异步） | `src/lib/ai/embeddings.ts`、`src/store/graphStore.ts` | 新节点自动有向量 |
-| 5 | 存量回填脚本 | `scripts/embed-backfill.mjs` | 脚本可重复执行 |
-| 6 | 命中改为向量检索 + 降级 | `src/lib/search.ts`、`ChatScreen.tsx` | 5 种问法命中 ≥4 |
-| 7 | 抽取/关系候选改为向量检索 + 降级 | `src/lib/ai/extract.ts`、`relationSuggest.ts` | 单测 + 抽查效果 |
-| 8 | events 表 + analytics + 埋点 | 见 P1-B | 视图有数据 |
-| 9 | 指标 SQL 视图文档 | `docs/insights.sql` | 4 个指标可查 |
-| 10 | 测试/构建/E2E/README 更新 | `tests/*`、`README.md` | 全绿 |
+| # | 任务 | 涉及文件 | 产出/验收 | 状态 |
+|---|---|---|---|---|
+| 1 | 定 embedding 模型与维度（与产品确认） | — | 决策记录到本文档：**1024 维** | ✅ 完成 |
+| 2 | schema 迁移：vector 扩展、embedding 列、HNSW、3 个 RPC、events 表 | `supabase/schema.sql` | `npm run db:init` 幂等通过 | ✅ 完成（本轮迁移 47 条语句 ok） |
+| 3 | BYOK 增加 embedding 模型设置 + 代理路由 | `src/lib/ai/types.ts`、`SettingsSheet.tsx`、`src/app/api/llm/embeddings/route.ts` | 测试连接通过 | ✅ 代码完成（测试向量需真实 Key） |
+| 4 | embeddings 客户端 + 写入链路（adopt/updateDetails 后异步） | `src/lib/ai/embeddings.ts`、`nodeIndex.ts`、`graphStore.ts` | 新节点自动有向量 | ✅ 代码完成 |
+| 5 | 存量回填脚本 | `scripts/embed-backfill.mjs` | 脚本可重复执行 | ✅ 完成 |
+| 6 | 命中改为向量检索 + 降级 | `src/lib/ai/hit.ts`、`ChatScreen.tsx` | 5 种问法命中 ≥4 | 🟡 代码完成；云端验收待真实 Key |
+| 7 | 抽取/关系候选改为向量检索 + 降级 | `src/lib/ai/extract.ts`、`relationSuggest.ts` | 单测 + 抽查效果 | ✅ 代码完成 |
+| 8 | events 表 + analytics + 埋点 | 见 P1-B | 视图有数据 | ✅ 代码完成；落库验收待云端 |
+| 9 | 指标 SQL 视图文档 | `docs/insights.sql` | 4 个指标可查 | ✅ 完成 |
+| 10 | 测试/构建/E2E/README 更新 | `tests/*`、`README.md` | 全绿 | ✅ typecheck / lint / test（177）/ build 全绿；浏览器 E2E 待真实 Key 与可用 HTTPS |
+| 11 | P1-D：CI + keepalive + `.nvmrc` + `?demo=1` + DEPLOY + README | `.github/workflows/*`、`.nvmrc`、`AppProviders.tsx`、`docs/DEPLOY.md`、`README.md` | CI 徽章全绿 + 公网 Demo | 🟡 仓库部分完成；实际部署待授权 |
+| 12 | 收编/移动时新建父级路径（空图谱可用） | `PositionPicker.tsx`、`graphStore.ts`、`path.ts`、四处调用点 | 新建 `物理 / 电学` 并复用；循环守卫；显式归位直接 active | ✅ 完成（单测覆盖 path 解析/复用/阻断） |
+| 13 | 讲解正文 LaTeX 公式渲染 | `MarkdownLite.tsx`、`TeXMath.tsx`、`lib/math/*`、`RichText.tsx`、AI 提示词 | `\(...\)`/`$...$`/`$$...$$` 渲染为公式；复杂公式可渲染 | ✅ 完成（2026-10-24 改用 KaTeX） |
+| 14 | P1-C 简化版：拍题图片本地缩略图 | `src/lib/media/*`、`LocalThumbnail.tsx`、Composer/ChatScreen/MessageBubble/详情页/3D 面板 | 发图 → 刷新缩略图仍在（同浏览器）；不上传云端、无 DB 变更 | ✅ 代码完成（浏览器验收待执行） |
+| 15 | 修复图片未送达模型 | `src/lib/ai/chatTurns.ts`、`ChatScreen.tsx`、`imageThumbnails.ts`、`api/llm/chat/route.ts`、`SettingsSheet.tsx` | 视觉模型真正参与请求；无视觉模型时不再静默丢图；图片压缩后经代理发送 | ✅ 代码完成（需配置视觉模型后浏览器验收） |
+| 16 | 复杂公式：KaTeX 替换自研子集 | `TeXMath.tsx`、`RichText.tsx`、`lib/math/*`、`layout.tsx`、`globals.css`、测试 | 截图公式（`\overrightarrow`、`\left|`、嵌套分数/根号）正常；跨行 `$$` 与数字坐标不再原文显示 | ✅ 代码完成（浏览器公式验收待跑） |
+| 17 | 流式思维链 + 逐字显示 | `sse.ts`、`llmClient.ts`、`ChatScreen.tsx`、`useTypewriter.ts`、`MessageBubble.tsx`、`types` | `reasoning_content`/`reasoning` 实时面板；正文逐字上屏；`payload.reasoning` 刷新可回看 | ✅ 代码完成（需推理模型验收） |
+| 18 | 多会话 + system prompt 放宽 | `schema.sql`、`conversations.ts`、`chatStore.ts`、repo、`ChatScreen.tsx`、`prompt.ts` | 默认新会话、历史切换/删除、上下文隔离；全学科提示词 | ✅ 代码完成；`db:init` 47 条语句 ok（浏览器验收待执行） |
+
+> 1–18 为技术主线，均已落到代码；#11 的部署动作需要管理员账号，本轮只交付仓库部分（CI / 保活 / 文档 / Demo 参数）。
 
 ## 9. 接手第一步 checklist
 
-1. 读 [README](../README.md)、本文档、[产品方案](知脉-知识地图产品方案-v1.0.docx)
+1. 读 [README](../README.md)、本文档、[产品方案](知脉-知识地图产品方案-v1.0.docx)、[部署手册](DEPLOY.md)
 2. 确认 `.env.local` 存在且 Supabase 项目可访问（问项目所有者，不要提交密钥）
 3. `npm install`；`npm run dev:proxy` 打开页面；确认当前匿名账号可用
-4. 跑一遍自检：`typecheck` → `lint` → `test` → `build` → `db:init`（确认 23 条语句 ok）
-5. 浏览关键路径：对话收编 → 3D 定位/拖拽/连线 → 详情页生成与编辑
-6. 从第 8 节任务 #1 开始；每完成一项跑全量检查 + 提交
-7. 提交前：`git checkout -- next-env.d.ts`（避免生成文件噪音），确认 `.env.local` 未被提交
+4. 跑一遍自检：`typecheck` → `lint` → `test` → `build` → `db:init`（确认语句全部 ok，数量以脚本输出为准）→ `node scripts/verify-rls.mjs --direct`；仓库推送后 GitHub Actions CI 应同步全绿
+5. **向量命中验收（需要真实 embedding Key）**：设置 → 模型 → 向量模型（如 `BAAI/bge-m3` 或 `text-embedding-3-small`）→「测试向量」→「重建向量索引」→ 对同一知识点用 5 种不同说法提问（≥4 次命中正确路径、无关问题不命中）→ 在 Supabase SQL Editor 执行 `docs/insights.sql`，确认 `hit_attempt` / 命中率 / 向量覆盖率有数据
+6. 无 Key / 未配置向量模型时：确认对话仍可用、命中自动降级关键词（这是设计行为，不是 bug）
+7. 浏览关键路径：对话收编 → 3D 定位/拖拽/连线 → 详情页生成与编辑；若已部署，打开 README 里的 Live Demo 跑一遍"提问 → 收编 → 3D 找到"（`?demo=1` 可自动载入示例图谱）。**会话验收**：在 `/chat` 发一条消息 → 新建对话再发另一条，确认两个会话历史互不串；刷新 `/chat?c=<id>` 能恢复；历史面板删除一个会话后消息消失。**拍题验收**：先在设置里填好视觉模型，发图提问确认模型能复述题干；刷新后缩略图仍在（同浏览器）、详情页来源可见；无痕窗口同账号只显示文件名；DevTools Network 不应出现 Supabase Storage 请求。**公式验收**：把截图里的 `\overrightarrow{DE}`、`\left|...\right|`、嵌套分数/根号发进聊天与详情预览，确认不再显示原始 `$$`/反斜杠；`$(1,0,0)$` 能渲染而 `$5` 保持文字。**流式验收**：用 `deepseek-reasoner` 一类支持 reasoning 的模型发问，确认思考面板实时增长、正文逐字出现；刷新后在消息里可展开「思考过程」。
+8. 后续按第 7 节执行：先完成 P1-D 实际部署（需账号授权），再做 P2 增强；P1-C 已按简化方案完成（图片云端持久化与 OCR 不做）。每完成一项跑全量检查 + 提交。
+9. 提交前：`git checkout -- next-env.d.ts`（避免生成文件噪音），确认 `.env.local` 未被提交
 
 ## 10. 风险与注意事项
 
-- **密钥**：`.env.local` 内含 Supabase 与（可选）管理 API token，严禁提交；不要在文档/截图里暴露
-- **数据安全**：RLS 已验证，但新增表（events、review_state、图片 bucket）必须同时写 RLS 策略并跑 `verify:rls` 思路的越权校验
-- **成本**：AI 生成（对话/抽取/讲解/关系建议）用的是用户自己的 Key；embedding 回填会产生一次性费用，注意批量与速率
-- **中国网络**：项目 API 域名直连被 reset，浏览器走系统代理、Node 需 `dev:proxy`；部署平台也要考虑国内可访问性
-- **免费 Supabase**：7 天不活跃暂停；正式试用前评估升级
-- **未成年人**：面向学生的产品，P1-D 部署前至少要有隐私说明、内容安全策略与数据删除能力
-- **演示数据**：demo 模式的种子数据只用于展示；真实账号首次进入是空图谱，可用「载入示例图谱」
+- **密钥**：`.env.local` 内含 Supabase 与（可选）管理 API token、`EMBEDDING_*`，严禁提交；不要在文档/截图里暴露
+- **数据安全**：所有表（含 events）必须保持 RLS；`events` 的策略与其他表一致（owner-only select / insert / update / delete，只能读写自己的行），新增埋点字段必须走 `sanitizeProps`，禁止写入问题/答案/图片/Key 等正文或敏感内容
+- **embedding 成本 / 回填**：向量回填按 token 计费（用维护者自己的 Key），一次全量回填注意批量（`EMBEDDING_BATCH=16`）与速率；用户日常命中也由用户自己的 Key 承担，量级远小于对话
+- **向量维度不可轻改**：`vector(1024)`、`EMBEDDING_DIM=1024`、设置预设必须一致；换维度需要迁移数据库列并全量重建（schema 有维度守卫，会直接报错而不是静默错配）
+- **换模型需重建**：`embedding_model` 隔离不同向量空间，不重建会导致旧节点「向量不可见」、命中率下降（表现为降级关键词）
+- **CI/部署待验证**：GitHub Actions 未在真实仓库实跑；Vercel 未部署。Hobby 免费版的函数区域（美东）、时长/并发限制、BYOK 长流式稳定性都需部署后实测
+- **中国网络**：`*.supabase.co` 的 HTTPS 在部分网络会被 reset（本机 2026-10-23 实测 HTTPS 被重置、Postgres 5432 正常）；遇 reset 浏览器走系统代理、Node 需 `dev:proxy`，数据库迁移与 `--direct` 校验不受影响。线上 Demo 受众以开发者为主，Vercel 访问性可接受；若以后面向国内用户再评估平台
+- **免费 Supabase**：7 天不活跃会暂停，Demo 用每日 keepalive cron 缓解（需配置 vars/secrets 且 cron 有偶发延迟）；需要更多配额时再评估升级
+- **未成年人**：产品主要面向学生与自学者，**若超出技术 Demo 定位、面向真实学生开放**，至少要有隐私说明、内容安全策略与数据删除能力；当前公开 Demo 应注明仅供演示
+- **Demo 定位**：个人开源非商业项目，线上 Demo 不承诺数据持久性、可用性与 SLA；Demo 环境的邮箱确认等限制已写入 README 与 `docs/DEPLOY.md`
+- **演示数据**：demo 模式的种子数据只用于展示；真实账号首次进入是空图谱，可用「载入示例图谱」或 `?demo=1` 自动载入；示例节点需要回填向量才有向量命中
 
 ## 11. 常用文件索引
 
@@ -293,11 +416,17 @@ $env:NODE_USE_ENV_PROXY="1"
 | 全局状态 | `src/store/{graph,chat,session,settings,ui,toast}Store.ts` |
 | 数据读写/迁移字段 | `src/lib/repo/{types,supabaseRepo,memoryRepo,mappers}.ts`、`supabase/schema.sql` |
 | 3D 布局与交互 | `src/lib/layout/*`、`src/lib/atlas/*`、`src/components/atlas/*` |
-| AI 能力 | `src/lib/ai/{llmClient,extract,detail,relationSuggest}.ts`、`src/app/api/llm/chat/route.ts` |
+| AI 能力（对话/抽取/讲解/关系） | `src/lib/ai/{llmClient,extract,detail,relationSuggest}.ts`、`src/app/api/llm/chat/route.ts` |
+| **向量命中（P1-A）** | `src/lib/ai/{embeddings,semanticSearch,semanticClient,hit,nodeIndex,backfill}.ts`、`src/app/api/llm/embeddings/route.ts`、`scripts/embed-backfill.mjs` |
+| **指标埋点（P1-B）** | `src/lib/analytics.ts`（+ `analyticsCore.ts`）、`docs/insights.sql`、`supabase/schema.sql` 的 events 表 |
 | 路径/检索/关系规则 | `src/lib/{path,search,relations}.ts` |
 | 账号与设置 | `src/store/sessionStore.ts`、`src/components/shell/SettingsSheet.tsx`、`src/lib/authErrors.ts` |
 | 文案与视觉令牌 | `src/app/globals.css`（颜色/断点/字体） |
-| 指标（下一步） | 新建 `src/lib/analytics.ts` + `supabase/schema.sql` events 表 + `docs/insights.sql` |
+| **Markdown / 公式渲染** | `src/components/node/MarkdownLite.tsx`、`TeXMath.tsx`（KaTeX）、`src/lib/math/{inline,display}.ts`、`src/components/chat/RichText.tsx` |
+| **拍题图片 / 本地缩略图（P1-C）** | `src/lib/media/{imageInputCore,imageThumbnails,localThumbnailStore}.ts`、`src/lib/ai/chatTurns.ts`、`src/components/common/LocalThumbnail.tsx` |
+| **流式思维链 / 打字机** | `src/lib/ai/sse.ts`（reasoning 提取）、`llmClient.ts`、`src/components/chat/ChatScreen.tsx`、`useTypewriter.ts`、`MessageBubble.tsx` |
+| **会话 / 上下文隔离** | `supabase/schema.sql`（conversations / conversation_id）、`src/lib/conversations.ts`、`src/store/chatStore.ts`、`src/components/chat/ChatScreen.tsx` |
+| **部署 / CI / Demo / 健康检查** | `docs/DEPLOY.md`、`.github/workflows/{ci,keepalive}.yml`、`.nvmrc`、`src/components/shell/AppProviders.tsx`（`?demo=1`）、`src/app/api/health/route.ts` |
 
 ## 12. 决策记录（需要改之前先确认）
 
@@ -310,3 +439,18 @@ $env:NODE_USE_ENV_PROXY="1"
 | 2026-10-18 | 手动位置为绝对坐标 | 实现简单、可预测；用"恢复自动位置"兜底 |
 | 2026-10-18 | 命中暂用关键词，P1 换 embedding | 先验证交互闭环，控制 P0 范围 |
 | 2026-10-18 | 不引入第三方 UI/3D/Markdown 库 | 小体量开源、可离线、易维护 |
+| 2026-10-18 | 项目按个人开源技术项目管理，不做商业化、不追用户量 | 精力投入技术实现与工程质量，部署只服务 Demo |
+| 2026-10-18 | 线上 Demo 用 Vercel Hobby + GitHub Actions，不自建 VPS | 非商业小体量，运维成本应趋近于零 |
+| 2026-10-23 | 向量维度定为 **1024**（`vector(1024)` + HNSW cosine） | OpenAI `text-embedding-3*` 可传 `dimensions` 输出 1024，`bge-m3` 原生 1024；维度守卫避免静默错配 |
+| 2026-10-23 | 命中采用 **hybrid**：向量优先（阈值 0.78），未配置/异常/低分降级关键词 | 无 Key 用户零配置可用；向量只提升换说法命中率，不阻塞主流程 |
+| 2026-10-23 | 向量按 `embedding_model` 隔离，换模型必须重建 | 不同模型向量空间不可比较，混用会误命中；检索 RPC 与回填都按模型过滤 |
+| 2026-10-23 | events 隐私约束：只存事件名 + ≤12 个标量属性，不含问题/答案正文 | 指标必要 ≠ 内容采集；`sanitizeProps` + RLS 双保险 |
+| 2026-10-23 | P1-D 本轮只做仓库部分（CI/keepalive/`?demo=1`/DEPLOY/README），不实际部署 | 缺 Vercel/GitHub 授权；先让工程流程可复现，实际部署由维护者在有账号时执行 |
+| 2026-10-23 | `?demo=1` 只在空图谱自动 seed，用 sessionStorage + ref 去重 | 避免重复清空/覆盖已有数据；读实时 store 防止 ensureLoaded 竞态误判 |
+| 2026-10-24 | LaTeX 用**自研子集渲染**（不引 KaTeX），支持 `$...$`/`$$...$$`/`\(...\)`/`\[...\]` | 保持零运行时依赖；覆盖中学常见公式（分数/根号/上下标/希腊/运算符），复杂环境与未知命令按原文回退，内容不丢（同日已被下方的 KaTeX 决策取代） |
+| 2026-10-24 | 公式**改用 KaTeX**，删除自研子集渲染器 | 自研渲染器无法覆盖 `\overrightarrow`、伸缩定界符、矩阵/cases 等复杂公式；KaTeX 覆盖度、错误处理和 MathML 可访问性更好，接受公式路由约 +300 KB 原始 / +85 KB gzip 的增量 |
+| 2026-10-24 | **流式思维链 + 打字机**：读取 reasoning 字段，正文 24ms 逐字上屏；reasoning 存 `chat_messages.payload` | 提升可观察性，但 reasoning 是服务商可选字段、非所有模型有；存 payload 便于刷新回看，上限 2 万字避免 jsonb 膨胀，不写 events |
+| 2026-10-24 | **多会话 + 默认新对话**：conversations 表、消息 conversation_id；进入聊天页默认草稿，首条消息才落库 | 解决不同问题上下文互相干扰；空会话不写库，历史可恢复/删除；迁移旧消息到「历史对话」 |
+| 2026-10-24 | **system prompt 放宽到全学科**：去掉“中学理科助教”和 400 字硬限制 | 用户会用哲学、编程等非理科问题；身份限制会导致模型在思考里纠结“是否该回答” |
+| 2026-10-24 | P1-C 改为**本地缩略图**：原图只喂当次模型，缩略图存 IndexedDB，不做 Supabase Storage | 图片是一次性输入，避免桶/RLS/签名 URL/额度与清理成本；代价是不跨设备、清缓存丢失 |
+| 2026-10-24 | 图片请求**视觉模型优先、未配置沿用文本模型**；发送前压到 1600px，代理上限 4MB | 修复“设了视觉模型仍用文本模型”和“未配置时静默丢图”；控制 base64 请求体在 Vercel 4.5MB 限制内 |
