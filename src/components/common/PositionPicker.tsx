@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { buildPath } from "@/lib/path";
+import {
+  blockedSubtree,
+  buildPath,
+  parsePathInput,
+  validatePathSegments,
+} from "@/lib/path";
 import type { KnowledgeNode } from "@/types";
 import { Sheet } from "./Sheet";
 
@@ -12,35 +17,31 @@ interface PositionPickerProps {
   currentParentId: string | null;
   /** 排除的节点（换位置时不能挂在自己或后代下面）。 */
   excludeId?: string | null;
+  /**
+   * 新建父级路径（可选）。传入后展示「新建父级路径」输入区。
+   * blockedIds 为不能作为父级的节点（自己 + 后代），由 store 兜底校验。
+   */
+  onCreatePath?: (segments: string[], options: { blockedIds: string[] }) => Promise<string>;
   onClose: () => void;
   onSelect: (parentId: string | null) => void;
 }
 
-/** 选择知识点在图谱中的位置：面包屑 + 搜索 + 顶层选项。 */
+/** 选择知识点在图谱中的位置：新建父级路径 + 搜索 + 顶层选项。 */
 export function PositionPicker({
   open,
   nodes,
   currentParentId,
   excludeId,
+  onCreatePath,
   onClose,
   onSelect,
 }: PositionPickerProps) {
   const [query, setQuery] = useState("");
+  const [pathInput, setPathInput] = useState("");
+  const [pathError, setPathError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
-  const blocked = new Set<string>();
-  if (excludeId) {
-    blocked.add(excludeId);
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const node of nodes) {
-        if (node.parentId && blocked.has(node.parentId) && !blocked.has(node.id)) {
-          blocked.add(node.id);
-          changed = true;
-        }
-      }
-    }
-  }
+  const blocked = blockedSubtree(nodes, excludeId);
 
   const text = query.trim();
   const candidates = nodes
@@ -58,18 +59,53 @@ export function PositionPicker({
     })
     .slice(0, 200);
 
+  const segments = parsePathInput(pathInput);
+  const pathValidation = segments.length > 0 ? validatePathSegments(segments) : null;
+
+  const resetPathForm = () => {
+    setPathInput("");
+    setPathError(null);
+  };
+
   const handleSelect = (parentId: string | null) => {
     onSelect(parentId);
     setQuery("");
+    resetPathForm();
     onClose();
+  };
+
+  const handleClose = () => {
+    setQuery("");
+    resetPathForm();
+    onClose();
+  };
+
+  const handleCreatePath = async (event?: React.FormEvent) => {
+    event?.preventDefault();
+    if (!onCreatePath || creating || segments.length === 0) return;
+    const invalid = validatePathSegments(segments);
+    if (invalid) {
+      setPathError(invalid);
+      return;
+    }
+    setCreating(true);
+    setPathError(null);
+    try {
+      const leafId = await onCreatePath(segments, { blockedIds: Array.from(blocked) });
+      handleSelect(leafId);
+    } catch (error) {
+      setPathError(error instanceof Error ? error.message : "创建父级路径失败");
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
     <Sheet
       open={open}
       title="换个位置"
-      description="路径由系统沿父节点拼出，你只需要选一个落点。"
-      onClose={onClose}
+      description="路径由系统沿父节点拼出；可以选一个已有落点，也可以新建一条父级路径。"
+      onClose={handleClose}
       size="lg"
     >
       <input
@@ -79,6 +115,51 @@ export function PositionPicker({
         onChange={(event) => setQuery(event.target.value)}
         autoFocus
       />
+
+      {onCreatePath ? (
+        <form
+          className="mt-3 rounded-xl border border-dashed border-line bg-surface-2/50 p-3"
+          onSubmit={(event) => void handleCreatePath(event)}
+        >
+          <label className="label" htmlFor="zhimy-new-path">
+            新建父级路径（可选）
+          </label>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted">
+            用 / 分隔层级，例如 物理 / 电学；已有同名节点会复用，缺失的自动创建。
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              id="zhimy-new-path"
+              className="input min-w-0 flex-1"
+              value={pathInput}
+              onChange={(event) => {
+                setPathInput(event.target.value);
+                setPathError(null);
+              }}
+              placeholder="物理 / 电学"
+              spellCheck={false}
+              autoComplete="off"
+            />
+            <button
+              type="submit"
+              className="btn-primary btn-sm shrink-0"
+              disabled={segments.length === 0 || Boolean(pathValidation) || creating}
+            >
+              {creating ? "创建中…" : "创建并使用"}
+            </button>
+          </div>
+          {segments.length > 0 ? (
+            <p className="mt-1.5 break-all text-[11px] text-muted">
+              将使用路径：{segments.join(" / ")}
+            </p>
+          ) : null}
+          {pathError ?? (segments.length > 0 ? pathValidation : null) ? (
+            <p className="mt-1 text-[11px] text-danger">
+              {pathError ?? pathValidation}
+            </p>
+          ) : null}
+        </form>
+      ) : null}
 
       <div className="mt-3 space-y-1.5">
         <button
@@ -117,8 +198,10 @@ export function PositionPicker({
         })}
 
         {candidates.length === 0 ? (
-          <p className="py-8 text-center text-xs text-muted">
-            没有匹配的知识点，换个关键词试试，或先载入示例图谱。
+          <p className="py-6 text-center text-xs leading-relaxed text-muted">
+            {nodes.length === 0
+              ? "图谱还是空的：先在上方新建一级学科（如 物理 / 电学），即可把知识点挂进去。"
+              : "没有匹配的知识点，换个关键词试试，或在上方新建父级路径。"}
           </p>
         ) : null}
       </div>

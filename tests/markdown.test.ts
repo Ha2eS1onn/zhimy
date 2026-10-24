@@ -32,4 +32,20 @@ describe("Markdown-lite 解析", () => {
     expect(parseMarkdownBlocks("")).toEqual([]);
     expect(parseMarkdownBlocks("\n\n")).toEqual([]);
   });
+
+  it("独立公式块：$$...$$ 与 \\[...\\]（含跨行）", () => {
+    const single = parseMarkdownBlocks("$$\\frac{a}{b}$$\n\n正文");
+    expect(single[0]).toMatchObject({ type: "math", text: "\\frac{a}{b}" });
+
+    const multi = parseMarkdownBlocks("$$\na+b\n$$\n\n正文");
+    expect(multi[0]).toMatchObject({ type: "math", text: "a+b" });
+
+    const bracket = parseMarkdownBlocks("\\[x^2\\]");
+    expect(bracket[0]).toMatchObject({ type: "math", text: "x^2" });
+  });
+
+  it("行内公式仍是段落，不会被拆成公式块", () => {
+    const blocks = parseMarkdownBlocks("公式 $x$ 在文中");
+    expect(blocks[0]).toMatchObject({ type: "paragraph", text: "公式 $x$ 在文中" });
+  });
 });

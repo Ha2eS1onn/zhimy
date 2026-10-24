@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { validateChatImage } from "@/lib/media/imageInputCore";
+import { toast } from "@/store/toastStore";
 import { Icon } from "../shell/Icon";
 
 export interface ImagePayload {
@@ -33,6 +35,11 @@ export function Composer({ busy, streaming, modeLabel, onOpenSettings, onSend, o
   const handleFiles = (files: FileList | null) => {
     const file = files?.[0];
     if (!file) return;
+    const invalid = validateChatImage(file);
+    if (invalid) {
+      toast(invalid, "error");
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = typeof reader.result === "string" ? reader.result : "";
@@ -76,7 +83,7 @@ export function Composer({ busy, streaming, modeLabel, onOpenSettings, onSend, o
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/gif"
             className="hidden"
             onChange={(event) => {
               handleFiles(event.target.files);
@@ -125,7 +132,9 @@ export function Composer({ busy, streaming, modeLabel, onOpenSettings, onSend, o
           <button type="button" className="hover:text-ink" onClick={onOpenSettings}>
             {modeLabel}
           </button>
-          <span className="hidden sm:inline">图片仅本地预览，P1 支持上传原图与 OCR</span>
+          <span className="hidden sm:inline">
+            图片仅用于本次提问；缩略图保存在本机浏览器（不上传云端）
+          </span>
         </div>
       </div>
     </div>

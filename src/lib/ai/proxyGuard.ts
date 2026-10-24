@@ -15,6 +15,11 @@ const DEFAULT_ALLOWED_HOSTS = [
   "generativelanguage.googleapis.com",
 ];
 
+/** 允许通过代理转发的上游接口路径（精确匹配，防止把本站当任意代理）。 */
+export const PROXY_ENDPOINTS = ["/chat/completions", "/embeddings"] as const;
+
+export type ProxyEndpoint = (typeof PROXY_ENDPOINTS)[number];
+
 export function allowedHosts(): Set<string> {
   const extra = process.env.LLM_PROXY_ALLOWED_HOSTS?.split(",")
     .map((item) => item.trim().toLowerCase())
@@ -27,13 +32,39 @@ export interface ProxyTarget {
   hostname: string;
 }
 
+/** 校验 endpoint 是否在白名单内；不在则直接抛错。 */
+function assertProxyEndpoint(endpoint: string): asserts endpoint is ProxyEndpoint {
+  if (!(PROXY_ENDPOINTS as readonly string[]).includes(endpoint)) {
+    throw new Error(`不支持的代理接口：${endpoint || "(空)"}`);
+  }
+}
+
+/**
+ * 拼接上游地址（纯函数，便于单测）：Base URL 去尾部斜杠后接上 endpoint。
+ * endpoint 必须与 PROXY_ENDPOINTS 完全匹配，否则抛错。
+ */
+export function buildUpstreamUrl(baseUrl: string, endpoint: string): string {
+  assertProxyEndpoint(endpoint);
+  const normalized = baseUrl.trim().replace(/\/+$/, "");
+  if (!normalized) {
+    throw new Error("接口地址格式不正确");
+  }
+  return `${normalized}${endpoint}`;
+}
+
 /**
  * 校验并归一化代理目标：
  * - 只允许 https；
  * - 域名必须在白名单内（防止把本站当任意代理）；
  * - DNS 解析后拒绝私网地址（防止 SSRF 访问内网）。
+ * endpoint 默认 /chat/completions，保持既有 chat 路由行为不变。
  */
-export async function resolveProxyTarget(rawBaseUrl: string): Promise<ProxyTarget> {
+export async function resolveProxyTarget(
+  rawBaseUrl: string,
+  endpoint = "/chat/completions",
+): Promise<ProxyTarget> {
+  assertProxyEndpoint(endpoint);
+
   let url: URL;
   try {
     url = new URL(rawBaseUrl);
@@ -61,5 +92,5 @@ export async function resolveProxyTarget(rawBaseUrl: string): Promise<ProxyTarge
   }
 
   const normalized = url.toString().replace(/\/+$/, "");
-  return { url: `${normalized}/chat/completions`, hostname: url.hostname };
+  return { url: buildUpstreamUrl(normalized, endpoint), hostname: url.hostname };
 }

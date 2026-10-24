@@ -57,7 +57,7 @@ export function DetailEditor({
             className="textarea min-h-[420px] font-mono text-[13px] leading-6"
             value={value}
             placeholder={
-              "用 Markdown 写讲解，例如：\n\n## 一句话理解\n…\n\n## 核心概念\n- 要点一\n- 要点二\n\n支持 ## 标题、- 列表、**加粗**、`代码`、> 引用。"
+              "用 Markdown 写讲解，例如：\n\n## 一句话理解\n…\n\n## 核心概念\n- 要点一\n- 要点二\n\n公式：行内 $R_x$，独立一行 $$\\sqrt{R_A \\cdot R_V}$$\n\n支持 ## 标题、- 列表、**加粗**、`代码`、> 引用。"
             }
             onChange={(event) => onChange(event.target.value)}
             onKeyDown={(event) => {

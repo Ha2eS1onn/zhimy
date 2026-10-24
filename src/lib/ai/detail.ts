@@ -6,8 +6,9 @@ import type { LlmSettings } from "./types";
 /** 用 BYOK 模型为知识点生成整篇讲解；演示模式用确定性模板。 */
 
 const DETAIL_SYSTEM = [
-  "你是「知脉」的学习内容编辑，负责把知识点整理成学生能直接复习的完整讲解。",
+  "你是「知脉」的学习内容编辑，负责把知识点整理成用户能直接复习的完整讲解。",
   "你只输出 Markdown 正文，不要输出解释、不要用代码块包裹整篇内容。",
+  "数学公式用 LaTeX：行内写 $...$，独立公式单独一行用 $$...$$（支持 \\frac、\\sqrt、上下标、\\cdot、\\times、希腊字母）；不要用代码块包公式。",
   "讲解中的事实必须来自给定信息，不要编造来源中没有的题目、数据或结论；信息不足时写「待补充」。",
 ].join("\n");
 
@@ -43,7 +44,7 @@ export function buildDetailPrompt(input: DetailInput): string {
       ? ["（暂无来源）"]
       : input.sources.map(
           (source, index) =>
-            `[${index + 1}] 学生问：${source.question}\n助教答：${source.answer.slice(0, 900)}`,
+            `[${index + 1}] 用户问：${source.question}\n助手答：${source.answer.slice(0, 900)}`,
         )),
     "",
     "请写一份 400~900 字的完整讲解，使用 Markdown，包含以下小节（没有内容的小节写「待补充」）：",

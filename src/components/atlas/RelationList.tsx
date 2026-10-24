@@ -8,6 +8,7 @@ import {
   relationLabel,
   relationsOf,
 } from "@/lib/relations";
+import { EVENTS, track } from "@/lib/analytics";
 import { useGraphStore } from "@/store/graphStore";
 import { toast } from "@/store/toastStore";
 import type { KnowledgeNode, Relation, RelationType } from "@/types";
@@ -46,6 +47,7 @@ export function RelationList({
     setBusyId(relation.id);
     try {
       await updateRelationType(relation.id, type);
+      track(EVENTS.relationUpdated, { type });
       toast("关系类型已更新", "success");
     } catch (error) {
       toast(error instanceof Error ? error.message : "更新失败", "error");
@@ -60,6 +62,7 @@ export function RelationList({
     setBusyId(relation.id);
     try {
       await deleteRelation(relation.id);
+      track(EVENTS.relationDeleted);
       toast("关系已删除", "success");
     } catch (error) {
       toast(error instanceof Error ? error.message : "删除失败", "error");

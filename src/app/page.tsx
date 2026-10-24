@@ -36,6 +36,7 @@ export default function HomePage() {
   const seedExample = useGraphStore((state) => state.seedExample);
   const reparent = useGraphStore((state) => state.reparent);
   const setStatus = useGraphStore((state) => state.setStatus);
+  const createPath = useGraphStore((state) => state.createPath);
   const user = useSessionStore((state) => state.user);
   const openSettings = useUIStore((state) => state.openSettings);
 
@@ -245,6 +246,9 @@ export default function HomePage() {
         nodes={nodes}
         currentParentId={pickerNode?.parentId ?? null}
         excludeId={pickerNode?.id ?? null}
+        onCreatePath={(segments, options) =>
+          createPath(segments, options).then((result) => result.leafId)
+        }
         onClose={() => setPickerNode(null)}
         onSelect={(parentId) => {
           const node = pickerNode;

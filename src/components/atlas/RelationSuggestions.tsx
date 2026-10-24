@@ -7,6 +7,8 @@ import {
   suggestRelationsWithLlm,
   type RelationSuggestion,
 } from "@/lib/ai/relationSuggest";
+import { createSemanticSearch } from "@/lib/ai/semanticClient";
+import { EVENTS, track } from "@/lib/analytics";
 import { useGraphStore } from "@/store/graphStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { toast } from "@/store/toastStore";
@@ -50,7 +52,13 @@ export function RelationSuggestions({
     }
     setLoading(true);
     try {
-      const list = await suggestRelationsWithLlm({ settings: llm, node, nodes, relations });
+      const list = await suggestRelationsWithLlm({
+        settings: llm,
+        node,
+        nodes,
+        relations,
+        semantic: createSemanticSearch(llm),
+      });
       const fresh = list.filter(
         (item) =>
           !aiSuggestions.some(
@@ -76,6 +84,10 @@ export function RelationSuggestions({
         type: suggestion.type,
         confidence: suggestion.confidence,
         origin: "ai",
+      });
+      track(EVENTS.relationSuggestionAdopted, {
+        type: suggestion.type,
+        source: suggestion.source,
       });
       toast("已建立关系", "success");
       setIgnored((previous) => new Set(previous).add(suggestion.id));

@@ -1,23 +1,34 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
+import { LocalThumbnail } from "@/components/common/LocalThumbnail";
 import { buildPath } from "@/lib/path";
 import { useGraphStore } from "@/store/graphStore";
 import type { ChatMessage } from "@/types";
 import { CaptureCard } from "./CaptureCard";
 import { RichText } from "./RichText";
 
-export function MessageBubble({ message }: { message: ChatMessage }) {
+export const MessageBubble = memo(function MessageBubble({ message }: { message: ChatMessage }) {
   const nodes = useGraphStore((state) => state.nodes);
 
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
         <div className="max-w-[85%] rounded-2xl rounded-br-md bg-surface-2 px-3.5 py-2.5">
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{message.content}</p>
           {message.imageName ? (
-            <p className="mt-1 text-[11px] text-muted">图片：{message.imageName}（P1 支持上传原图）</p>
+            <LocalThumbnail
+              id={message.id}
+              alt={message.imageName}
+              className="mb-1.5 h-40 w-full max-w-xs rounded-lg border border-line object-cover"
+              fallback={
+                <p className="mb-1 text-[11px] text-muted">
+                  图片：{message.imageName}（本机未缓存缩略图）
+                </p>
+              }
+            />
           ) : null}
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{message.content}</p>
         </div>
       </div>
     );
@@ -28,9 +39,21 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
   const suggestions = (message.payload.suggestions ?? []).filter(
     (suggestion) => suggestion.status !== "dismissed",
   );
+  const reasoning = message.payload.reasoning?.trim() ?? "";
 
   return (
     <div className="space-y-2.5">
+      {reasoning ? (
+        <details className="max-w-[92%] rounded-xl border border-line bg-surface/60 px-3 py-2">
+          <summary className="cursor-pointer text-[11px] text-muted">
+            思考过程（{reasoning.length} 字）
+          </summary>
+          <div className="mt-1.5 max-h-64 overflow-y-auto whitespace-pre-wrap text-[12px] leading-relaxed text-muted">
+            {reasoning}
+          </div>
+        </details>
+      ) : null}
+
       <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-line bg-surface/80 px-3.5 py-2.5">
         <RichText text={message.content} />
       </div>
@@ -59,4 +82,4 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
       ) : null}
     </div>
   );
-}
+});

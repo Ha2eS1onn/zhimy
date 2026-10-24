@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { EVENTS, track } from "@/lib/analytics";
 import { useSessionStore } from "@/store/sessionStore";
 
 export function AuthGate() {
@@ -18,6 +19,7 @@ export function AuthGate() {
     setError(null);
     try {
       await signIn(email.trim(), password);
+      track(EVENTS.authLogin);
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录失败，请检查邮箱和密码");
     } finally {

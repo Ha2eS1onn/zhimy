@@ -57,20 +57,103 @@ export async function* parseSseStream(stream: ReadableStream<Uint8Array>): Async
 
 interface ChatCompletionChunk {
   choices?: Array<{
-    delta?: { content?: string | null };
-    message?: { content?: string | null };
+    delta?: {
+      content?: string | null;
+      reasoning_content?: unknown;
+      reasoning?: unknown;
+      thinking?: unknown;
+      reasoning_details?: unknown;
+    };
+    message?: {
+      content?: string | null;
+      reasoning_content?: unknown;
+      reasoning?: unknown;
+      thinking?: unknown;
+      reasoning_details?: unknown;
+    };
+    reasoning?: unknown;
     text?: string | null;
   }>;
+  reasoning?: unknown;
+}
+
+export interface CompletionParts {
+  content: string;
+  reasoning: string;
+}
+
+const EMPTY_PARTS: CompletionParts = { content: "", reasoning: "" };
+
+function readText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["text", "content", "summary"]) {
+      if (typeof record[key] === "string" && record[key]) return record[key] as string;
+    }
+  }
+  return "";
+}
+
+/** reasoning_details 可能是数组；字符串直接返回，对象取 text/summary。 */
+function readReasoning(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(readReasoning).join("");
+  return readText(value);
+}
+
+function firstNonEmpty(values: string[]): string {
+  return values.find((value) => value.length > 0) ?? "";
+}
+
+/**
+ * 从一条 SSE data 或非流式响应里同时取正文与思维链。
+ * 兼容 DeepSeek/Qwen 的 reasoning_content、OpenRouter 的 reasoning、
+ * 部分代理的 thinking 以及 reasoning_details 数组；没有就返回空串。
+ */
+export function readCompletionParts(payload: unknown): CompletionParts {
+  if (!payload || typeof payload !== "object") return EMPTY_PARTS;
+
+  const json = payload as ChatCompletionChunk;
+  const choice = json.choices?.[0];
+  if (!choice) {
+    return { content: "", reasoning: readReasoning(json.reasoning) };
+  }
+
+  const delta = choice.delta;
+  const message = choice.message;
+  const reasoning = firstNonEmpty([
+    readReasoning(delta?.reasoning_content),
+    readReasoning(delta?.reasoning),
+    readReasoning(delta?.thinking),
+    readReasoning(delta?.reasoning_details),
+    readReasoning(message?.reasoning_content),
+    readReasoning(message?.reasoning),
+    readReasoning(message?.thinking),
+    readReasoning(message?.reasoning_details),
+    readReasoning(choice.reasoning),
+    readReasoning(json.reasoning),
+  ]);
+
+  const content = firstNonEmpty([
+    typeof choice.delta?.content === "string" ? choice.delta.content : "",
+    typeof choice.message?.content === "string" ? choice.message.content : "",
+    typeof choice.text === "string" ? choice.text : "",
+  ]);
+
+  return { content, reasoning };
+}
+
+/** 从一条 SSE data 中取出正文与思维链；解析失败返回空串。 */
+export function extractDeltaParts(data: string): CompletionParts {
+  try {
+    return readCompletionParts(JSON.parse(data));
+  } catch {
+    return EMPTY_PARTS;
+  }
 }
 
 /** 从一条 SSE data 中取出增量文本；解析失败返回空串。 */
 export function extractDelta(data: string): string {
-  try {
-    const json = JSON.parse(data) as ChatCompletionChunk;
-    const choice = json.choices?.[0];
-    if (!choice) return "";
-    return choice.delta?.content ?? choice.message?.content ?? choice.text ?? "";
-  } catch {
-    return "";
-  }
+  return extractDeltaParts(data).content;
 }

@@ -11,6 +11,15 @@ export interface LlmSettings {
   apiKey: string;
   model: string;
   visionModel: string;
+  /**
+   * 向量（embedding）模型，用于命中检索与候选召回；留空则退回关键词匹配。
+   * 需与服务商 /embeddings 接口一致，且输出 1024 维（或支持 dimensions 参数）。
+   */
+  embeddingModel: string;
+  /** 向量服务独立的 Base URL；留空复用 baseUrl。 */
+  embeddingBaseUrl: string;
+  /** 向量服务独立的 Key；留空复用 apiKey。只存本机 localStorage。 */
+  embeddingApiKey: string;
 }
 
 export interface LlmPreset {
@@ -19,6 +28,7 @@ export interface LlmPreset {
   baseUrl: string;
   model: string;
   visionModel?: string;
+  embeddingModel?: string;
 }
 
 /** OpenAI 兼容服务商快捷配置。 */
@@ -35,6 +45,7 @@ export const LLM_PRESETS: LlmPreset[] = [
     baseUrl: "https://api.openai.com/v1",
     model: "gpt-4o-mini",
     visionModel: "gpt-4o-mini",
+    embeddingModel: "text-embedding-3-small",
   },
   {
     id: "moonshot",
@@ -49,12 +60,14 @@ export const LLM_PRESETS: LlmPreset[] = [
     baseUrl: "https://open.bigmodel.cn/api/paas/v4",
     model: "glm-4-flash",
     visionModel: "glm-4v-flash",
+    embeddingModel: "embedding-3",
   },
   {
     id: "siliconflow",
     name: "硅基流动",
     baseUrl: "https://api.siliconflow.cn/v1",
     model: "Qwen/Qwen2.5-7B-Instruct",
+    embeddingModel: "BAAI/bge-m3",
   },
   {
     id: "openrouter",
@@ -81,6 +94,11 @@ export interface StreamChatOptions {
   temperature?: number;
   maxTokens?: number;
   onDelta: (chunk: string) => void;
+  /**
+   * 部分服务商（DeepSeek reasoner、Qwen、OpenRouter 推理模型等）会额外
+   * 流式返回 reasoning_content / reasoning；有就回调，没有则不会调用。
+   */
+  onReasoningDelta?: (chunk: string) => void;
 }
 
 export class LlmError extends Error {
@@ -117,7 +135,12 @@ export function describeLlmStatus(status: number): { message: string; hint: stri
     case 400:
       return {
         message: "请求被服务商拒绝",
-        hint: "常见原因是模型名不支持该参数，或消息内容过长。",
+        hint: "常见原因是模型名不支持该参数、消息内容过长，或当前模型不支持图片输入；图片提问请在设置里填写支持视觉的模型。",
+      };
+    case 413:
+      return {
+        message: "图片或上下文过大",
+        hint: "换一张更小的图片，或清空一部分对话后重试。",
       };
     default:
       return {

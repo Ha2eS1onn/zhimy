@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Sheet } from "@/components/common/Sheet";
+import { EVENTS, track } from "@/lib/analytics";
 import { buildPath } from "@/lib/path";
 import { RELATION_META, relationKey } from "@/lib/relations";
 import { searchNodes } from "@/lib/search";
@@ -59,6 +60,7 @@ export function RelationEditor({
     setBusy(true);
     try {
       await addRelation({ fromId, toId: targetId, type, confidence: 0.8, origin: "user" });
+      track(EVENTS.relationCreated, { type, origin: "user" });
       toast("关系已建立", "success");
       onSaved?.();
       onClose();

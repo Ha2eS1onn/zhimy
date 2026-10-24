@@ -1,6 +1,9 @@
 "use client";
 
 import { Fragment } from "react";
+import type { ReactNode } from "react";
+import { tokenizeInline } from "@/lib/math/inline";
+import { TeXMath } from "./TeXMath";
 
 export type MarkdownBlock =
   | { type: "heading"; level: number; text: string }
@@ -8,7 +11,43 @@ export type MarkdownBlock =
   | { type: "list"; ordered: boolean; items: string[] }
   | { type: "quote"; text: string }
   | { type: "code"; text: string }
+  | { type: "math"; text: string }
   | { type: "hr" };
+
+/** 读取一整段独立公式：$$...$$ 或 \[...\]，允许跨行。 */
+function readDisplayMath(
+  lines: string[],
+  start: number,
+): { text: string; nextIndex: number } | null {
+  const first = (lines[start] ?? "").trim();
+  const isDollar = first.startsWith("$$");
+  if (!isDollar && !first.startsWith("\\[")) return null;
+
+  const closeToken = isDollar ? "$$" : "\\]";
+  const after = first.slice(2);
+  const closeIndex = after.indexOf(closeToken);
+  if (closeIndex >= 0) {
+    const text = after.slice(0, closeIndex).trim();
+    const tail = after.slice(closeIndex + closeToken.length).trim();
+    // 闭合后还有正文（如 "$$x$$ 是公式"）：交给段落内联解析，避免吞掉文字。
+    if (tail || !text) return null;
+    return { text, nextIndex: start + 1 };
+  }
+
+  const parts: string[] = [after];
+  let index = start + 1;
+  while (index < lines.length) {
+    const current = lines[index] ?? "";
+    index += 1;
+    const closeAt = current.indexOf(closeToken);
+    if (closeAt >= 0) {
+      parts.push(current.slice(0, closeAt));
+      return { text: parts.join("\n").trim(), nextIndex: index };
+    }
+    parts.push(current);
+  }
+  return { text: parts.join("\n").trim(), nextIndex: index };
+}
 
 /** 把 Markdown-lite 解析成块级结构（导出便于单测）。 */
 export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
@@ -22,6 +61,8 @@ export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
     /^\d+[.、]\s+/.test(line) ||
     line.startsWith(">") ||
     line.startsWith("```") ||
+    line.startsWith("$$") ||
+    line.startsWith("\\[") ||
     /^(-{3,}|\*{3,})$/.test(line);
 
   while (index < lines.length) {
@@ -41,6 +82,13 @@ export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
       }
       index += 1;
       blocks.push({ type: "code", text: code.join("\n") });
+      continue;
+    }
+
+    const displayMath = readDisplayMath(lines, index);
+    if (displayMath) {
+      blocks.push({ type: "math", text: displayMath.text });
+      index = displayMath.nextIndex;
       continue;
     }
 
@@ -107,24 +155,29 @@ export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
   return blocks;
 }
 
-function renderInline(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
-  return parts.map((part, index) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return (
-        <strong key={index} className="font-semibold text-ink">
-          {part.slice(2, -2)}
-        </strong>
-      );
+function renderInline(text: string): ReactNode[] {
+  return tokenizeInline(text).map((token, index) => {
+    switch (token.type) {
+      case "strong":
+        return (
+          <strong key={index} className="font-semibold text-ink">
+            {renderInline(token.value)}
+          </strong>
+        );
+      case "code":
+        return (
+          <code
+            key={index}
+            className="rounded bg-surface-2 px-1 py-0.5 text-[0.92em] text-accent"
+          >
+            {token.value}
+          </code>
+        );
+      case "math":
+        return <TeXMath key={index} tex={token.value} display={token.display} />;
+      default:
+        return <Fragment key={index}>{token.value}</Fragment>;
     }
-    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
-      return (
-        <code key={index} className="rounded bg-surface-2 px-1 py-0.5 text-[0.92em] text-accent">
-          {part.slice(1, -1)}
-        </code>
-      );
-    }
-    return <Fragment key={index}>{part}</Fragment>;
   });
 }
 
@@ -140,20 +193,20 @@ export function MarkdownLite({ markdown }: { markdown: string }) {
             if (block.level === 1) {
               return (
                 <h2 key={index} className="mt-6 text-xl font-semibold text-ink">
-                  {block.text}
+                  {renderInline(block.text)}
                 </h2>
               );
             }
             if (block.level === 2) {
               return (
                 <h3 key={index} className="mt-5 border-l-2 border-accent/60 pl-2 text-base font-semibold text-ink">
-                  {block.text}
+                  {renderInline(block.text)}
                 </h3>
               );
             }
             return (
               <h4 key={index} className="mt-4 text-sm font-semibold text-ink">
-                {block.text}
+                {renderInline(block.text)}
               </h4>
             );
           }
@@ -191,6 +244,8 @@ export function MarkdownLite({ markdown }: { markdown: string }) {
                 <code>{block.text}</code>
               </pre>
             );
+          case "math":
+            return <TeXMath key={index} tex={block.text} display />;
           case "hr":
             return <hr key={index} className="border-line" />;
           default:

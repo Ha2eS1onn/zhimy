@@ -15,7 +15,9 @@ interface ProxyBody {
   maxTokens?: number;
 }
 
-const MAX_MESSAGES_BYTES = 200_000;
+// 图片以 base64 dataURL 随消息体发送：客户端会把视觉输入压到 1600px，
+// 这里留到 4 MB，低于 Vercel Functions 约 4.5 MB 的请求体上限。
+const MAX_MESSAGES_BYTES = 4_000_000;
 
 /** BYOK 代理：只负责转发 OpenAI 兼容的 chat/completions，不存储、不记录 Key。 */
 export async function POST(request: Request) {
@@ -48,7 +50,10 @@ export async function POST(request: Request) {
     );
   }
   if (JSON.stringify(messages).length > MAX_MESSAGES_BYTES) {
-    return NextResponse.json({ error: { message: "请求内容过大" } }, { status: 413 });
+    return NextResponse.json(
+      { error: { message: "请求内容过大（含图片时请压缩或换一张更小的图片）" } },
+      { status: 413 },
+    );
   }
 
   let target;

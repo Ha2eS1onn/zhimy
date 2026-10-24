@@ -1,5 +1,5 @@
 import { describeLlmStatus, LlmError, type ChatTurn, type LlmSettings, type StreamChatOptions } from "./types";
-import { extractDelta, parseSseStream } from "./sse";
+import { extractDeltaParts, readCompletionParts, parseSseStream } from "./sse";
 
 /** 规范化 Base URL：去尾部斜杠，校验协议。 */
 export function normalizeBaseUrl(raw: string): string {
@@ -52,19 +52,27 @@ async function readErrorDetail(response: Response): Promise<string> {
 async function consumeResponse(
   response: Response,
   onDelta: (chunk: string) => void,
+  onReasoningDelta?: (chunk: string) => void,
 ): Promise<string> {
   const contentType = response.headers.get("content-type") ?? "";
   if (contentType.includes("text/event-stream") && response.body) {
     let full = "";
+    let hadReasoning = false;
     for await (const event of parseSseStream(response.body)) {
-      const delta = extractDelta(event);
-      if (!delta) continue;
-      full += delta;
-      onDelta(delta);
+      const parts = extractDeltaParts(event);
+      if (parts.reasoning) {
+        hadReasoning = true;
+        onReasoningDelta?.(parts.reasoning);
+      }
+      if (!parts.content) continue;
+      full += parts.content;
+      onDelta(parts.content);
     }
     if (!full) {
       throw new LlmError("模型没有返回内容", {
-        hint: "可能是模型不支持流式输出，或接口地址少了 /v1 前缀。",
+        hint: hadReasoning
+          ? "模型只返回了思考过程，没有正文；可以换个模型或让它直接给出答案。"
+          : "可能是模型不支持流式输出，或接口地址少了 /v1 前缀。",
       });
     }
     return full;
@@ -73,8 +81,11 @@ async function consumeResponse(
   const data = (await response.json()) as {
     choices?: Array<{ message?: { content?: string | null } }>;
     error?: { message?: string };
+    reasoning?: unknown;
   };
-  const content = data.choices?.[0]?.message?.content ?? "";
+  const parts = readCompletionParts(data);
+  if (parts.reasoning) onReasoningDelta?.(parts.reasoning);
+  const content = parts.content;
   if (!content) {
     throw new LlmError(data.error?.message ?? "模型没有返回内容");
   }
@@ -84,7 +95,7 @@ async function consumeResponse(
 
 /** 发起一次流式对话，返回完整文本。 */
 export async function streamChat(options: StreamChatOptions): Promise<string> {
-  const { settings, messages, signal, onDelta, temperature, maxTokens } = options;
+  const { settings, messages, signal, onDelta, onReasoningDelta, temperature, maxTokens } = options;
   if (settings.mode !== "real") {
     throw new LlmError("当前是演示模式，请先在设置里接入自己的模型");
   }
@@ -139,7 +150,7 @@ export async function streamChat(options: StreamChatOptions): Promise<string> {
     });
   }
 
-  return consumeResponse(response, onDelta);
+  return consumeResponse(response, onDelta, onReasoningDelta);
 }
 
 /** 设置页的「测试连接」：发一条极短的对话确认 Key / 地址 / 模型可用。 */

@@ -30,7 +30,13 @@ export default async function proxy(request: NextRequest) {
   });
 
   // 触发一次会话校验/刷新（匿名账号同样适用）。
-  await supabase.auth.getUser();
+  // 网络不可达时 getUser 会抛 AuthRetryableFetchError：这里静默降级，
+  // 页面照常返回，由客户端 sessionStore 给出「代理/离线演示」的可操作提示。
+  try {
+    await supabase.auth.getUser();
+  } catch {
+    // ignore
+  }
   return response;
 }
 

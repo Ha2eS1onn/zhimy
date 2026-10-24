@@ -7,6 +7,7 @@ import { AtlasCanvas, type AtlasCanvasHandle, type NodeMovePayload } from "./Can
 import { AtlasPanel } from "./AtlasPanel";
 import { RelationEditor } from "./RelationEditor";
 import { Icon } from "../shell/Icon";
+import { EVENTS, track } from "@/lib/analytics";
 import { buildPath } from "@/lib/path";
 import { searchNodes } from "@/lib/search";
 import { neighborIds } from "@/lib/relations";
@@ -38,6 +39,8 @@ export function AtlasScreen() {
 
   const canvasRef = useRef<AtlasCanvasHandle | null>(null);
   const appliedParamRef = useRef<string | null>(null);
+  // 连续选中同一个节点只在第一次记 node_opened，避免面包屑/重复点击刷量。
+  const lastOpenedRef = useRef<string | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -103,6 +106,14 @@ export function AtlasScreen() {
     (nodeId: string | null, options: { focus?: boolean; syncUrl?: boolean } = {}) => {
       const { focus = true, syncUrl = true } = options;
       setSelectedId(nodeId);
+      if (nodeId) {
+        if (lastOpenedRef.current !== nodeId) {
+          lastOpenedRef.current = nodeId;
+          track(EVENTS.nodeOpened, { from: "atlas" });
+        }
+      } else {
+        lastOpenedRef.current = null;
+      }
       setSearchOpen(false);
       setQuery("");
       if (nodeId) {
@@ -169,6 +180,7 @@ export function AtlasScreen() {
           manualPosition: payload.position,
           ...(target ? { parentId: target.id } : {}),
         });
+        track(EVENTS.nodeMoved, { parentChanged: Boolean(target), manual: true });
         toast(
           target ? `已挂到「${target.title}」下，并保存位置` : "位置已保存到云端",
           "success",
@@ -184,6 +196,7 @@ export function AtlasScreen() {
     if (!window.confirm("把所有手动拖动过的知识点恢复到自动布局？")) return;
     try {
       await clearAllManualPositions();
+      track(EVENTS.positionsReset);
       toast("已恢复全部自动布局", "success");
     } catch (error) {
       toast(error instanceof Error ? error.message : "恢复失败", "error");

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 import { AppProviders } from "@/components/shell/AppProviders";
 
 export const metadata: Metadata = {

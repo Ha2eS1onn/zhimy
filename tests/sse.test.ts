@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { extractDelta, parseSseBuffer, parseSseStream } from "@/lib/ai/sse";
+import {
+  extractDelta,
+  extractDeltaParts,
+  parseSseBuffer,
+  parseSseStream,
+} from "@/lib/ai/sse";
 
 describe("SSE 解析", () => {
   it("拆出多个 data 事件并识别 [DONE]", () => {
@@ -31,6 +36,32 @@ describe("SSE 解析", () => {
     expect(extractDelta('{"choices":[{"message":{"content":"B"}}]}')).toBe("B");
     expect(extractDelta('{"choices":[{"text":"C"}]}')).toBe("C");
     expect(extractDelta("not-json")).toBe("");
+  });
+
+  it("提取思维链：reasoning_content / reasoning / reasoning_details", () => {
+    expect(
+      extractDeltaParts('{"choices":[{"delta":{"reasoning_content":"先看题意"}}]}'),
+    ).toEqual({ content: "", reasoning: "先看题意" });
+    expect(
+      extractDeltaParts('{"choices":[{"delta":{"reasoning":"再列式"}}]}'),
+    ).toEqual({ content: "", reasoning: "再列式" });
+    expect(
+      extractDeltaParts('{"choices":[{"delta":{"thinking":"部分代理的思考"}}]}'),
+    ).toEqual({ content: "", reasoning: "部分代理的思考" });
+    expect(
+      extractDeltaParts(
+        '{"choices":[{"delta":{"reasoning_details":[{"type":"reasoning.text","text":"设未知数"},{"type":"reasoning.text","text":"再解方程"}]}}]}',
+      ),
+    ).toEqual({ content: "", reasoning: "设未知数再解方程" });
+    expect(
+      extractDeltaParts('{"choices":[{"message":{"reasoning_content":"非流式思考"}}]}'),
+    ).toEqual({ content: "", reasoning: "非流式思考" });
+  });
+
+  it("正文与思维链可以同时出现在一条事件里", () => {
+    expect(
+      extractDeltaParts('{"choices":[{"delta":{"reasoning_content":"想","content":"答"}}]}'),
+    ).toEqual({ content: "答", reasoning: "想" });
   });
 
   it("parseSseStream 正确处理跨块的 UTF-8 与事件", async () => {

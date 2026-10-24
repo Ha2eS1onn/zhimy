@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { PositionPicker } from "@/components/common/PositionPicker";
+import { EVENTS, track } from "@/lib/analytics";
 import { buildPath } from "@/lib/path";
 import { RELATION_META } from "@/lib/relations";
 import { useChatStore } from "@/store/chatStore";
@@ -19,6 +20,7 @@ interface CaptureCardProps {
 export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
   const nodes = useGraphStore((state) => state.nodes);
   const adopt = useGraphStore((state) => state.adopt);
+  const createPath = useGraphStore((state) => state.createPath);
   const updateSuggestion = useChatStore((state) => state.updateSuggestion);
 
   const [title, setTitle] = useState(suggestion.title);
@@ -27,6 +29,8 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
   const [relations, setRelations] = useState<SuggestionRelation[]>(suggestion.relations);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** 用户是否显式选过位置（含新建父级路径）：显式归位后不再进待处理。 */
+  const [placed, setPlaced] = useState(false);
 
   const confidence = Math.round(suggestion.confidence * 100);
   const lowConfidence = suggestion.confidence < 0.75;
@@ -76,6 +80,7 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
         parentId,
         title,
         summary,
+        forceActive: placed,
       });
       await updateSuggestion(messageId, suggestion.id, {
         status: "adopted",
@@ -89,6 +94,11 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
         status === "inbox" ? "已收下，但还差一步归位" : "已收编进知识图谱",
         status === "inbox" ? "info" : "success",
       );
+      track(EVENTS.captureAdopted, {
+        status,
+        relations: keptRelations.length,
+        confidence: suggestion.confidence,
+      });
     } catch (error) {
       toast(error instanceof Error ? error.message : "收编失败", "error");
     } finally {
@@ -102,6 +112,7 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
     try {
       await updateSuggestion(messageId, suggestion.id, { status: "dismissed" });
       toast("这次不收，已忽略", "info");
+      track(EVENTS.captureDismissed);
     } catch (error) {
       toast(error instanceof Error ? error.message : "操作失败", "error");
     } finally {
@@ -150,6 +161,11 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
           <Icon name="atlas" size={12} /> 建议路径
         </p>
         <p className="mt-0.5 break-all text-xs text-ink">{pathPreview}</p>
+        {!parentId ? (
+          <p className="mt-1 text-[11px] text-muted">
+            还没有父级：点「换个位置 → 新建父级路径」可以先建学科/章节（如 物理 / 电学）。
+          </p>
+        ) : null}
       </div>
 
       {relations.length > 0 ? (
@@ -195,8 +211,14 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
         open={pickerOpen}
         nodes={nodes}
         currentParentId={parentId}
+        onCreatePath={(segments, options) =>
+          createPath(segments, options).then((result) => result.leafId)
+        }
         onClose={() => setPickerOpen(false)}
-        onSelect={(nextParentId) => setParentId(nextParentId)}
+        onSelect={(nextParentId) => {
+          setParentId(nextParentId);
+          setPlaced(true);
+        }}
       />
     </div>
   );

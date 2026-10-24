@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { LocalThumbnail } from "@/components/common/LocalThumbnail";
 import { PositionPicker } from "@/components/common/PositionPicker";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { buildPath } from "@/lib/path";
@@ -46,6 +47,7 @@ export function AtlasPanel({
   const reparent = useGraphStore((state) => state.reparent);
   const setStatus = useGraphStore((state) => state.setStatus);
   const clearManualPosition = useGraphStore((state) => state.clearManualPosition);
+  const createPath = useGraphStore((state) => state.createPath);
 
   const [editing, setEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(node.title);
@@ -329,6 +331,13 @@ export function AtlasPanel({
             <ul className="mt-1.5 space-y-2">
               {nodeSourceList.map((source) => (
                 <li key={source.id} className="rounded-lg border border-line bg-surface px-2.5 py-2">
+                  {source.kind === "image" ? (
+                    <LocalThumbnail
+                      id={source.id}
+                      alt="题目图片"
+                      className="mb-1.5 h-20 w-20 rounded-lg border border-line object-cover"
+                    />
+                  ) : null}
                   <p className="line-clamp-2 text-xs text-ink">{source.question || "（图片提问）"}</p>
                   <p className="mt-0.5 text-[10px] text-muted">
                     {formatDateTime(source.createdAt)} · {source.answer.length} 字解答
@@ -390,6 +399,9 @@ export function AtlasPanel({
         nodes={nodes}
         currentParentId={node.parentId}
         excludeId={node.id}
+        onCreatePath={(segments, options) =>
+          createPath(segments, options).then((result) => result.leafId)
+        }
         onClose={() => setPickerOpen(false)}
         onSelect={(parentId) => void handleReparent(parentId)}
       />

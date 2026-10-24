@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { LocalThumbnail } from "@/components/common/LocalThumbnail";
 import { PositionPicker } from "@/components/common/PositionPicker";
 import { Icon } from "@/components/shell/Icon";
 import { RelationEditor } from "@/components/atlas/RelationEditor";
 import { RelationList } from "@/components/atlas/RelationList";
+import { EVENTS, track } from "@/lib/analytics";
 import { formatDateTime } from "@/lib/format";
 import { buildPath } from "@/lib/path";
 import { relationsOf } from "@/lib/relations";
@@ -34,6 +36,7 @@ export function NodeDetailPage() {
   const reparent = useGraphStore((state) => state.reparent);
   const setStatus = useGraphStore((state) => state.setStatus);
   const clearManualPosition = useGraphStore((state) => state.clearManualPosition);
+  const createPath = useGraphStore((state) => state.createPath);
   const messages = useChatStore((state) => state.messages);
   const llm = useSettingsStore((state) => state.llm);
 
@@ -48,6 +51,15 @@ export function NodeDetailPage() {
   const [summaryDraft, setSummaryDraft] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [relationEditorOpen, setRelationEditorOpen] = useState(false);
+
+  const openedNodeRef = useRef<string | null>(null);
+
+  // 进入详情页记一次 node_opened：按 nodeId 去重，StrictMode 双执行 / 重复渲染都不重复上报。
+  useEffect(() => {
+    if (!nodeId || openedNodeRef.current === nodeId) return;
+    openedNodeRef.current = nodeId;
+    track(EVENTS.nodeOpened, { from: "detail" });
+  }, [nodeId]);
 
   const path = useMemo(() => (node ? buildPath(nodes, node.id) : []), [nodes, node]);
   const pathText = path.map((item) => item.title).join(" / ");
@@ -100,6 +112,7 @@ export function NodeDetailPage() {
       await updateDetails(node.id, { detail: draft });
       setEditing(false);
       toast("讲解已保存到云端", "success");
+      track(EVENTS.detailSaved);
     } catch (error) {
       toast(error instanceof Error ? error.message : "保存失败", "error");
     } finally {
@@ -109,6 +122,8 @@ export function NodeDetailPage() {
 
   const generate = async () => {
     if (generating) return;
+    // 演示/模板模式统一记为 template；真实模型记为 llm.mode（real）。
+    const generateMode = llm.mode === "real" ? "real" : "template";
     setGenerating(true);
     try {
       if (llm.mode !== "real") {
@@ -128,6 +143,7 @@ export function NodeDetailPage() {
         setDraft(template);
         setEditing(true);
         toast("已用演示模板生成讲解，可以直接修改后保存", "info");
+        track(EVENTS.detailGenerated, { mode: "template", ok: true });
         return;
       }
 
@@ -150,7 +166,9 @@ export function NodeDetailPage() {
       setDraft(text);
       setEditing(true);
       toast("AI 已生成讲解，检查后保存", "success");
+      track(EVENTS.detailGenerated, { mode: "real", ok: true });
     } catch (error) {
+      track(EVENTS.detailGenerated, { mode: generateMode, ok: false });
       toast(error instanceof Error ? error.message : "生成失败", "error");
     } finally {
       setGenerating(false);
@@ -168,6 +186,7 @@ export function NodeDetailPage() {
       await updateDetails(node.id, { title: titleDraft, summary: summaryDraft });
       setProfileEditing(false);
       toast("标题与摘要已更新", "success");
+      track(EVENTS.profileSaved);
     } catch (error) {
       toast(error instanceof Error ? error.message : "保存失败", "error");
     }
@@ -360,6 +379,13 @@ export function NodeDetailPage() {
                 <ul className="mt-2 space-y-2">
                   {nodeSourceList.map((source) => (
                     <li key={source.id} className="rounded-lg border border-line bg-surface px-2.5 py-2">
+                      {source.kind === "image" ? (
+                        <LocalThumbnail
+                          id={source.id}
+                          alt="题目图片"
+                          className="mb-1.5 h-20 w-20 rounded-lg border border-line object-cover"
+                        />
+                      ) : null}
                       <p className="line-clamp-2 text-xs text-ink">{source.question || "（图片提问）"}</p>
                       <p className="mt-0.5 text-[10px] text-muted">
                         {formatDateTime(source.createdAt)} · {source.answer.length} 字解答
@@ -448,6 +474,9 @@ export function NodeDetailPage() {
         nodes={nodes}
         currentParentId={node.parentId}
         excludeId={node.id}
+        onCreatePath={(segments, options) =>
+          createPath(segments, options).then((result) => result.leafId)
+        }
         onClose={() => setPickerOpen(false)}
         onSelect={(parentId) => void handleReparent(parentId)}
       />

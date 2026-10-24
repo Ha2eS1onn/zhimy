@@ -5,6 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { describeAuthError } from "@/lib/authErrors";
 import { LLM_PRESETS } from "@/lib/ai/types";
 import { testConnection } from "@/lib/ai/llmClient";
+import { isEmbeddingConfigured, testEmbedding } from "@/lib/ai/embeddings";
+import { backfillEmbeddings, type BackfillProgress } from "@/lib/ai/backfill";
+import { EVENTS, track } from "@/lib/analytics";
 import { isDemoMode } from "@/lib/env";
 import { useChatStore } from "@/store/chatStore";
 import { useGraphStore } from "@/store/graphStore";
@@ -72,6 +75,10 @@ function LlmSection() {
   const [showKey, setShowKey] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testingEmbedding, setTestingEmbedding] = useState(false);
+  const [embeddingResult, setEmbeddingResult] = useState<{ ok: boolean; message: string } | null>(
+    null,
+  );
 
   const applyPreset = (presetId: string) => {
     const preset = LLM_PRESETS.find((item) => item.id === presetId);
@@ -80,9 +87,11 @@ function LlmSection() {
       baseUrl: preset.baseUrl,
       model: preset.model,
       visionModel: preset.visionModel ?? "",
+      embeddingModel: preset.embeddingModel ?? "",
       mode: "real",
     });
     setTestResult(null);
+    setEmbeddingResult(null);
   };
 
   const handleTest = async () => {
@@ -92,13 +101,37 @@ function LlmSection() {
     try {
       const reply = await testConnection(llm);
       setTestResult({ ok: true, message: `连接成功：${reply || "模型已响应"}` });
+      track(EVENTS.llmConnectionTested, { kind: "chat", ok: true });
     } catch (error) {
       setTestResult({
         ok: false,
         message: error instanceof Error ? error.message : "连接失败",
       });
+      track(EVENTS.llmConnectionTested, { kind: "chat", ok: false });
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handleTestEmbedding = async () => {
+    if (testingEmbedding) return;
+    setTestingEmbedding(true);
+    setEmbeddingResult(null);
+    try {
+      const result = await testEmbedding(llm);
+      setEmbeddingResult({
+        ok: true,
+        message: `向量连接成功：${result.model} · ${result.dimensions} 维`,
+      });
+      track(EVENTS.llmConnectionTested, { kind: "embedding", ok: true });
+    } catch (error) {
+      setEmbeddingResult({
+        ok: false,
+        message: error instanceof Error ? error.message : "向量连接失败",
+      });
+      track(EVENTS.llmConnectionTested, { kind: "embedding", ok: false });
+    } finally {
+      setTestingEmbedding(false);
     }
   };
 
@@ -188,16 +221,65 @@ function LlmSection() {
             />
           </label>
           <label className="block">
-            <span className="label">视觉模型（可选）</span>
+            <span className="label">视觉模型（图片提问用）</span>
             <input
               className="input mt-1 font-mono text-xs"
               value={llm.visionModel}
               onChange={(event) => setLlm({ visionModel: event.target.value })}
-              placeholder="gpt-4o-mini"
+              placeholder="gpt-4o-mini / glm-4v-flash"
               spellCheck={false}
             />
           </label>
         </div>
+        <p className="text-[11px] leading-relaxed text-muted">
+          图片提问优先使用视觉模型；留空则沿用文本模型（需要该模型本身支持图片输入，否则服务商会拒绝）。
+          视觉模型需与上面的 Base URL / Key 属于同一服务商，例如 glm-4v-flash、gpt-4o-mini、Qwen2.5-VL。
+        </p>
+        <label className="block">
+          <span className="label">向量模型（可选，用于真实命中）</span>
+          <input
+            className="input mt-1 font-mono text-xs"
+            value={llm.embeddingModel}
+            onChange={(event) => {
+              setLlm({ embeddingModel: event.target.value });
+              setEmbeddingResult(null);
+            }}
+            placeholder="text-embedding-3-small / BAAI/bge-m3 / embedding-3"
+            spellCheck={false}
+          />
+          <span className="mt-1 block text-[11px] leading-relaxed text-muted">
+            需要输出 1024 维（OpenAI 会自动传 dimensions=1024）。留空则命中与候选继续用关键词匹配。
+            换模型后旧向量不会混用，需在「数据」页重建索引。
+          </span>
+        </label>
+        <details className="rounded-xl border border-line bg-surface-2/60 px-3 py-2">
+          <summary className="cursor-pointer text-[11px] text-muted">
+            向量服务独立配置（可选，默认沿用上面的接口地址与 Key）
+          </summary>
+          <div className="mt-2 space-y-2">
+            <label className="block">
+              <span className="label">向量 Base URL</span>
+              <input
+                className="input mt-1 font-mono text-xs"
+                value={llm.embeddingBaseUrl}
+                onChange={(event) => setLlm({ embeddingBaseUrl: event.target.value })}
+                placeholder="留空沿用上方 Base URL"
+                spellCheck={false}
+              />
+            </label>
+            <label className="block">
+              <span className="label">向量 API Key（只保存在本机）</span>
+              <input
+                className="input mt-1 font-mono text-xs"
+                type="password"
+                value={llm.embeddingApiKey}
+                onChange={(event) => setLlm({ embeddingApiKey: event.target.value })}
+                placeholder="留空沿用上方 API Key"
+                autoComplete="off"
+              />
+            </label>
+          </div>
+        </details>
         <div>
           <span className="label">请求方式</span>
           <div className="segmented mt-2 w-full">
@@ -233,6 +315,14 @@ function LlmSection() {
         >
           {testing ? "测试中…" : "测试连接"}
         </button>
+        <button
+          type="button"
+          className="btn-ghost btn-sm"
+          onClick={() => void handleTestEmbedding()}
+          disabled={testingEmbedding || !isEmbeddingConfigured(llm)}
+        >
+          {testingEmbedding ? "测试中…" : "测试向量"}
+        </button>
         <button type="button" className="btn-ghost btn-sm" onClick={clearApiKey}>
           清除 Key
         </button>
@@ -240,6 +330,13 @@ function LlmSection() {
 
       {testResult ? (
         <p className={`text-xs ${testResult.ok ? "text-ok" : "text-danger"}`}>{testResult.message}</p>
+      ) : null}
+      {embeddingResult ? (
+        <p
+          className={`text-xs ${embeddingResult.ok ? "text-ok" : "text-danger"}`}
+        >
+          {embeddingResult.message}
+        </p>
       ) : null}
 
       <div className="rounded-xl border border-line bg-surface-2 p-3 text-[11px] leading-relaxed text-muted">
@@ -278,6 +375,7 @@ function AccountSection({ demo }: { demo: boolean }) {
     setMessage(null);
     try {
       await bindAccount(email.trim(), password);
+      track(EVENTS.authBindRequested, { needsConfirm: true });
       setMessage({
         tone: "ok",
         text: "绑定邮件已发送：点击邮件里的链接完成绑定，之后换设备用邮箱密码登录即可。",
@@ -301,6 +399,7 @@ function AccountSection({ demo }: { demo: boolean }) {
     setMessage(null);
     try {
       await signIn(email.trim(), password);
+      track(EVENTS.authLogin, { via: "settings" });
       toast("登录成功，正在同步云端数据…", "success");
       setEmail("");
       setPassword("");
@@ -460,7 +559,10 @@ function DataSection() {
   const refresh = useGraphStore((state) => state.refresh);
   const clearChat = useChatStore((state) => state.clear);
   const exportJson = useGraphStore((state) => state.exportJson);
+  const llm = useSettingsStore((state) => state.llm);
   const [busy, setBusy] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
+  const [progress, setProgress] = useState<BackfillProgress | null>(null);
 
   const stats = useMemo(() => {
     const inbox = nodes.filter((node) => node.status === "inbox").length;
@@ -490,6 +592,50 @@ function DataSection() {
     link.click();
     URL.revokeObjectURL(url);
     toast("已导出 JSON 备份", "success");
+    track(EVENTS.graphExported, { nodes: nodes.length, relations: relations.length });
+  };
+
+  const embeddingReady = isEmbeddingConfigured(llm);
+
+  const handleBackfill = async () => {
+    if (backfilling) return;
+    if (!embeddingReady) {
+      toast("先在「模型」页填写向量模型与 Key，再重建索引", "info");
+      return;
+    }
+    const pending = nodes.length;
+    if (
+      !window.confirm(
+        `将为缺少向量的知识点生成 embedding：当前图谱最多 ${pending} 个节点（已是最新向量的会跳过），每个节点会产生一次向量接口调用（少量费用）。继续？`,
+      )
+    ) {
+      return;
+    }
+    setBackfilling(true);
+    setProgress({ done: 0, total: pending, embedded: 0, failed: 0 });
+    try {
+      const result = await backfillEmbeddings({
+        llm,
+        onProgress: (next) => setProgress(next),
+      });
+      if (result.failed > 0) {
+        toast(`向量索引已更新：成功 ${result.embedded}，失败 ${result.failed}`, "info");
+      } else if (result.embedded === 0) {
+        toast("所有知识点已是最新向量，无需重建", "info");
+      } else {
+        toast(`向量索引已更新：${result.embedded} 个节点`, "success");
+      }
+      track(EVENTS.embeddingBackfill, {
+        embedded: result.embedded,
+        skipped: result.skipped,
+        failed: result.failed,
+      });
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "重建向量索引失败", "error");
+    } finally {
+      setBackfilling(false);
+      setProgress(null);
+    }
   };
 
   return (
@@ -507,7 +653,12 @@ function DataSection() {
         <button
           type="button"
           className="btn-ghost w-full justify-start"
-          onClick={() => void run(seedExample, "已载入示例图谱")}
+          onClick={() =>
+            void run(async () => {
+              await seedExample();
+              track(EVENTS.graphSeeded, { source: "settings" });
+            }, "已载入示例图谱")
+          }
           disabled={busy || loading}
         >
           <Icon name="spark" size={16} /> 载入示例图谱（物理 · 化学）
@@ -522,10 +673,25 @@ function DataSection() {
         </button>
         <button
           type="button"
+          className="btn-ghost w-full justify-start"
+          onClick={() => void handleBackfill()}
+          disabled={busy || loading || backfilling || !embeddingReady}
+          title={embeddingReady ? undefined : "先在「模型」页配置向量模型"}
+        >
+          <Icon name="spark" size={16} />
+          {backfilling
+            ? `生成向量中… ${progress?.done ?? 0}/${progress?.total ?? stats.total}`
+            : "重建向量索引"}
+        </button>
+        <button
+          type="button"
           className="btn-danger w-full justify-start"
           onClick={() => {
             if (!window.confirm("确定清空当前账号的全部知识点与关系？此操作不可撤销。")) return;
-            void run(clearGraph, "已清空图谱");
+            void run(async () => {
+              await clearGraph();
+              track(EVENTS.graphCleared);
+            }, "已清空图谱");
           }}
           disabled={busy || loading}
         >
@@ -535,7 +701,7 @@ function DataSection() {
           type="button"
           className="btn-ghost w-full justify-start"
           onClick={() => {
-            if (!window.confirm("确定清空对话记录？图谱不受影响。")) return;
+            if (!window.confirm("确定清空全部对话记录？所有会话都会被删除，图谱不受影响。")) return;
             void run(clearChat, "已清空对话");
           }}
           disabled={busy}
@@ -546,7 +712,8 @@ function DataSection() {
 
       <p className="text-[11px] leading-relaxed text-muted">
         数据保存在你的 Supabase 账号下（行级权限隔离），清除浏览器缓存或换设备不会丢失；
-        建议定期使用「导出 JSON 备份」留一份副本。
+        建议定期使用「导出 JSON 备份」留一份副本。向量索引用于「同一个知识点换种问法也能命中」；
+        未配置向量模型时命中与候选会自动退回关键词匹配。
       </p>
     </div>
   );

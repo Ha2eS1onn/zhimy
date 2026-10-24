@@ -1,6 +1,17 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 export function BootScreen() {
+  // 网络被重置时 Supabase 客户端会重试一段时间；超过几秒给出可操作的提示，
+  // 15 秒后 sessionStore 会切到错误页（带代理/演示模式指引）。
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), 6000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div className="flex h-dvh flex-col items-center justify-center gap-5 bg-shell text-ink">
       <div className="relative grid size-16 place-items-center">
@@ -12,6 +23,13 @@ export function BootScreen() {
       <div className="text-center">
         <p className="text-sm font-medium">正在连接你的知识图谱…</p>
         <p className="mt-1 text-xs text-muted">把 AI 答疑变成可寻址、可联想、可收纳的知识地图</p>
+        {slow ? (
+          <p className="mx-auto mt-3 max-w-sm rounded-lg border border-warn/30 bg-warn/5 px-3 py-2 text-[11px] leading-relaxed text-warn">
+            网络较慢或无法访问 Supabase。国内网络请先启动代理，再用{" "}
+            <code className="font-mono">npm run dev:proxy</code> 重启开发服务器；
+            或临时设置 NEXT_PUBLIC_DEMO_MODE=1 离线预览。
+          </p>
+        ) : null}
       </div>
     </div>
   );
