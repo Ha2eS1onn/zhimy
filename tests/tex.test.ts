@@ -33,8 +33,8 @@ describe("KaTeX 公式渲染", () => {
       createElement(TeXMath, { tex: "\\notacommand{x}+1" }),
     );
     expect(html).toContain("katex");
-    // KaTeX 用 errorColor 把无法识别的命令标红，而不是整段抛错
-    expect(html).toContain("#f87171");
+    // KaTeX 用主题错误色把无法识别的命令标红，而不是整段抛错
+    expect(html).toContain("var(--danger)");
     expect(html).toContain("+");
   });
 
