@@ -72,6 +72,19 @@ export interface Suggestion {
 export interface MessagePayload {
   hit?: { nodeId: string; score: number } | null;
   suggestions?: Suggestion[];
+  /**
+   * 模型返回的思维链（部分服务商会在 reasoning_content / reasoning 里给出）。
+   * 只存当前账号的 chat_messages.payload，不写入 events；换设备登录仍可见。
+   */
+  reasoning?: string;
+}
+
+/** 一段独立对话；chat_messages 通过 conversationId 归属到会话。 */
+export interface Conversation {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ChatMessage {
@@ -79,6 +92,8 @@ export interface ChatMessage {
   role: ChatRole;
   content: string;
   imageName: string | null;
+  /** 所属会话；旧数据在 db:init 时回填到「历史对话」。 */
+  conversationId: string | null;
   payload: MessagePayload;
   createdAt: string;
 }
@@ -95,6 +110,29 @@ export interface GraphData {
   relations: Relation[];
   sources: Source[];
   nodeSources: NodeSource[];
+}
+
+/** 向量检索命中：由 match_nodes RPC 返回，只保留展示与判定需要的字段。 */
+export interface VectorMatch {
+  nodeId: string;
+  title: string;
+  summary: string;
+  similarity: number;
+}
+
+/** 回填向量的目标节点（不含向量本身，避免把 1024 维数组拉到前端）。 */
+export interface NodeIndexTarget {
+  id: string;
+  title: string;
+  summary: string;
+}
+
+/** 指标埋点事件（只存事件名与小体量属性，不存问答正文）。 */
+export interface AppEvent {
+  id: string;
+  name: string;
+  props: Record<string, unknown>;
+  createdAt: string;
 }
 
 export interface SeedNodeDef {

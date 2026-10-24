@@ -3,15 +3,20 @@ import { mockAnswerFor, mockExtract } from "@/lib/ai/mock";
 import { newId, nowIso } from "@/lib/ids";
 import { dedupeRelations, makeRelation } from "@/lib/relations";
 import type {
+  AppEvent,
   ChatMessage,
+  Conversation,
   GraphData,
   KnowledgeNode,
   MessagePayload,
+  NodeIndexTarget,
   NodeSource,
   Relation,
   Source,
+  VectorMatch,
 } from "@/types";
-import type { DataRepo, NodeUpdatePatch } from "./types";
+import { sortConversations } from "@/lib/conversations";
+import type { DataRepo, MatchNodesInput, NodeUpdatePatch } from "./types";
 
 /**
  * 演示模式的内存仓库：不连接 Supabase，也没有任何持久化，
@@ -22,6 +27,7 @@ export class MemoryRepo implements DataRepo {
 
   private graph: GraphData;
   private messages: ChatMessage[] = [];
+  private conversations: Conversation[] = [];
 
   constructor() {
     this.graph = buildSeedGraph();
@@ -31,6 +37,16 @@ export class MemoryRepo implements DataRepo {
   private seedDemoConversation(): void {
     const question = "电阻并联怎么算？";
     const answer = mockAnswerFor(question);
+    const conversationId = newId();
+    const createdAt = nowIso();
+    this.conversations = [
+      {
+        id: conversationId,
+        title: question,
+        createdAt,
+        updatedAt: createdAt,
+      },
+    ];
     const source: Source = {
       id: newId(),
       kind: "chat",
@@ -47,6 +63,7 @@ export class MemoryRepo implements DataRepo {
         role: "user",
         content: question,
         imageName: null,
+        conversationId,
         payload: {},
         createdAt: nowIso(),
       },
@@ -55,6 +72,7 @@ export class MemoryRepo implements DataRepo {
         role: "assistant",
         content: answer,
         imageName: null,
+        conversationId,
         payload: { suggestions },
         createdAt: nowIso(),
       },
@@ -87,8 +105,36 @@ export class MemoryRepo implements DataRepo {
     };
   }
 
-  async loadMessages(): Promise<ChatMessage[]> {
-    return [...this.messages];
+  async loadMessages(_userId: string, conversationId: string): Promise<ChatMessage[]> {
+    return this.messages.filter((message) => message.conversationId === conversationId);
+  }
+
+  async loadConversations(): Promise<Conversation[]> {
+    return sortConversations(this.conversations);
+  }
+
+  async insertConversation(_userId: string, conversation: Conversation): Promise<void> {
+    this.conversations.push(conversation);
+  }
+
+  async updateConversation(
+    _userId: string,
+    conversationId: string,
+    patch: Partial<Pick<Conversation, "title" | "updatedAt">>,
+  ): Promise<void> {
+    this.conversations = this.conversations.map((conversation) =>
+      conversation.id === conversationId ? { ...conversation, ...patch } : conversation,
+    );
+  }
+
+  async deleteConversation(_userId: string, conversationId: string): Promise<void> {
+    this.conversations = this.conversations.filter((conversation) => conversation.id !== conversationId);
+    this.messages = this.messages.filter((message) => message.conversationId !== conversationId);
+  }
+
+  async clearConversations(): Promise<void> {
+    this.conversations = [];
+    this.messages = [];
   }
 
   async insertNode(_userId: string, node: KnowledgeNode): Promise<void> {
@@ -181,12 +227,29 @@ export class MemoryRepo implements DataRepo {
     );
   }
 
-  async clearMessages(): Promise<void> {
-    this.messages = [];
-  }
-
   async ensureProfile(): Promise<void> {
     // 内存模式没有账号体系，忽略。
+  }
+
+  /** 内存模式没有向量索引：命中与候选自动退回关键词。 */
+  async matchNodesByVector(_input: MatchNodesInput): Promise<VectorMatch[]> {
+    return [];
+  }
+
+  async setNodeEmbedding(_input: {
+    nodeId: string;
+    embedding: number[];
+    model: string;
+  }): Promise<void> {
+    // 内存模式不保存向量。
+  }
+
+  async listNodesMissingEmbedding(_model: string): Promise<NodeIndexTarget[]> {
+    return [];
+  }
+
+  async insertEvent(_userId: string, _event: AppEvent): Promise<void> {
+    // 内存模式不落库；analytics 在演示模式自行 console.debug。
   }
 
   /** 仅演示模式使用：给「载入示例图谱」一个幂等的重建入口。 */

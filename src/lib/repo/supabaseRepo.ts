@@ -1,16 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dedupeRelations } from "@/lib/relations";
 import type {
+  AppEvent,
   ChatMessage,
+  Conversation,
   GraphData,
   KnowledgeNode,
   MessagePayload,
+  NodeIndexTarget,
   NodeSource,
   Relation,
   Source,
+  VectorMatch,
 } from "@/types";
-import type { DataRepo, NodeUpdatePatch } from "./types";
+import type { DataRepo, MatchNodesInput, NodeUpdatePatch } from "./types";
 import {
+  conversationFromRow,
+  conversationToRow,
   messageFromRow,
   messageToRow,
   nodeFromRow,
@@ -21,6 +27,7 @@ import {
   relationToRow,
   sourceFromRow,
   sourceToRow,
+  type ConversationRow,
   type MessageRow,
   type NodeRow,
   type NodeSourceRow,
@@ -44,6 +51,13 @@ function ensure(result: { error: { message: string } | null }): void {
   if (result.error) throw new Error(result.error.message);
 }
 
+/**
+ * 显式列清单：绝不能 select("*")，否则会把 1024 维的 embedding 一起拉到前端。
+ * 向量只在服务端 RPC 内部使用。
+ */
+const NODE_COLUMNS =
+  "id,user_id,parent_id,title,summary,detail,manual_position,status,aliases,mastery,created_at,updated_at";
+
 /** Supabase 端实现：所有查询都走 RLS（user_id = auth.uid()），客户端拿 anon key。 */
 export function createSupabaseRepo(getClient: GetClient): DataRepo {
   return {
@@ -53,7 +67,11 @@ export function createSupabaseRepo(getClient: GetClient): DataRepo {
       const client = getClient();
       if (!client) throw new Error("Supabase 未配置");
       const [nodesRes, relationsRes, sourcesRes, linksRes] = await Promise.all([
-        client.from("nodes").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
+        client
+          .from("nodes")
+          .select(NODE_COLUMNS)
+          .eq("user_id", userId)
+          .order("created_at", { ascending: true }),
         client
           .from("relations")
           .select("*")
@@ -74,15 +92,73 @@ export function createSupabaseRepo(getClient: GetClient): DataRepo {
       };
     },
 
-    async loadMessages(userId: string): Promise<ChatMessage[]> {
+    async loadMessages(userId: string, conversationId: string): Promise<ChatMessage[]> {
       const client = getClient();
       if (!client) throw new Error("Supabase 未配置");
       const result = await client
         .from("chat_messages")
         .select("*")
         .eq("user_id", userId)
+        .eq("conversation_id", conversationId)
         .order("created_at", { ascending: true });
       return rows<MessageRow>(result).map(messageFromRow);
+    },
+
+    async loadConversations(userId: string): Promise<Conversation[]> {
+      const client = getClient();
+      if (!client) throw new Error("Supabase 未配置");
+      const result = await client
+        .from("conversations")
+        .select("id,user_id,title,created_at,updated_at")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false });
+      return rows<ConversationRow>(result).map(conversationFromRow);
+    },
+
+    async insertConversation(userId: string, conversation: Conversation): Promise<void> {
+      const client = getClient();
+      if (!client) throw new Error("Supabase 未配置");
+      ensure(await client.from("conversations").insert(conversationToRow(userId, conversation)));
+    },
+
+    async updateConversation(
+      userId: string,
+      conversationId: string,
+      patch: Partial<Pick<Conversation, "title" | "updatedAt">>,
+    ): Promise<void> {
+      const client = getClient();
+      if (!client) throw new Error("Supabase 未配置");
+      const row: Record<string, unknown> = {};
+      if (patch.title !== undefined) row.title = patch.title;
+      if (patch.updatedAt !== undefined) row.updated_at = patch.updatedAt;
+      if (Object.keys(row).length === 0) return;
+      ensure(
+        await client
+          .from("conversations")
+          .update(row)
+          .eq("id", conversationId)
+          .eq("user_id", userId),
+      );
+    },
+
+    async deleteConversation(userId: string, conversationId: string): Promise<void> {
+      const client = getClient();
+      if (!client) throw new Error("Supabase 未配置");
+      ensure(
+        await client
+          .from("conversations")
+          .delete()
+          .eq("id", conversationId)
+          .eq("user_id", userId),
+      );
+    },
+
+    async clearConversations(userId: string): Promise<void> {
+      const client = getClient();
+      if (!client) throw new Error("Supabase 未配置");
+      // 先删消息，兼容迁移前可能存在的 conversation_id 为空的历史行；再删会话。
+      ensure(await client.from("chat_messages").delete().eq("user_id", userId));
+      ensure(await client.from("conversations").delete().eq("user_id", userId));
     },
 
     async insertNode(userId: string, node: KnowledgeNode): Promise<void> {
@@ -239,12 +315,6 @@ export function createSupabaseRepo(getClient: GetClient): DataRepo {
       );
     },
 
-    async clearMessages(userId: string): Promise<void> {
-      const client = getClient();
-      if (!client) throw new Error("Supabase 未配置");
-      ensure(await client.from("chat_messages").delete().eq("user_id", userId));
-    },
-
     async ensureProfile(userId: string): Promise<void> {
       const client = getClient();
       if (!client) throw new Error("Supabase 未配置");
@@ -252,6 +322,72 @@ export function createSupabaseRepo(getClient: GetClient): DataRepo {
         await client
           .from("profiles")
           .upsert({ user_id: userId }, { onConflict: "user_id", ignoreDuplicates: true }),
+      );
+    },
+
+    async matchNodesByVector(input: MatchNodesInput): Promise<VectorMatch[]> {
+      const client = getClient();
+      if (!client) throw new Error("Supabase 未配置");
+      const result = await client.rpc("match_nodes", {
+        query_embedding: input.embedding,
+        match_count: input.limit ?? 8,
+        min_similarity: input.minSimilarity ?? 0,
+        p_model: input.model,
+      });
+      if (result.error) throw new Error(result.error.message);
+      const rows = (result.data ?? []) as Array<{
+        node_id: string;
+        title: string;
+        summary: string;
+        similarity: number;
+      }>;
+      return rows.map((row) => ({
+        nodeId: row.node_id,
+        title: row.title,
+        summary: row.summary ?? "",
+        similarity: row.similarity,
+      }));
+    },
+
+    async setNodeEmbedding(input: {
+      nodeId: string;
+      embedding: number[];
+      model: string;
+    }): Promise<void> {
+      const client = getClient();
+      if (!client) throw new Error("Supabase 未配置");
+      const result = await client.rpc("set_node_embedding", {
+        p_node_id: input.nodeId,
+        p_embedding: input.embedding,
+        p_model: input.model,
+      });
+      if (result.error) throw new Error(result.error.message);
+    },
+
+    async listNodesMissingEmbedding(model: string): Promise<NodeIndexTarget[]> {
+      const client = getClient();
+      if (!client) throw new Error("Supabase 未配置");
+      const result = await client.rpc("list_nodes_missing_embedding", { p_model: model });
+      if (result.error) throw new Error(result.error.message);
+      const rows = (result.data ?? []) as NodeIndexTarget[];
+      return rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        summary: row.summary ?? "",
+      }));
+    },
+
+    async insertEvent(userId: string, event: AppEvent): Promise<void> {
+      const client = getClient();
+      if (!client) throw new Error("Supabase 未配置");
+      ensure(
+        await client.from("events").insert({
+          id: event.id,
+          user_id: userId,
+          name: event.name,
+          props: event.props,
+          created_at: event.createdAt,
+        }),
       );
     },
   };

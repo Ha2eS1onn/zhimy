@@ -1,9 +1,10 @@
 import { newId } from "@/lib/ids";
-import { buildPath } from "@/lib/path";
+import { buildPath, indexNodes } from "@/lib/path";
 import { relationKey } from "@/lib/relations";
 import { searchNodes } from "@/lib/search";
 import type { KnowledgeNode, NodeSource, Relation, RelationType } from "@/types";
 import { streamChat } from "./llmClient";
+import { mergeVectorFirst, type SemanticSearch } from "./semanticSearch";
 import type { LlmSettings } from "./types";
 
 /** 自动关系建议：本地同源启发式 + BYOK 模型推荐（都只提议，不自动写入）。 */
@@ -70,6 +71,70 @@ export function buildRelationCandidates(
     if (merged.size >= limit) break;
   }
   return Array.from(merged.values());
+}
+
+/** 节点 id 映射成关系候选（带父路径），未知 id 返回 null。 */
+function toRelationCandidate(
+  nodeMap: Map<string, KnowledgeNode>,
+  nodeId: string,
+): RelationCandidate | null {
+  const node = nodeMap.get(nodeId);
+  if (!node) return null;
+  const path = buildPath(nodeMap, node.id);
+  return {
+    id: node.id,
+    title: node.title,
+    path: path
+      .slice(0, -1)
+      .map((item) => item.title)
+      .join(" / "),
+  };
+}
+
+/**
+ * 关系候选的语义版本（P1-A）：把「标题 + 摘要 + 直接子节点标题」向量化后找近邻，
+ * 排除自身与已连接节点；向量环节抛错时回退现有关键词逻辑。
+ */
+export async function buildRelationCandidatesAsync(
+  node: KnowledgeNode,
+  nodes: KnowledgeNode[],
+  relations: Relation[],
+  semantic?: SemanticSearch | null,
+  limit = 12,
+): Promise<RelationCandidate[]> {
+  const keywordCandidates = buildRelationCandidates(node, nodes, relations, limit);
+  if (!semantic || nodes.length === 0) return keywordCandidates;
+
+  const excluded = connectedIds(node.id, relations);
+  const childrenTitles = nodes
+    .filter((item) => item.parentId === node.id)
+    .map((item) => item.title);
+  const query = [node.title, node.summary, ...childrenTitles].join("\n").slice(0, 1000).trim();
+  if (!query) return keywordCandidates;
+
+  const nodeMap = indexNodes(nodes);
+  const vectorCandidates: RelationCandidate[] = [];
+  try {
+    const embedding = await semantic.embedQuery(query);
+    const matches = await semantic.matchNodes(embedding, { limit });
+    for (const match of matches) {
+      if (match.nodeId === node.id || excluded.has(match.nodeId)) continue;
+      const candidate = toRelationCandidate(nodeMap, match.nodeId);
+      if (candidate) vectorCandidates.push(candidate);
+    }
+  } catch {
+    return keywordCandidates;
+  }
+
+  const excludeIds = new Set(excluded);
+  excludeIds.add(node.id);
+  return mergeVectorFirst(
+    vectorCandidates,
+    keywordCandidates,
+    limit,
+    (candidate) => candidate.id,
+    excludeIds,
+  );
 }
 
 /** 解析模型输出并校验候选 id / 类型 / 重复关系。 */
@@ -205,9 +270,16 @@ export async function suggestRelationsWithLlm(input: {
   node: KnowledgeNode;
   nodes: KnowledgeNode[];
   relations: Relation[];
+  /** 语义检索（P1-A）；为空时完全走原来的关键词候选。 */
+  semantic?: SemanticSearch | null;
   signal?: AbortSignal;
 }): Promise<RelationSuggestion[]> {
-  const candidates = buildRelationCandidates(input.node, input.nodes, input.relations);
+  const candidates = await buildRelationCandidatesAsync(
+    input.node,
+    input.nodes,
+    input.relations,
+    input.semantic,
+  );
   if (candidates.length === 0) return [];
   const prompt = buildRelationSuggestionPrompt(input.node, candidates, input.relations);
 

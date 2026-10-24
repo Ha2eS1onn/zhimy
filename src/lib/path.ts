@@ -77,3 +77,71 @@ export function isSelfOrDescendant(
 export function childrenOf(nodes: KnowledgeNode[], parentId: string | null): KnowledgeNode[] {
   return nodes.filter((n) => n.parentId === parentId);
 }
+
+// ---------------------------------------------------------------------------
+// 新建父级路径（收编卡片 / 换个位置共用）
+// ---------------------------------------------------------------------------
+
+/** 新建父级路径时的分隔符：中英文斜杠、箭头、顿号与反斜杠。 */
+const PATH_INPUT_SEPARATOR = /[/／>＞→\\、]/g;
+
+/** 一条路径最多几级（学科 → 章节 → 小节 → …）。 */
+export const MAX_PATH_SEGMENTS = 5;
+
+/** 每级名称长度上限，与 AI 抽取的标题长度保持一致。 */
+export const MAX_PATH_SEGMENT_LENGTH = 24;
+
+/** 把「物理 / 电学」这类输入拆成层级数组；空段会被丢弃。 */
+export function parsePathInput(raw: string): string[] {
+  if (!raw) return [];
+  return raw
+    .split(PATH_INPUT_SEPARATOR)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
+
+/** 校验路径；有问题返回中文提示，合法返回 null。 */
+export function validatePathSegments(segments: string[]): string | null {
+  if (segments.length === 0) return "请输入至少一级名称，例如：物理 / 电学";
+  if (segments.length > MAX_PATH_SEGMENTS) return `路径最多 ${MAX_PATH_SEGMENTS} 级`;
+  for (const segment of segments) {
+    if (segment.length > MAX_PATH_SEGMENT_LENGTH) {
+      return `每一级名称不能超过 ${MAX_PATH_SEGMENT_LENGTH} 个字`;
+    }
+  }
+  return null;
+}
+
+/** 在同一父级下按标题找节点（大小写不敏感，与数据库 lower(title) 唯一索引一致）。 */
+export function findChildByTitle(
+  nodes: KnowledgeNode[],
+  parentId: string | null,
+  title: string,
+): KnowledgeNode | undefined {
+  const target = title.trim().toLowerCase();
+  if (!target) return undefined;
+  return nodes.find(
+    (node) => node.parentId === parentId && node.title.trim().toLowerCase() === target,
+  );
+}
+
+/** 需要排除的子树：excludeId 自身 + 全部后代（换位置时不能挂到自己下面）。 */
+export function blockedSubtree(
+  nodes: KnowledgeNode[],
+  excludeId?: string | null,
+): Set<string> {
+  const blocked = new Set<string>();
+  if (!excludeId) return blocked;
+  blocked.add(excludeId);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const node of nodes) {
+      if (node.parentId && blocked.has(node.parentId) && !blocked.has(node.id)) {
+        blocked.add(node.id);
+        changed = true;
+      }
+    }
+  }
+  return blocked;
+}

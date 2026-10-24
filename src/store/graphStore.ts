@@ -3,6 +3,8 @@
 import { create } from "zustand";
 import { buildSeedGraph } from "@/data/seed";
 import { newId, nowIso } from "@/lib/ids";
+import { reindexNode } from "@/lib/ai/nodeIndex";
+import { findChildByTitle, validatePathSegments } from "@/lib/path";
 import { getRepo } from "@/lib/repo";
 import { dedupeRelations, makeRelation, normalizePair, relationKey } from "@/lib/relations";
 import type {
@@ -29,13 +31,28 @@ interface GraphState {
   load: (userId: string) => Promise<void>;
   ensureLoaded: () => Promise<void>;
   refresh: () => Promise<void>;
-  addSource: (input: { question: string; answer: string }) => Promise<Source>;
+  addSource: (input: {
+    question: string;
+    answer: string;
+    /** 本次提问是否带图：只影响 sources.kind，图片本身不上传云端。 */
+    hasImage?: boolean;
+  }) => Promise<Source>;
   adopt: (input: {
     suggestion: Suggestion;
     parentId: string | null;
     title: string;
     summary: string;
+    /** 用户显式选过位置（含新建父级路径）时直接归位，不再因 AI 置信度低进入待处理。 */
+    forceActive?: boolean;
   }) => Promise<{ nodeId: string; status: NodeStatus }>;
+  /**
+   * 新建（或复用）一条父级路径：例如 ["物理", "电学"]。
+   * 同父级下同名节点会复用；缺失的逐级创建，返回路径末端节点 id。
+   */
+  createPath: (
+    segments: string[],
+    options?: { blockedIds?: string[] },
+  ) => Promise<{ leafId: string; created: KnowledgeNode[] }>;
   reparent: (nodeId: string, parentId: string | null) => Promise<void>;
   setStatus: (nodeId: string, status: NodeStatus) => Promise<void>;
   /** 修改知识点名称 / 摘要 / 完整讲解（详情页与面板里的编辑功能）。 */
@@ -113,11 +130,11 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
     await get().load(user.id);
   },
 
-  addSource: async ({ question, answer }) => {
+  addSource: async ({ question, answer, hasImage = false }) => {
     const userId = currentUserId();
     const source: Source = {
       id: newId(),
-      kind: "chat",
+      kind: hasImage ? "image" : "chat",
       question,
       answer,
       imagePath: null,
@@ -128,11 +145,13 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
     return source;
   },
 
-  adopt: async ({ suggestion, parentId, title, summary }) => {
+  adopt: async ({ suggestion, parentId, title, summary, forceActive = false }) => {
     const userId = currentUserId();
-    // 没有选到父节点时（尤其图谱已有数据），先进入待处理，避免把临时条目当成"学科"挂在顶层。
-    const status: NodeStatus =
-      parentId === null && get().nodes.length > 0
+    // 用户显式选过位置（含新建父级路径）就视为已归位；否则没有选到父节点时（尤其图谱已有数据）
+    // 先进入待处理，避免把临时条目当成"学科"挂在顶层。
+    const status: NodeStatus = forceActive
+      ? "active"
+      : parentId === null && get().nodes.length > 0
         ? "inbox"
         : suggestion.confidence >= 0.75
           ? "active"
@@ -192,7 +211,70 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
       throw error;
     }
 
+    // 收编成功后在后台补向量；失败只记日志，不阻塞收编流程。
+    reindexNode(node);
     return { nodeId: node.id, status };
+  },
+
+  createPath: async (segments, options) => {
+    const userId = currentUserId();
+    const clean = segments.map((segment) => segment.trim()).filter(Boolean);
+    const invalid = validatePathSegments(clean);
+    if (invalid) throw new Error(invalid);
+
+    const blocked = new Set(options?.blockedIds ?? []);
+    const created: KnowledgeNode[] = [];
+    let parentId: string | null = null;
+
+    try {
+      for (const title of clean) {
+        const existing = findChildByTitle(get().nodes, parentId, title);
+        if (existing) {
+          if (blocked.has(existing.id)) {
+            throw new Error(`路径里的「${title}」正是当前节点或其子节点，换一个路径试试`);
+          }
+          parentId = existing.id;
+          continue;
+        }
+
+        const createdAt = nowIso();
+        const node: KnowledgeNode = {
+          id: newId(),
+          parentId,
+          title,
+          summary: "",
+          detail: "",
+          manualPosition: null,
+          status: "active",
+          aliases: [],
+          mastery: null,
+          createdAt,
+          updatedAt: createdAt,
+        };
+        // 父级先于子级写入（自引用外键），本地先乐观插入；
+        // 先记录到 created，保证 insert 失败时也能从 state 回滚这一条。
+        set((state) => ({ nodes: [...state.nodes, node] }));
+        created.push(node);
+        await getRepo().insertNode(userId, node);
+        parentId = node.id;
+      }
+    } catch (error) {
+      // 任一环节失败：回滚本次创建的全部节点，避免留下半截路径。
+      if (created.length > 0) {
+        const createdIds = new Set(created.map((node) => node.id));
+        set((state) => ({ nodes: state.nodes.filter((node) => !createdIds.has(node.id)) }));
+        for (const node of [...created].reverse()) {
+          await getRepo()
+            .deleteNode(userId, node.id)
+            .catch(() => {});
+        }
+      }
+      throw error;
+    }
+
+    // 新建的结构性节点也补向量（未配置向量服务时内部直接跳过）。
+    for (const node of created) reindexNode(node);
+    return { leafId: parentId as string, created };
   },
 
   reparent: async (nodeId, parentId) => {
@@ -249,6 +331,12 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
     } catch (error) {
       set({ nodes: previous });
       throw error;
+    }
+
+    // 标题/摘要变化会改变语义，后台重算向量（detail 变化不影响 embedding）。
+    if (clean.title !== undefined || clean.summary !== undefined) {
+      const updated = get().nodes.find((node) => node.id === nodeId);
+      if (updated) reindexNode(updated);
     }
   },
 

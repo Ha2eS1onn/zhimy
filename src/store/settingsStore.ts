@@ -12,6 +12,9 @@ export const DEFAULT_LLM_SETTINGS: LlmSettings = {
   apiKey: "",
   model: "",
   visionModel: "",
+  embeddingModel: "",
+  embeddingBaseUrl: "",
+  embeddingApiKey: "",
 };
 
 interface SettingsState {
@@ -33,12 +36,23 @@ export const useSettingsStore = create<SettingsState>()(
       autoRotate: true,
       setLlm: (patch) => set((state) => ({ llm: { ...state.llm, ...patch } })),
       clearApiKey: () =>
-        set((state) => ({ llm: { ...state.llm, apiKey: "", mode: "mock" as const } })),
+        set((state) => ({
+          llm: { ...state.llm, apiKey: "", embeddingApiKey: "", mode: "mock" as const },
+        })),
       setDensity: (density) => set({ density }),
       setAutoRotate: (autoRotate) => set({ autoRotate }),
     }),
     {
       name: "zhimy:settings:v1",
+      version: 2,
+      // v1 → v2：补齐向量相关字段，避免旧 localStorage 配置读到 undefined。
+      migrate: (persisted) => {
+        const state = persisted as { llm?: Partial<LlmSettings> } | undefined;
+        return {
+          ...(state ?? {}),
+          llm: { ...DEFAULT_LLM_SETTINGS, ...(state?.llm ?? {}) },
+        };
+      },
       skipHydration: true,
       partialize: (state) => ({
         llm: state.llm,

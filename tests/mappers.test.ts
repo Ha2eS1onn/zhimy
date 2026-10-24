@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  conversationFromRow,
+  conversationToRow,
   messageFromRow,
   messageToRow,
   nodeFromRow,
@@ -91,6 +93,7 @@ describe("数据库行 ↔ 领域对象映射", () => {
       role: "assistant" as const,
       content: "答案",
       imageName: null,
+      conversationId: "c1",
       payload: {
         hit: { nodeId: "n1", score: 0.9 },
         suggestions: [],
@@ -98,5 +101,17 @@ describe("数据库行 ↔ 领域对象映射", () => {
       createdAt: "2026-01-01T00:00:00.000Z",
     };
     expect(messageFromRow(messageToRow("u1", message))).toEqual(message);
+  });
+
+  it("conversation 往返一致", () => {
+    const conversation = {
+      id: "c1",
+      title: "电阻并联怎么算？",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:01:00.000Z",
+    };
+    const row = conversationToRow("u1", conversation);
+    expect(row.user_id).toBe("u1");
+    expect(conversationFromRow(row)).toEqual(conversation);
   });
 });

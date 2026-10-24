@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { buildPath, getDepth, isSelfOrDescendant, pathLabel } from "@/lib/path";
+import {
+  MAX_PATH_SEGMENTS,
+  blockedSubtree,
+  buildPath,
+  findChildByTitle,
+  getDepth,
+  isSelfOrDescendant,
+  parsePathInput,
+  pathLabel,
+  validatePathSegments,
+} from "@/lib/path";
 import { makeNode, sampleNodes } from "./helpers";
 
 describe("路径：id 是身份，path 由父链拼装", () => {
@@ -39,5 +49,55 @@ describe("路径：id 是身份，path 由父链拼装", () => {
     ];
     const path = buildPath(cyclic, "a");
     expect(path.length).toBeLessThanOrEqual(64);
+  });
+});
+
+describe("新建父级路径：输入解析与校验", () => {
+  it("支持中英文斜杠、箭头、顿号与反斜杠", () => {
+    expect(parsePathInput("物理 / 电学")).toEqual(["物理", "电学"]);
+    expect(parsePathInput("物理／电学>电路→基础")).toEqual(["物理", "电学", "电路", "基础"]);
+    expect(parsePathInput("、物理、 电学 、")).toEqual(["物理", "电学"]);
+    expect(parsePathInput("物理 / / 电学")).toEqual(["物理", "电学"]);
+  });
+
+  it("空输入与纯分隔符返回空数组", () => {
+    expect(parsePathInput("")).toEqual([]);
+    expect(parsePathInput(" / ／ 、 ")).toEqual([]);
+  });
+
+  it("校验层级数量与每级长度", () => {
+    expect(validatePathSegments([])).toContain("至少一级");
+    expect(validatePathSegments(["物理"])).toBeNull();
+    expect(validatePathSegments(Array.from({ length: MAX_PATH_SEGMENTS + 1 }, () => "x"))).toContain(
+      "最多",
+    );
+    expect(validatePathSegments(["x".repeat(25)])).toContain("不能超过");
+  });
+});
+
+describe("新建父级路径：同父级复用与阻断子树", () => {
+  const nodes = sampleNodes();
+
+  it("同父级下按标题命中（大小写不敏感）", () => {
+    expect(findChildByTitle(nodes, null, "物理")?.id).toBe("phys");
+    const custom = [makeNode("alg", null, "Algebra"), makeNode("alg2", "alg", "Linear Algebra")];
+    expect(findChildByTitle(custom, null, "algebra")?.id).toBe("alg");
+    expect(findChildByTitle(custom, "alg", "linear algebra")?.id).toBe("alg2");
+  });
+
+  it("不同父级下的同名节点不会误命中", () => {
+    // 「电阻的并联」挂在电阻下，直接找物理的下一级不应命中它
+    expect(findChildByTitle(nodes, "phys", "电阻的并联")).toBeUndefined();
+    expect(findChildByTitle(nodes, "resistor", "电阻的并联")?.id).toBe("r-parallel");
+  });
+
+  it("blockedSubtree 覆盖自身与全部后代", () => {
+    const blocked = blockedSubtree(nodes, "resistor");
+    expect(blocked.has("resistor")).toBe(true);
+    expect(blocked.has("r-series")).toBe(true);
+    expect(blocked.has("r-parallel")).toBe(true);
+    expect(blocked.has("r-equivalent")).toBe(true);
+    expect(blocked.has("ohm")).toBe(false);
+    expect(blockedSubtree(nodes, null).size).toBe(0);
   });
 });

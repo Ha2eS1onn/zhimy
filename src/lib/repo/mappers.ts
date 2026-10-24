@@ -1,5 +1,6 @@
 import type {
   ChatMessage,
+  Conversation,
   KnowledgeNode,
   MessagePayload,
   NodeSource,
@@ -59,8 +60,17 @@ export interface MessageRow {
   role: string;
   content: string;
   image_name: string | null;
+  conversation_id: string | null;
   payload: unknown;
   created_at: string;
+}
+
+export interface ConversationRow {
+  id: string;
+  user_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /** 只接受有限数字的三维坐标，脏数据一律当成"未手动定位"。 */
@@ -170,6 +180,7 @@ export function messageFromRow(row: MessageRow): ChatMessage {
     role: row.role === "assistant" ? "assistant" : "user",
     content: row.content ?? "",
     imageName: row.image_name,
+    conversationId: row.conversation_id,
     payload,
     createdAt: row.created_at,
   };
@@ -182,7 +193,27 @@ export function messageToRow(userId: string, message: ChatMessage): MessageRow {
     role: message.role,
     content: message.content,
     image_name: message.imageName,
+    conversation_id: message.conversationId,
     payload: message.payload,
     created_at: message.createdAt,
+  };
+}
+
+export function conversationFromRow(row: ConversationRow): Conversation {
+  return {
+    id: row.id,
+    title: row.title || "新对话",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function conversationToRow(userId: string, conversation: Conversation): ConversationRow {
+  return {
+    id: conversation.id,
+    user_id: userId,
+    title: conversation.title,
+    created_at: conversation.createdAt,
+    updated_at: conversation.updatedAt,
   };
 }
