@@ -13,7 +13,7 @@
 - 当前状态（2026-10-24）：**P1 全部改动已提交并推送**（`b659a6b` 向量命中 / `872233b` 会话+埋点+拍题+公式 / `a3654f1` 部署与 CI / `934c6ec` 徽章 / `5e6ecf4`、`4888c28`、`aa7762c` 部署与域名文档）。整体验证：`typecheck` / `lint` 通过、vitest **26 个文件 201 个用例全绿**、`next build` 通过（8 条路由 + Proxy）、CI 在 GitHub 上实跑全绿（2m36s）、`npm run db:init` 47 条语句全部 ok、线上 `/api/health` 返回 `{"ok":true}`、匿名登录 REST 校验通过。**线上 E2E（Playwright / Chromium headless，2026-10-24）14/14 通过、0 console error / 0 page error / 0 failed request**：`?demo=1` 自动载入 102 节点 → 3D 渲染 → 对话流式回答 → 抽取 2 张收编卡 → 收编写入 → `/atlas?node=` 深链定位 → 详情页 AI 模板生成 → 保存 → 刷新后仍在 → 进入对话页默认新会话。**尚未执行**：`verify-rls` 双账号校验、拍题/公式/思维链的线上自动化验收、向量命中「5 种问法」验收（缺真实 embedding Key）。
 - **向量命中的「5 种问法 ≥4 命中」云端验收尚未执行**：需要维护者配置真实 embedding Key 后按第 9 节 checklist 验证；无 Key 时按设计降级关键词，不影响构建与基础使用。
 - 部署方案：**Vercel Hobby（免费）+ GitHub Actions CI + 每日 keepalive**，定位是公开 Demo 与工程完整度；不做 VPS/Docker/备案/商业合规（详见 P1-D 与 `docs/DEPLOY.md`）。
-- 下一步建议：① 在 Supabase Auth 里把 `Site URL` / `Redirect URLs` 指向 `https://zhimy.kasho.fun`（见 `docs/DEPLOY.md` §3.3）；② 配真实 embedding Key 跑「5 种问法 ≥4 命中」与 `docs/insights.sql` 落库验收；③ 补拍题/公式/思维链的线上验收（主闭环已 E2E 通过）；④ P2 增强（复习闭环、Realtime、分享）。P1-C 已按简化方案收口，图片云端持久化与 OCR 不做。
+- 下一步建议：① 配真实 embedding Key 跑「5 种问法 ≥4 命中」与 `docs/insights.sql` 落库验收；② 补拍题/公式/思维链的线上专项验收（主闭环已 E2E 通过）；③ P2 增强（复习闭环、Realtime、分享）。自定义域名与 Supabase Auth 的 Site URL / Redirect URLs 已于 2026-10-24 配置完成。
 - 流式体验（2026-10-24）：SSE 支持读取 `reasoning_content` / `reasoning` / `thinking` / `reasoning_details`，聊天里展示可折叠「思考过程」；正文用前端打字机逐字上屏。思维链存入当前账号的 `chat_messages.payload`（上限 2 万字），不写 events。
 - 多会话（2026-10-24）：新增 `conversations`，`chat_messages.conversation_id` 归属；进入 `/chat` 默认新对话（空会话不写库，发第一条消息才建会话），顶部「历史」切换/删除，`?c=` 恢复；每个会话的上下文完全隔离。system prompt 同时放宽到全学科（哲学、编程等）。
 
@@ -245,7 +245,7 @@ P1 子项状态：
 - **会话**：进入对话页默认新对话，旧会话需从「历史」进入；暂不支持重命名、搜索、置顶或跨会话合并。空会话不落库，发送第一条消息时才创建；删除会话会级联删除消息；迁移前的历史消息统一归入「历史对话」。`?c=` 只做恢复提示，不是稳定的分享链接
 - **system prompt**：已放宽到全学科，但知识抽取/讲解生成仍以“知识点”为单位；纯代码项目、长篇创作等可能只抽出少量可收编节点，属于产品模型限制
 - **有基础埋点但没有应用内看板**：`events` 只记事件名与少量属性，聚合查询需在 Supabase SQL Editor 手动执行 `docs/insights.sql`
-- **已上线，主闭环 E2E 通过**：<https://zhimy.kasho.fun> 可访问（证书至 2027-01-22）、`/api/health` 正常、匿名登录可用；Playwright 线上跑通「示例图谱 → 对话 → 收编 → 3D 深链 → 详情生成/保存 → 刷新持久化」14 项。**未覆盖**：拍题缩略图、公式渲染、思维链面板的线上自动化验收；Supabase Auth 的 Site URL / Redirect URLs 仍需指向新域名；无 PWA service worker；Hobby 函数区域美东，国内访问延迟较高
+- **已上线，主闭环 E2E 通过**：<https://zhimy.kasho.fun> 可访问（证书至 2027-01-22）、`/api/health` 正常、匿名登录可用；Playwright 线上跑通「示例图谱 → 对话 → 收编 → 3D 深链 → 详情生成/保存 → 刷新持久化」14 项。**未覆盖**：拍题缩略图、公式渲染、思维链面板的线上自动化验收。**邮箱绑定注意**：Supabase 当前 `mailer_autoconfirm = false`（需确认邮件），免费版内置 SMTP 额度极低，公开 Demo 的「绑定邮箱」大概率收不到确认信；要在 Demo 演示该流程需配置自有 SMTP 或临时关闭 Confirm email（仅演示项目可接受）。无 PWA service worker；Hobby 函数区域美东，国内访问延迟较高
 - 无账号删除/数据删除入口；无 JSON 导入（只有导出）
 - 复习闭环（掌握度/间隔重复/到期复习）未做
 - 跨端同步靠"重新打开/切回页面刷新"，无 Realtime
@@ -337,12 +337,16 @@ P1 子项状态：
 - 目标 Supabase 已执行 `npm run db:init`（47/47 语句 ok）
 - keepalive：`vars.SUPABASE_URL` + `secrets.SUPABASE_ANON_KEY` 已配置，手动触发成功（run `40067630722`）
 
-**剩余（需要维护者操作 / 真实 Key）**
-1. Supabase → Authentication → URL Configuration：`Site URL` = `https://zhimy.kasho.fun`，`Redirect URLs` 追加 `https://zhimy.kasho.fun/**`、`https://zhimy.vercel.app/**` 与 `http://localhost:3100/**`
-2. 免费版邮箱确认限制：公开 Demo 建议保持/关闭 `Confirm email` 由维护者决定（`docs/DEPLOY.md` §3.3）
-3. 配真实 embedding Key 后跑向量命中与 `docs/insights.sql` 验收
-4. 线上浏览器 E2E（提问 → 收编 → 3D → 详情 → 拍题缩略图 → 公式）
-5. 可选（后置）：Dependabot / CodeQL、Deploy Button、收窄 `src/proxy.ts` 的 matcher、升级 Actions 到 v5（当前 v4 有 Node 20 弃用告警）
+**已完成补充（2026-10-24）**
+- 自定义域名 `zhimy.kasho.fun` 接入（CNAME → Vercel，Let's Encrypt 证书至 2027-01-22），`zhimy.vercel.app` 并存
+- Supabase Auth 的 `Site URL` / `Redirect URLs` 已由维护者配置为新域名
+- 线上 E2E 14/14 通过（主闭环：示例图谱 → 对话 → 收编 → 3D 深链 → 详情生成/保存 → 刷新持久化）
+
+**剩余（需要真实 Key / 维护者决定）**
+1. 配真实 embedding Key 后跑向量命中与 `docs/insights.sql` 验收
+2. 拍题缩略图、公式、思维链的线上专项 E2E（主闭环已通过）
+3. 邮箱确认策略：当前 `mailer_autoconfirm = false`，公开 Demo 若要演示「绑定邮箱」需配自有 SMTP 或临时关闭 Confirm email（`docs/DEPLOY.md` §3.3）
+4. 可选（后置）：Dependabot / CodeQL、Deploy Button、收窄 `src/proxy.ts` 的 matcher、升级 Actions 到 v5（当前 v4 有 Node 20 弃用告警）
 
 **已知限制**：Hobby 函数区域固定（美东）且时长/并发额度有限，BYOK 长回答流式需实测；Demo 不承诺 SLA 与数据持久性；免费版邮箱确认受限。
 
