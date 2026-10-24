@@ -1,6 +1,6 @@
 # 知脉 · 进度汇报与后续计划（交接文档）
 
-> 更新：2026-10-23 ｜ 分支 `main` ｜ 最新提交 `本轮改动未提交` ｜ 阅读对象：接手本项目的开发者 / Agent
+> 更新：2026-10-24 ｜ 分支 `main` ｜ 线上 Demo <https://zhimy.vercel.app> ｜ 仓库 <https://github.com/Ha2eS1onn/zhimy> ｜ 阅读对象：接手本项目的开发者 / Agent
 >
 > 本文档只写"事实 + 决策 + 下一步"，产品理念与交互细节见 [产品方案](知脉-知识地图产品方案-v1.0.docx) 与 [README](../README.md)。
 >
@@ -9,11 +9,11 @@
 ## 0. TL;DR
 
 - 这是「知脉」——把 AI 答疑沉淀成**可寻址、可联想、可收纳的个人知识图谱**的 Web 应用（Next.js 16 + Supabase）。
-- **P1-A 真实命中（pgvector 1024 维 + 关键词兜底）与 P1-B 指标埋点（events + insights）已在本轮完成 ✅**；**P1-C 拍题链路代码完成 🟡**（原图只喂当次请求的模型、视觉模型优先，不上传云端；聊天缩略图存本机 IndexedDB；浏览器验收待执行）；**P1-D 的仓库部分已完成 🟡**（`.nvmrc` / CI / keepalive / `?demo=1` / `docs/DEPLOY.md`），**尚未实际部署**（需要 Vercel 与 GitHub 仓库授权）。
-- 当前状态：**本轮改动未提交**。此前整体验证已完成：`typecheck` / `lint` 通过、vitest **23 个文件 177 个用例全绿**、`next build` 通过（含 `/api/llm/embeddings`、`/api/health`；清空 Supabase 环境变量后也能构建，模拟 CI）、本轮 `npm run db:init` 执行 47 条语句全部 ok（新增 conversations / conversation_id / 回填 / RLS）、`node scripts/verify-rls.mjs --direct` 通过（节点/向量 RPC/events/回填列表/会话与消息归属的跨用户隔离）。此前真实 Supabase 云端 E2E（收编、命中、登录、详情编辑、关系编辑、拖拽定位）已验证通过；**本轮浏览器端 E2E 未执行**（本机 HTTPS 到 `*.supabase.co` 被重置且没有真实 embedding Key，见第 10 节）。本轮追加改动：新增 `tests/imageAttachments.test.ts`（10 个用例）、`tests/chatTurns.test.ts`（4 个用例）与 `tests/conversations.test.ts`（4 个用例，总计 26 个文件 / 201 个用例），并重写 `tests/tex.test.ts`（KaTeX/跨行公式）、扩展 `tests/sse.test.ts`（思维链提取），`typecheck` / `lint` 通过；按维护者要求未重复跑 vitest（且本机沙箱下 vitest 启动即 `spawn EPERM`），本次已执行 `db:init`（迁移 conversations 与 chat_messages.conversation_id，旧消息回填「历史对话」），多会话、图片、公式与思考流的浏览器验收待执行（见第 9 节）。
+- **P1-A 真实命中（pgvector 1024 维 + 关键词兜底）与 P1-B 指标埋点（events + insights）已完成 ✅**；**P1-C 拍题链路代码完成 🟡**（原图只喂当次请求的模型、视觉模型优先，不上传云端；聊天缩略图存本机 IndexedDB；浏览器验收待执行）；**P1-D 已完成 ✅**——仓库已公开、CI 首跑全绿、Vercel 生产部署上线（<https://zhimy.vercel.app>）、keepalive 已配置并手动验证通过、Git 连接已开启 push 自动部署（2026-10-24）。
+- 当前状态（2026-10-24）：**P1 全部改动已提交并推送**（`b659a6b` 向量命中 / `872233b` 会话+埋点+拍题+公式 / `a3654f1` 部署与 CI / `934c6ec` 徽章，后续文档提交在同分支）。整体验证：`typecheck` / `lint` 通过、vitest **26 个文件 201 个用例全绿**、`next build` 通过（8 条路由 + Proxy）、CI 在 GitHub 上实跑全绿（2m36s）、`npm run db:init` 47 条语句全部 ok、线上 `/api/health` 返回 `{"ok":true}`、匿名登录 REST 校验通过（返回 `is_anonymous: true` + session）。**尚未执行**：`verify-rls` 双账号校验、浏览器端 E2E 与向量命中「5 种问法」验收（缺真实 embedding Key）。
 - **向量命中的「5 种问法 ≥4 命中」云端验收尚未执行**：需要维护者配置真实 embedding Key 后按第 9 节 checklist 验证；无 Key 时按设计降级关键词，不影响构建与基础使用。
 - 部署方案：**Vercel Hobby（免费）+ GitHub Actions CI + 每日 keepalive**，定位是公开 Demo 与工程完整度；不做 VPS/Docker/备案/商业合规（详见 P1-D 与 `docs/DEPLOY.md`）。
-- 下一步建议：执行 P1-D 剩余部分（推送仓库、Vercel 部署、补 README 徽章与 Live Demo）→ P2 增强（复习闭环、Realtime、分享）；P1-C 已按简化方案收口，图片云端持久化与 OCR 不做。
+- 下一步建议：① 在 Supabase Auth 里把 `Site URL` / `Redirect URLs` 指向 `https://zhimy.vercel.app`（见 `docs/DEPLOY.md` §3.3）；② 配真实 embedding Key 跑「5 种问法 ≥4 命中」与 `docs/insights.sql` 落库验收；③ 浏览器 E2E 回归；④ P2 增强（复习闭环、Realtime、分享）。P1-C 已按简化方案收口，图片云端持久化与 OCR 不做。
 - 流式体验（2026-10-24）：SSE 支持读取 `reasoning_content` / `reasoning` / `thinking` / `reasoning_details`，聊天里展示可折叠「思考过程」；正文用前端打字机逐字上屏。思维链存入当前账号的 `chat_messages.payload`（上限 2 万字），不写 events。
 - 多会话（2026-10-24）：新增 `conversations`，`chat_messages.conversation_id` 归属；进入 `/chat` 默认新对话（空会话不写库，发第一条消息才建会话），顶部「历史」切换/删除，`?c=` 恢复；每个会话的上下文完全隔离。system prompt 同时放宽到全学科（哲学、编程等）。
 
@@ -80,7 +80,7 @@ $env:NODE_USE_ENV_PROXY="1"
 | 阶段 | 方案要求 | 状态 | 说明 |
 |---|---|---|---|
 | P0 原型 | 可点击原型、3D 知识库、三端布局 | ✅ 完成 | 额外完成云账号与持久化（原属 P1） |
-| P1 MVP | 账号、真实 AI、数据持久化、三大页面 | 🟡 约 95% | 账号✅ 持久化✅ 三大页面✅ 真实 AI✅；**P1-A 向量命中✅**、**P1-B 指标埋点✅**、**P1-C 拍题缩略图（本地）🟡 代码完成**；剩余：**P1-D 实际部署** |
+| P1 MVP | 账号、真实 AI、数据持久化、三大页面 | ✅ 完成 | 账号✅ 持久化✅ 三大页面✅ 真实 AI✅；P1-A 向量命中✅、P1-B 指标埋点✅、P1-C 拍题缩略图（本地）🟡 浏览器验收待跑、P1-D 部署✅（线上 Demo 已上线） |
 | P2 增强 | 复习、关系编辑、导出、分享 | 🟡 约 40% | 关系编辑✅ 导出 JSON✅；复习闭环、分享、Realtime、导入/删号未做 |
 
 P1 子项状态：
@@ -90,7 +90,7 @@ P1 子项状态：
 | P1-A 真实命中 | ✅ 完成 | pgvector 1024 维 + HNSW，余弦相似度 ≥ 0.78 命中；未配置/异常/低分降级关键词 |
 | P1-B 指标埋点 | ✅ 完成 | `events` 表（RLS）+ `src/lib/analytics.ts` + `docs/insights.sql` |
 | P1-C 拍题链路 | 🟡 代码完成，浏览器验收待执行 | 原图只用于当次视觉模型请求，不上传云端；聊天/来源缩略图存本机 IndexedDB（2026-10-24 决策，见第 5 节 #16） |
-| P1-D 部署 + CI | 🟡 仓库部分完成 | CI / keepalive / `.nvmrc` / `?demo=1` / `docs/DEPLOY.md` 已就绪；**未实际部署** |
+| P1-D 部署 + CI | ✅ 完成（2026-10-24） | GitHub 仓库公开 + CI 全绿；Vercel 生产部署 <https://zhimy.vercel.app>；keepalive 已配 `vars.SUPABASE_URL` / `secrets.SUPABASE_ANON_KEY` 并手动跑通；已连接 Git（push 自动部署） |
 
 ## 3. 已实现能力（模块 → 关键文件）
 
@@ -173,13 +173,15 @@ P1 子项状态：
 - 查询：`docs/insights.sql`（每日命中率、周收编率、7 日留存、功能使用计数、命中来源分布、向量覆盖率）；在 Supabase SQL Editor（service role）执行可看全量，应用内无管理看板
 - 测试：`tests/analytics.test.ts`
 
-### 3.10 部署与 CI 仓库部分（P1-D 🟡）
+### 3.10 部署与 CI（P1-D ✅ 已上线）
 
 - `.nvmrc`（Node 22）、`.github/workflows/ci.yml`（push/PR：`npm ci → typecheck → lint → test → build`，不配云端密钥）
 - `.github/workflows/keepalive.yml`（每日 03:00 UTC ping 一次 Supabase REST；URL 取 `vars.SUPABASE_URL`、Key 取 `secrets.SUPABASE_ANON_KEY`，未配置时 step 自动跳过）
 - `?demo=1`：`AppProviders` 在账号就绪、图谱加载完成且为空时自动 `seedExample()`；sessionStorage `zhimy:demo-seeded` + ref 去重，先 `history.replaceState` 移除参数，成功 toast「已载入示例图谱（Demo 模式）」并上报 `graph_seeded`，失败只提示不标记
 - `docs/DEPLOY.md`：Vercel Hobby 导入、Supabase Auth/`db:init`、保活 secrets、发布/回滚、已知限制、待填 TODO 清单
-- **未实际部署**；README 的 CI 徽章与 Live Demo 用 `<!-- TODO: -->` 占位，未编造链接
+- **线上（2026-10-24）**：<https://zhimy.vercel.app>（项目 `prj_07iYEUoon7lzPOXAiDuMIQsTBDvM`，Vercel CLI 65.1.0 部署，构建 43s、总 3m）；项目已通过 `vercel git connect` 关联 GitHub，push `main` 自动部署；Deployment Protection（Vercel Authentication）已关闭，公网可直接访问
+- 环境变量只配 `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`（production / preview / development），未配任何服务端密钥
+- README 已补真实 Live Demo 与 CI 徽章
 
 ## 4. 数据模型与迁移
 
@@ -243,7 +245,7 @@ P1 子项状态：
 - **会话**：进入对话页默认新对话，旧会话需从「历史」进入；暂不支持重命名、搜索、置顶或跨会话合并。空会话不落库，发送第一条消息时才创建；删除会话会级联删除消息；迁移前的历史消息统一归入「历史对话」。`?c=` 只做恢复提示，不是稳定的分享链接
 - **system prompt**：已放宽到全学科，但知识抽取/讲解生成仍以“知识点”为单位；纯代码项目、长篇创作等可能只抽出少量可收编节点，属于产品模型限制
 - **有基础埋点但没有应用内看板**：`events` 只记事件名与少量属性，聚合查询需在 Supabase SQL Editor 手动执行 `docs/insights.sql`
-- **未实际部署**：仓库侧 CI / keepalive / `?demo=1` / `docs/DEPLOY.md` 已就绪，但 Vercel 与 GitHub Actions 尚未实跑，CI 徽章与 Live Demo 链接待补填；无 PWA service worker
+- **已上线但未做完整线上验收**：<https://zhimy.vercel.app> 可访问、`/api/health` 正常、匿名登录可用；浏览器端「提问 → 收编 → 3D 找到」与拍题/公式/思维链验收尚未在线上跑；Supabase Auth 的 Site URL / Redirect URLs 仍需指向 Demo 域名；无 PWA service worker；Hobby 函数区域美东，国内访问延迟较高
 - 无账号删除/数据删除入口；无 JSON 导入（只有导出）
 - 复习闭环（掌握度/间隔重复/到期复习）未做
 - 跨端同步靠"重新打开/切回页面刷新"，无 Realtime
@@ -323,26 +325,24 @@ P1 子项状态：
 - ⏳ 浏览器验收待执行（见第 9 节）：配置视觉模型后发图，模型能复述题干；刷新缩略图仍在；无痕窗口只显示文件名；Network 无 Storage 请求
 - 明确不做：Supabase Storage / 签名 URL / OCR / 跨设备 / 原图持久化
 
-### P1-D 部署 + CI 🟡（仓库部分完成，待 Vercel/GitHub 授权）
+### P1-D 部署 + CI ✅（2026-10-24 已上线）
 
-**定位**：个人开源、非商业的小体量项目，部署目标不是承载真实用户，而是「可访问的技术 Demo + 可复现的工程流程」。不阻塞 P1-A/P1-B。
+**定位**：个人开源、非商业的小体量项目，部署目标不是承载真实用户，而是「可访问的技术 Demo + 可复现的工程流程」。
 
-**已完成（仓库侧，2026-10-23）**
-- `.nvmrc` = 22；`.github/workflows/ci.yml`：push / PR 跑 `npm ci → typecheck → lint → test → build`，只读权限、`NEXT_TELEMETRY_DISABLED=1`、**不配置任何 Supabase secrets**
-- `.github/workflows/keepalive.yml`：每日 03:00 UTC + 手动触发，`curl` 一次 Supabase REST；URL 取 `vars.SUPABASE_URL`、Key 取 `secrets.SUPABASE_ANON_KEY`，未配置时 step 自动跳过（不红叉）
-- `?demo=1`：`AppProviders` 自动载入示例图谱（sessionStorage + ref 去重、`history.replaceState` 去参数、成功 toast、`graph_seeded` 埋点；失败不标记、可重试）
-- `/api/health` 健康检查路由（WS2 提供）
-- `docs/DEPLOY.md`：Vercel Hobby 导入、Supabase Auth/`db:init`、保活 secrets 配置、发布/回滚、已知限制、`<!-- TODO: -->` 待填清单
-- README：新增「向量命中（可选）」「部署与 CI」小节；CI 徽章与 Live Demo 用 `<!-- TODO: -->` 占位，**未编造链接**
+**已完成（线上）**
+- GitHub 公开仓库 <https://github.com/Ha2eS1onn/zhimy>，4 个提交推送；CI 首跑全绿（2m36s，8 步）
+- Vercel 项目 `zhimy`（Hobby）生产部署：<https://zhimy.vercel.app>；`vercel git connect` 已关联仓库，push 自动部署
+- 只配置 `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`（三个环境），未配 `NEXT_PUBLIC_DEMO_MODE` 或任何服务端密钥
+- Deployment Protection 已关闭，公网匿名可访问；`/api/health` 返回 `{"ok":true}`；匿名登录 CREATE 成功（`is_anonymous: true`）
+- 目标 Supabase 已执行 `npm run db:init`（47/47 语句 ok）
+- keepalive：`vars.SUPABASE_URL` + `secrets.SUPABASE_ANON_KEY` 已配置，手动触发成功（run `40067630722`）
 
-**待执行（需要账号/授权，本轮不做）**
-1. GitHub 推送仓库并确认 CI 首跑全绿 → 补 README CI 徽章
-2. Vercel 导入仓库、只配 `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`、部署拿到域名
-3. Supabase Auth 的 Site URL / Redirect URLs 指向 Demo 域名；匿名登录保持开启；免费版邮箱确认限制按 `docs/DEPLOY.md` 处理并在 README 注明
-4. 发布前在目标 Supabase 执行 `npm run db:init`（幂等，含 pgvector / events / RPC）
-5. 配置 keepalive 的 `vars.SUPABASE_URL` + `secrets.SUPABASE_ANON_KEY`，手动触发一次验证
-6. README 补 Live Demo；本文档第 0/2/7/8/12 节状态同步
-7. 可选（后置）：Dependabot / CodeQL、Deploy Button、收窄 `src/proxy.ts` 的 matcher
+**剩余（需要维护者操作 / 真实 Key）**
+1. Supabase → Authentication → URL Configuration：`Site URL` = `https://zhimy.vercel.app`，`Redirect URLs` 追加 `https://zhimy.vercel.app/**` 与 `http://localhost:3100/**`
+2. 免费版邮箱确认限制：公开 Demo 建议保持/关闭 `Confirm email` 由维护者决定（`docs/DEPLOY.md` §3.3）
+3. 配真实 embedding Key 后跑向量命中与 `docs/insights.sql` 验收
+4. 线上浏览器 E2E（提问 → 收编 → 3D → 详情 → 拍题缩略图 → 公式）
+5. 可选（后置）：Dependabot / CodeQL、Deploy Button、收窄 `src/proxy.ts` 的 matcher、升级 Actions 到 v5（当前 v4 有 Node 20 弃用告警）
 
 **已知限制**：Hobby 函数区域固定（美东）且时长/并发额度有限，BYOK 长回答流式需实测；Demo 不承诺 SLA 与数据持久性；免费版邮箱确认受限。
 
@@ -371,7 +371,7 @@ P1 子项状态：
 | 8 | events 表 + analytics + 埋点 | 见 P1-B | 视图有数据 | ✅ 代码完成；落库验收待云端 |
 | 9 | 指标 SQL 视图文档 | `docs/insights.sql` | 4 个指标可查 | ✅ 完成 |
 | 10 | 测试/构建/E2E/README 更新 | `tests/*`、`README.md` | 全绿 | ✅ typecheck / lint / test（177）/ build 全绿；浏览器 E2E 待真实 Key 与可用 HTTPS |
-| 11 | P1-D：CI + keepalive + `.nvmrc` + `?demo=1` + DEPLOY + README | `.github/workflows/*`、`.nvmrc`、`AppProviders.tsx`、`docs/DEPLOY.md`、`README.md` | CI 徽章全绿 + 公网 Demo | 🟡 仓库部分完成；实际部署待授权 |
+| 11 | P1-D：CI + keepalive + `.nvmrc` + `?demo=1` + DEPLOY + README | `.github/workflows/*`、`.nvmrc`、`AppProviders.tsx`、`docs/DEPLOY.md`、`README.md` | CI 徽章全绿 + 公网 Demo | ✅ 完成（2026-10-24：CI 全绿 + <https://zhimy.vercel.app>） |
 | 12 | 收编/移动时新建父级路径（空图谱可用） | `PositionPicker.tsx`、`graphStore.ts`、`path.ts`、四处调用点 | 新建 `物理 / 电学` 并复用；循环守卫；显式归位直接 active | ✅ 完成（单测覆盖 path 解析/复用/阻断） |
 | 13 | 讲解正文 LaTeX 公式渲染 | `MarkdownLite.tsx`、`TeXMath.tsx`、`lib/math/*`、`RichText.tsx`、AI 提示词 | `\(...\)`/`$...$`/`$$...$$` 渲染为公式；复杂公式可渲染 | ✅ 完成（2026-10-24 改用 KaTeX） |
 | 14 | P1-C 简化版：拍题图片本地缩略图 | `src/lib/media/*`、`LocalThumbnail.tsx`、Composer/ChatScreen/MessageBubble/详情页/3D 面板 | 发图 → 刷新缩略图仍在（同浏览器）；不上传云端、无 DB 变更 | ✅ 代码完成（浏览器验收待执行） |
@@ -380,7 +380,7 @@ P1 子项状态：
 | 17 | 流式思维链 + 逐字显示 | `sse.ts`、`llmClient.ts`、`ChatScreen.tsx`、`useTypewriter.ts`、`MessageBubble.tsx`、`types` | `reasoning_content`/`reasoning` 实时面板；正文逐字上屏；`payload.reasoning` 刷新可回看 | ✅ 代码完成（需推理模型验收） |
 | 18 | 多会话 + system prompt 放宽 | `schema.sql`、`conversations.ts`、`chatStore.ts`、repo、`ChatScreen.tsx`、`prompt.ts` | 默认新会话、历史切换/删除、上下文隔离；全学科提示词 | ✅ 代码完成；`db:init` 47 条语句 ok（浏览器验收待执行） |
 
-> 1–18 为技术主线，均已落到代码；#11 的部署动作需要管理员账号，本轮只交付仓库部分（CI / 保活 / 文档 / Demo 参数）。
+> 1–18 为技术主线，均已落到代码并上线；#11 的部署已于 2026-10-24 完成（GitHub + Vercel + keepalive），剩余仅为 Supabase Auth URL 配置与真实 Key 的指标验收。
 
 ## 9. 接手第一步 checklist
 
@@ -401,7 +401,7 @@ P1 子项状态：
 - **embedding 成本 / 回填**：向量回填按 token 计费（用维护者自己的 Key），一次全量回填注意批量（`EMBEDDING_BATCH=16`）与速率；用户日常命中也由用户自己的 Key 承担，量级远小于对话
 - **向量维度不可轻改**：`vector(1024)`、`EMBEDDING_DIM=1024`、设置预设必须一致；换维度需要迁移数据库列并全量重建（schema 有维度守卫，会直接报错而不是静默错配）
 - **换模型需重建**：`embedding_model` 隔离不同向量空间，不重建会导致旧节点「向量不可见」、命中率下降（表现为降级关键词）
-- **CI/部署待验证**：GitHub Actions 未在真实仓库实跑；Vercel 未部署。Hobby 免费版的函数区域（美东）、时长/并发限制、BYOK 长流式稳定性都需部署后实测
+- **线上部署已实测（基础项）**：CI 在真实仓库实跑全绿（2m36s）；Vercel 生产构建 43s、总 3m；`/api/health` 与匿名登录校验通过。**待实测**：Hobby 函数区域（美东）下的 BYOK 长流式稳定性、免费版额度与冷启动；浏览器端完整业务闭环
 - **中国网络**：`*.supabase.co` 的 HTTPS 在部分网络会被 reset（本机 2026-10-23 实测 HTTPS 被重置、Postgres 5432 正常）；遇 reset 浏览器走系统代理、Node 需 `dev:proxy`，数据库迁移与 `--direct` 校验不受影响。线上 Demo 受众以开发者为主，Vercel 访问性可接受；若以后面向国内用户再评估平台
 - **免费 Supabase**：7 天不活跃会暂停，Demo 用每日 keepalive cron 缓解（需配置 vars/secrets 且 cron 有偶发延迟）；需要更多配额时再评估升级
 - **未成年人**：产品主要面向学生与自学者，**若超出技术 Demo 定位、面向真实学生开放**，至少要有隐私说明、内容安全策略与数据删除能力；当前公开 Demo 应注明仅供演示
@@ -449,6 +449,10 @@ P1 子项状态：
 | 2026-10-23 | `?demo=1` 只在空图谱自动 seed，用 sessionStorage + ref 去重 | 避免重复清空/覆盖已有数据；读实时 store 防止 ensureLoaded 竞态误判 |
 | 2026-10-24 | LaTeX 用**自研子集渲染**（不引 KaTeX），支持 `$...$`/`$$...$$`/`\(...\)`/`\[...\]` | 保持零运行时依赖；覆盖中学常见公式（分数/根号/上下标/希腊/运算符），复杂环境与未知命令按原文回退，内容不丢（同日已被下方的 KaTeX 决策取代） |
 | 2026-10-24 | 公式**改用 KaTeX**，删除自研子集渲染器 | 自研渲染器无法覆盖 `\overrightarrow`、伸缩定界符、矩阵/cases 等复杂公式；KaTeX 覆盖度、错误处理和 MathML 可访问性更好，接受公式路由约 +300 KB 原始 / +85 KB gzip 的增量 |
+| 2026-10-24 | 部署落地：公开 GitHub 仓库 + Vercel Hobby + CLI 部署 + Git 自动部署 | 维护者提供 gh 网页授权与 Vercel Token；只配两个 `NEXT_PUBLIC_*`，延续"服务端零密钥"原则 |
+| 2026-10-24 | 关闭 Vercel Deployment Protection（`ssoProtection: null`） | 公开 Demo 需要匿名可访问；私有项目/预览保护会拦截访客 |
+| 2026-10-24 | 仓库忽略 `.workbuddy/` 与 `.vercel/` | 前者是本地 Agent 工作目录（含项目记忆），后者是 Vercel 项目关联信息，都不应发布 |
+| 2026-10-24 | `docs/项目现状梳理.md` 暂不入库 | 内部现状评估含技术债与文档偏差的坦率结论，是否公开由维护者决定 |
 | 2026-10-24 | **流式思维链 + 打字机**：读取 reasoning 字段，正文 24ms 逐字上屏；reasoning 存 `chat_messages.payload` | 提升可观察性，但 reasoning 是服务商可选字段、非所有模型有；存 payload 便于刷新回看，上限 2 万字避免 jsonb 膨胀，不写 events |
 | 2026-10-24 | **多会话 + 默认新对话**：conversations 表、消息 conversation_id；进入聊天页默认草稿，首条消息才落库 | 解决不同问题上下文互相干扰；空会话不写库，历史可恢复/删除；迁移旧消息到「历史对话」 |
 | 2026-10-24 | **system prompt 放宽到全学科**：去掉“中学理科助教”和 400 字硬限制 | 用户会用哲学、编程等非理科问题；身份限制会导致模型在思考里纠结“是否该回答” |

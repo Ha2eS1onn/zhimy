@@ -165,9 +165,9 @@ NEXT_PUBLIC_DEMO_MODE=1
 
 [![CI](https://github.com/Ha2eS1onn/zhimy/actions/workflows/ci.yml/badge.svg)](https://github.com/Ha2eS1onn/zhimy/actions/workflows/ci.yml)
 
-> **状态**：仓库已公开（<https://github.com/Ha2eS1onn/zhimy>），首轮 CI 全绿；线上 Demo 部署完成后在此补填地址。
+> **线上 Demo**：<https://zhimy.vercel.app>（Vercel Hobby，公开访问；打开即自动创建匿名游客账号）
 >
-> <!-- TODO: 部署成功后补填：Live Demo: https://<your-demo>.vercel.app -->
+> 仓库：<https://github.com/Ha2eS1onn/zhimy> ｜ 部署步骤与回滚见 [docs/DEPLOY.md](docs/DEPLOY.md)
 
 ## 目录结构
 
@@ -220,7 +220,7 @@ tests/                      # 纯逻辑单元测试
 ## 路线图
 
 - **P0（已完成）**：页面骨架、云端账号、收编闭环、3D 知识库与拖拽定位、关系编辑、完整讲解子页、三端布局、BYOK 对话/抽取/讲解/关系建议
-- **P1（进行中）**：真实命中 ✅（pgvector 1024 维 + 关键词兜底）、指标埋点与 insights ✅、拍题缩略图本地缓存 ✅、独立会话与上下文隔离 ✅、部署与 CI 🟡（仓库就绪，待实际部署）、抽取效果优化（多轮对话上下文）、跨端 Realtime、复习闭环；图片云端持久化与 OCR 明确不做
+- **P1（进行中）**：真实命中 ✅（pgvector 1024 维 + 关键词兜底）、指标埋点与 insights ✅、拍题缩略图本地缓存 ✅、独立会话与上下文隔离 ✅、部署与 CI ✅（<https://zhimy.vercel.app>，push 自动部署）、抽取效果优化（多轮对话上下文）、跨端 Realtime、复习闭环；图片云端持久化与 OCR 明确不做
 - **P2**：掌握度与推荐、导入、分享、移动端壳
 
 ## 已知限制
@@ -236,7 +236,7 @@ tests/                      # 纯逻辑单元测试
 - 多端同步依赖重新打开页面刷新，暂无实时推送
 - **会话**：默认进入对话页是新对话；旧会话从「历史」进入，暂不支持重命名、搜索和置顶。删除会话会级联删除该会话的消息；「清空对话记录」会删除全部会话。旧版本历史消息在 `db:init` 时归入「历史对话」
 - 演示模式（`NEXT_PUBLIC_DEMO_MODE=1`）是内存数据，刷新即重置
-- 尚未实际部署上线；仓库侧 CI / 保活已就绪（见 [docs/DEPLOY.md](docs/DEPLOY.md)），线上 Demo 不承诺 SLA 与数据持久性
+- 线上 Demo 部署在 Vercel Hobby（美东区域），不承诺 SLA 与数据持久性；Supabase 免费项目的邮箱确认受内置 SMTP 额度限制，公开 Demo 的「绑定邮箱」仅作演示（见 [docs/DEPLOY.md](docs/DEPLOY.md)）
 - Supabase 免费项目 7 天不活跃会暂停（数据保留，控制台恢复即可；已提供每日 keepalive 工作流）
 - 中国大陆访问 `supabase.co` 可能较慢，正式运营可迁移自托管实例
 

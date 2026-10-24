@@ -32,3 +32,9 @@ _qa_plan.py
 Thumbs.db
 .idea/
 .vscode/
+
+# vercel
+.vercel/
+
+.vercel
+.env*
