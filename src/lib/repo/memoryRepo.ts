@@ -180,6 +180,11 @@ export class MemoryRepo implements DataRepo {
     this.graph.nodeSources = [];
   }
 
+  async deleteAllSources(): Promise<void> {
+    this.graph.sources = [];
+    this.graph.nodeSources = [];
+  }
+
   async insertRelations(_userId: string, relations: Relation[]): Promise<void> {
     const merged = dedupeRelations([...this.graph.relations, ...relations]);
     this.graph.relations = merged;

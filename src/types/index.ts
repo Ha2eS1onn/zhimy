@@ -67,6 +67,10 @@ export interface Suggestion {
   sourceId: string | null;
   status: "pending" | "adopted" | "dismissed";
   adoptedNodeId?: string | null;
+  /** 收编后节点的状态（复用已有节点时用于正确显示「待归位」徽标）。 */
+  adoptedNodeStatus?: NodeStatus | null;
+  /** 本次是否复用了同父级下的同名知识点（而非新建）。 */
+  adoptedReused?: boolean | null;
 }
 
 export interface MessagePayload {

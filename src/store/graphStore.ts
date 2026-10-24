@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { buildSeedGraph } from "@/data/seed";
 import { newId, nowIso } from "@/lib/ids";
 import { reindexNode } from "@/lib/ai/nodeIndex";
-import { findChildByTitle, validatePathSegments } from "@/lib/path";
+import { findChildByTitle, reparentError, validatePathSegments } from "@/lib/path";
 import { getRepo } from "@/lib/repo";
 import { dedupeRelations, makeRelation, normalizePair, relationKey } from "@/lib/relations";
 import type {
@@ -44,7 +44,7 @@ interface GraphState {
     summary: string;
     /** 用户显式选过位置（含新建父级路径）时直接归位，不再因 AI 置信度低进入待处理。 */
     forceActive?: boolean;
-  }) => Promise<{ nodeId: string; status: NodeStatus }>;
+  }) => Promise<{ nodeId: string; status: NodeStatus; reused: boolean }>;
   /**
    * 新建（或复用）一条父级路径：例如 ["物理", "电学"]。
    * 同父级下同名节点会复用；缺失的逐级创建，返回路径末端节点 id。
@@ -147,6 +147,81 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
 
   adopt: async ({ suggestion, parentId, title, summary, forceActive = false }) => {
     const userId = currentUserId();
+    const cleanTitle = title.trim();
+    const cleanSummary = summary.trim();
+    if (!cleanTitle) throw new Error("知识点名称不能为空");
+
+    // 同一父级下已有同名知识点：复用已有节点，只补来源与关系。
+    // 数据库有 (user_id, parent_id, lower(title)) 唯一索引，直接插入会撞唯一约束。
+    const existing = findChildByTitle(get().nodes, parentId, cleanTitle);
+    if (existing) {
+      const links: NodeSource[] = [];
+      if (suggestion.sourceId) {
+        const alreadyLinked = get().nodeSources.some(
+          (link) => link.nodeId === existing.id && link.sourceId === suggestion.sourceId,
+        );
+        if (!alreadyLinked) links.push({ nodeId: existing.id, sourceId: suggestion.sourceId });
+      }
+
+      const takenKeys = new Set(
+        get().relations.map((relation) =>
+          relationKey(relation.type, relation.fromId, relation.toId),
+        ),
+      );
+      const relations: Relation[] = [];
+      for (const relation of suggestion.relations) {
+        const targetId = relation.targetNodeId;
+        if (!targetId || targetId === existing.id) continue;
+        if (!get().nodes.some((node) => node.id === targetId)) continue;
+        const key = relationKey(relation.type, existing.id, targetId);
+        if (takenKeys.has(key)) continue;
+        takenKeys.add(key);
+        relations.push(
+          makeRelation({
+            id: newId(),
+            fromId: existing.id,
+            toId: targetId,
+            type: relation.type,
+            confidence: relation.confidence,
+            origin: "ai",
+          }),
+        );
+      }
+
+      // 已有节点摘要为空时才用本次抽取补上，不覆盖用户写过的内容。
+      const fillSummary = !existing.summary.trim() && cleanSummary.length > 0;
+      const previous = get();
+      set((state) => ({
+        nodes: fillSummary
+          ? state.nodes.map((node) =>
+              node.id === existing.id
+                ? { ...node, summary: cleanSummary, updatedAt: nowIso() }
+                : node,
+            )
+          : state.nodes,
+        relations: dedupeRelations([...state.relations, ...relations]),
+        nodeSources: [...state.nodeSources, ...links],
+      }));
+
+      try {
+        if (links.length > 0) await getRepo().insertNodeSources(userId, links);
+        if (relations.length > 0) await getRepo().insertRelations(userId, relations);
+        if (fillSummary) {
+          await getRepo().updateNode(userId, existing.id, { summary: cleanSummary });
+        }
+      } catch (error) {
+        set({
+          nodes: previous.nodes,
+          relations: previous.relations,
+          nodeSources: previous.nodeSources,
+        });
+        throw error;
+      }
+
+      if (fillSummary) reindexNode({ ...existing, summary: cleanSummary });
+      return { nodeId: existing.id, status: existing.status, reused: true };
+    }
+
     // 用户显式选过位置（含新建父级路径）就视为已归位；否则没有选到父节点时（尤其图谱已有数据）
     // 先进入待处理，避免把临时条目当成"学科"挂在顶层。
     const status: NodeStatus = forceActive
@@ -160,8 +235,8 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
     const node: KnowledgeNode = {
       id: newId(),
       parentId,
-      title: title.trim(),
-      summary: summary.trim(),
+      title: cleanTitle,
+      summary: cleanSummary,
       detail: "",
       manualPosition: null,
       status,
@@ -213,7 +288,7 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
 
     // 收编成功后在后台补向量；失败只记日志，不阻塞收编流程。
     reindexNode(node);
-    return { nodeId: node.id, status };
+    return { nodeId: node.id, status, reused: false };
   },
 
   createPath: async (segments, options) => {
@@ -279,6 +354,9 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
 
   reparent: async (nodeId, parentId) => {
     const userId = currentUserId();
+    // 循环守卫下沉到 store：UI（拖拽 / 位置选择器）之外还有首页、详情页等调用方。
+    const invalid = reparentError(get().nodes, nodeId, parentId);
+    if (invalid) throw new Error(invalid);
     const previous = get().nodes;
     set({
       nodes: previous.map((node) =>
@@ -342,6 +420,10 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
 
   moveNode: async (nodeId, patch) => {
     const userId = currentUserId();
+    if (patch.parentId !== undefined) {
+      const invalid = reparentError(get().nodes, nodeId, patch.parentId ?? null);
+      if (invalid) throw new Error(invalid);
+    }
     const previous = get().nodes;
     set({
       nodes: previous.map((node) =>
@@ -470,6 +552,8 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
     set({ loading: true, error: null });
     try {
       await getRepo().deleteAllNodes(userId);
+      // 示例图谱替换整张图，旧来源也随之失效。
+      await getRepo().deleteAllSources(userId);
       await getRepo().insertNodes(userId, data.nodes);
       if (data.relations.length > 0) await getRepo().insertRelations(userId, data.relations);
       const graph = await getRepo().loadGraph(userId);
@@ -486,7 +570,9 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
   clearGraph: async () => {
     const userId = currentUserId();
     await getRepo().deleteAllNodes(userId);
-    set({ nodes: [], relations: [], nodeSources: [] });
+    // 节点没了，来源也不再被任何知识点引用：一并删掉，避免 sources 无限累积。
+    await getRepo().deleteAllSources(userId);
+    set({ nodes: [], relations: [], sources: [], nodeSources: [] });
   },
 
   exportJson: () => {

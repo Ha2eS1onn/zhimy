@@ -51,6 +51,8 @@ export interface DataRepo {
   updateNode(userId: string, nodeId: string, patch: NodeUpdatePatch): Promise<void>;
   deleteNode(userId: string, nodeId: string): Promise<void>;
   deleteAllNodes(userId: string): Promise<void>;
+  /** 清空图谱时一并删除来源，避免留下没有节点引用的孤儿 sources。 */
+  deleteAllSources(userId: string): Promise<void>;
   insertRelations(userId: string, relations: Relation[]): Promise<void>;
   updateRelation(
     userId: string,

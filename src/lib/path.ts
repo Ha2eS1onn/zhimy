@@ -78,6 +78,26 @@ export function childrenOf(nodes: KnowledgeNode[], parentId: string | null): Kno
   return nodes.filter((n) => n.parentId === parentId);
 }
 
+/**
+ * 移动 / 归位前的父级校验：返回中文错误，合法返回 null。
+ *
+ * 循环守卫不能只放在 UI 层（拖拽、位置选择器各自实现过一遍），
+ * store 的 reparent / moveNode 也调用这里，避免其它调用方绕过检查造出环。
+ */
+export function reparentError(
+  nodes: KnowledgeNode[],
+  nodeId: string,
+  parentId: string | null,
+): string | null {
+  if (!parentId) return null;
+  if (parentId === nodeId) return "不能把知识点挂到它自己下面";
+  if (!nodes.some((node) => node.id === parentId)) return "目标父级不存在，可能已被删除";
+  if (isSelfOrDescendant(nodes, nodeId, parentId)) {
+    return "不能移动到自己的子节点下面，换一个位置试试";
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // 新建父级路径（收编卡片 / 换个位置共用）
 // ---------------------------------------------------------------------------

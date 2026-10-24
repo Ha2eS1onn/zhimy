@@ -232,6 +232,13 @@ export function createSupabaseRepo(getClient: GetClient): DataRepo {
       ensure(await client.from("nodes").delete().eq("user_id", userId));
     },
 
+    async deleteAllSources(userId: string): Promise<void> {
+      const client = getClient();
+      if (!client) throw new Error("Supabase 未配置");
+      // node_sources 通过外键级联清理；sources 本身没有父引用，需要单独删。
+      ensure(await client.from("sources").delete().eq("user_id", userId));
+    },
+
     async insertRelations(userId: string, relations: Relation[]): Promise<void> {
       const client = getClient();
       if (!client) throw new Error("Supabase 未配置");

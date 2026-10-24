@@ -34,6 +34,10 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
 
   const confidence = Math.round(suggestion.confidence * 100);
   const lowConfidence = suggestion.confidence < 0.75;
+  // 复用已有节点时以节点真实状态为准；旧的 suggestion 没有该字段则回退到置信度判断。
+  const adoptedInbox = suggestion.adoptedNodeStatus
+    ? suggestion.adoptedNodeStatus === "inbox"
+    : lowConfidence;
 
   const pathPreview = useMemo(() => {
     const parentPath = parentId ? buildPath(nodes, parentId).map((node) => node.title) : [];
@@ -53,8 +57,9 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-accent/30 bg-accent/5 px-3 py-2">
         <span className="flex items-center gap-1.5 text-xs text-ink">
           <Icon name="check" size={14} className="text-accent" />
-          已收编：{title}
-          {lowConfidence ? <span className="text-warn">· 待归位</span> : null}
+          {suggestion.adoptedReused ? "已关联：" : "已收编："}
+          {title}
+          {adoptedInbox ? <span className="text-warn">· 待归位</span> : null}
         </span>
         <a
           href={`/atlas?node=${suggestion.adoptedNodeId ?? parentId ?? ""}`}
@@ -75,7 +80,7 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
     setBusy(true);
     try {
       const keptRelations = relations.filter((relation) => Boolean(relation.targetNodeId));
-      const { nodeId, status } = await adopt({
+      const { nodeId, status, reused } = await adopt({
         suggestion: { ...suggestion, relations: keptRelations },
         parentId,
         title,
@@ -85,17 +90,24 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
       await updateSuggestion(messageId, suggestion.id, {
         status: "adopted",
         adoptedNodeId: nodeId,
+        adoptedNodeStatus: status,
+        adoptedReused: reused,
         title: title.trim(),
         summary: summary.trim(),
         suggestedParentId: parentId,
         relations: keptRelations,
       });
       toast(
-        status === "inbox" ? "已收下，但还差一步归位" : "已收编进知识图谱",
-        status === "inbox" ? "info" : "success",
+        reused
+          ? `已关联到已有知识点「${title.trim()}」，补充了来源与关系`
+          : status === "inbox"
+            ? "已收下，但还差一步归位"
+            : "已收编进知识图谱",
+        reused || status !== "inbox" ? "success" : "info",
       );
       track(EVENTS.captureAdopted, {
         status,
+        reused,
         relations: keptRelations.length,
         confidence: suggestion.confidence,
       });

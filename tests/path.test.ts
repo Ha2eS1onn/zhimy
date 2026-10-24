@@ -8,6 +8,7 @@ import {
   isSelfOrDescendant,
   parsePathInput,
   pathLabel,
+  reparentError,
   validatePathSegments,
 } from "@/lib/path";
 import { makeNode, sampleNodes } from "./helpers";
@@ -40,6 +41,20 @@ describe("路径：id 是身份，path 由父链拼装", () => {
   it("isSelfOrDescendant 能识别祖先关系", () => {
     expect(isSelfOrDescendant(nodes, "phys", "r-parallel")).toBe(true);
     expect(isSelfOrDescendant(nodes, "chem", "r-parallel")).toBe(false);
+  });
+
+  it("reparentError 允许挂到顶层或其它分支", () => {
+    expect(reparentError(nodes, "r-parallel", null)).toBeNull();
+    expect(reparentError(nodes, "r-parallel", "chem")).toBeNull();
+  });
+
+  it("reparentError 拒绝挂到自己或自己的子节点下", () => {
+    expect(reparentError(nodes, "resistor", "resistor")).toMatch(/自己/);
+    expect(reparentError(nodes, "resistor", "r-parallel")).toMatch(/子节点/);
+  });
+
+  it("reparentError 拒绝不存在的父级", () => {
+    expect(reparentError(nodes, "r-parallel", "missing")).toMatch(/不存在/);
   });
 
   it("父链断裂时不进入死循环", () => {
