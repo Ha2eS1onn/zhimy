@@ -75,8 +75,8 @@ npm run db:init
 ### 3.3 Auth 配置
 
 1. **Authentication → URL Configuration**
-   - `Site URL`：`https://<your-demo-domain>`（真实域名）
-   - `Redirect URLs`：追加 `https://<your-demo-domain>/**` 与本地开发地址 `http://localhost:3100/**`
+   - `Site URL`：线上主域名（当前 `https://zhimy.vercel.app`；挂自定义域名后改为 `https://zhimy.kasho.fun`）
+   - `Redirect URLs`：追加 `https://zhimy.vercel.app/**`、`https://zhimy.kasho.fun/**` 与本地开发地址 `http://localhost:3100/**`
 2. **Anonymous Sign-ins** 保持开启（新访客打开即用）
 3. **免费版邮箱确认限制**：
    - Supabase 内置 SMTP 免费额度/速率极低，Demo 环境「绑定邮箱 / 找回密码」的确认邮件基本收不到
@@ -126,16 +126,51 @@ npm run db:init
 
 ### 4.3 把 Demo 信息写回仓库
 
-README「部署与 CI」小节里的 Live Demo 链接与 CI 徽章在真实部署成功后补填：
+部署成功后需要同步三处（当前 `zhimy.vercel.app` 已按此更新）：
 
-```markdown
-<!-- TODO: 部署成功后替换为真实地址（不要用编造链接）：
-Live Demo: https://<your-demo>.vercel.app
-![CI](https://github.com/<owner>/<repo>/actions/workflows/ci.yml/badge.svg)
--->
-```
+| 位置 | 内容 |
+| --- | --- |
+| `README.md`「部署与 CI」 | Live Demo 链接 + CI 徽章（`https://github.com/<owner>/<repo>/actions/workflows/ci.yml/badge.svg`） |
+| `docs/HANDOFF.md` | P1-D 状态、线上地址、部署日期 |
+| `docs/DEPLOY.md` §3.3 / §4.4 | Site URL 与自定义域名记录 |
 
-同时更新 `docs/HANDOFF.md` 的 P1-D 状态与「最新提交」。
+### 4.4 自定义域名（可选）
+
+当前线上地址为 `https://zhimy.vercel.app`；如需挂到自有二级域名（例如 `zhimy.kasho.fun`），按下述步骤操作。**两个地址可以并存**，不加跳转时旧地址仍可访问。
+
+**第 1 步：Vercel 添加域名**
+
+1. 项目 → **Settings → Domains** → 输入 `zhimy.kasho.fun` → **Add**
+2. 选择 **Connect to production**（不要选 Redirect，除非确实想把新域名跳到旧地址）
+3. Vercel 会显示 `Invalid Configuration` 并提示期望的 CNAME 值（通常是 `cname.vercel-dns.com`）
+
+**第 2 步：DNS 添加 CNAME**
+
+| 字段 | 值 |
+| --- | --- |
+| 类型 | `CNAME` |
+| 主机名 | `zhimy`（部分面板要求完整 `zhimy.kasho.fun`） |
+| 值 / 目标 | `cname.vercel-dns.com`（面板要求末尾点时写 `cname.vercel-dns.com.`） |
+| TTL | 600（或面板最小值） |
+
+注意：
+- 不要开 URL 转发 / CDN 加速 / 泛解析，保持普通 CNAME
+- 使用 Cloudflare 时必须设为 **DNS only（灰云）**，橙云代理会拦截 Vercel 的证书签发
+- 国内解析面板（如新网互联 `ns1/ns2.myhostadmin.net`、阿里云、DNSPod）对 CNAME 值的格式校验较严，保存失败时先确认类型选的是 CNAME 而不是「显性 URL」
+
+**第 3 步：等待验证与证书**
+
+- 通常 1–10 分钟；Vercel 显示 **Valid Configuration** 后自动签发 Let's Encrypt 证书
+- 验证：`curl -I https://zhimy.kasho.fun` 返回 200；`curl https://zhimy.kasho.fun/api/health` 返回 `{"ok":true}`
+- 解析查询：`https://cloudflare-dns.com/dns-query?name=zhimy.kasho.fun&type=CNAME`（带 `accept: application/dns-json`）
+
+**第 4 步：生效后同步配置**
+
+1. Supabase → Authentication → URL Configuration：
+   - `Site URL` = `https://zhimy.kasho.fun`
+   - `Redirect URLs` 追加 `https://zhimy.kasho.fun/**`，保留 `https://zhimy.vercel.app/**` 与 `http://localhost:3100/**`
+2. 更新 `README.md` 的 Live Demo、`docs/HANDOFF.md` 顶部地址
+3. 若希望旧地址统一到新域名，可在 Vercel Domains 里把 `zhimy.vercel.app` 设为 **Redirect to** 新域名（301）
 
 ## 5. Supabase 保活（keepalive）
 
