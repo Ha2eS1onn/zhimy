@@ -10,7 +10,7 @@
 
 - 这是「知脉」——把 AI 答疑沉淀成**可寻址、可联想、可收纳的个人知识图谱**的 Web 应用（Next.js 16 + Supabase）。
 - **P1-A 真实命中（pgvector 1024 维 + 关键词兜底）与 P1-B 指标埋点（events + insights）已完成 ✅**；**P1-C 拍题链路代码完成 🟡**（原图只喂当次请求的模型、视觉模型优先，不上传云端；聊天缩略图存本机 IndexedDB；浏览器验收待执行）；**P1-D 已完成 ✅**——仓库已公开、CI 首跑全绿、Vercel 生产部署上线（主域名 <https://zhimy.kasho.fun>，备用 <https://zhimy.vercel.app>，Let's Encrypt 证书已签发）、keepalive 已配置并手动验证通过、Git 连接已开启 push 自动部署（2026-10-24）。
-- 当前状态（2026-10-24）：**P1 全部改动已提交并推送**（`b659a6b` 向量命中 / `872233b` 会话+埋点+拍题+公式 / `a3654f1` 部署与 CI / `934c6ec` 徽章 / `5e6ecf4`、`4888c28`、`aa7762c` 部署与域名文档）。整体验证：`typecheck` / `lint` 通过、vitest **26 个文件 201 个用例全绿**、`next build` 通过（8 条路由 + Proxy）、CI 在 GitHub 上实跑全绿（2m36s）、`npm run db:init` 47 条语句全部 ok、线上 `/api/health` 返回 `{"ok":true}`、匿名登录 REST 校验通过。**线上 E2E（Playwright / Chromium headless，2026-10-24）14/14 通过、0 console error / 0 page error / 0 failed request**：`?demo=1` 自动载入 102 节点 → 3D 渲染 → 对话流式回答 → 抽取 2 张收编卡 → 收编写入 → `/atlas?node=` 深链定位 → 详情页 AI 模板生成 → 保存 → 刷新后仍在 → 进入对话页默认新会话。**尚未执行**：`verify-rls` 双账号校验、拍题/公式/思维链的线上自动化验收、向量命中「5 种问法」验收（缺真实 embedding Key）。
+- 当前状态（2026-10-24）：**P1 全部改动已提交并推送**（`b659a6b` 向量命中 / `872233b` 会话+埋点+拍题+公式 / `a3654f1` 部署与 CI / `934c6ec` 徽章 / `5e6ecf4`、`4888c28`、`aa7762c` 部署与域名文档 / `9ea959f` 技术债修复）。整体验证：`typecheck` / `lint` 通过、vitest **26 个文件 204 个用例全绿**、`next build` 通过（8 条路由 + Proxy）、CI 在 GitHub 上实跑全绿（2m36s）、`npm run db:init` 47 条语句全部 ok、线上 `/api/health` 返回 `{"ok":true}`、匿名登录 REST 校验通过。**线上 E2E（Playwright / Chromium headless，2026-10-24）**：主流程 **14/14** + 同名收编复用 **5/5**，均 0 console error / 0 page error / 0 failed request。主流程覆盖：`?demo=1` 自动载入 102 节点 → 3D 渲染 → 对话流式回答 → 抽取 2 张收编卡 → 收编写入 → `/atlas?node=` 深链定位 → 详情页 AI 模板生成 → 保存 → 刷新后仍在 → 进入对话页默认新会话；复用覆盖：两张同名建议只产生 1 个节点、无唯一约束报错。**尚未执行**：`verify-rls` 双账号校验、拍题/公式/思维链的线上自动化验收、向量命中「5 种问法」验收（缺真实 embedding Key）。
 - **向量命中的「5 种问法 ≥4 命中」云端验收尚未执行**：需要维护者配置真实 embedding Key 后按第 9 节 checklist 验证；无 Key 时按设计降级关键词，不影响构建与基础使用。
 - 部署方案：**Vercel Hobby（免费）+ GitHub Actions CI + 每日 keepalive**，定位是公开 Demo 与工程完整度；不做 VPS/Docker/备案/商业合规（详见 P1-D 与 `docs/DEPLOY.md`）。
 - 下一步建议：① 配真实 embedding Key 跑「5 种问法 ≥4 命中」与 `docs/insights.sql` 落库验收；② 补拍题/公式/思维链的线上专项验收（主闭环已 E2E 通过）；③ P2 增强（复习闭环、Realtime、分享）。自定义域名与 Supabase Auth 的 Site URL / Redirect URLs 已于 2026-10-24 配置完成。
@@ -341,6 +341,7 @@ P1 子项状态：
 - 自定义域名 `zhimy.kasho.fun` 接入（CNAME → Vercel，Let's Encrypt 证书至 2027-01-22），`zhimy.vercel.app` 并存
 - Supabase Auth 的 `Site URL` / `Redirect URLs` 已由维护者配置为新域名
 - 线上 E2E 14/14 通过（主闭环：示例图谱 → 对话 → 收编 → 3D 深链 → 详情生成/保存 → 刷新持久化）
+- 技术债修复后回归：主流程仍 14/14，同名收编复用 5/5（`9ea959f`）
 
 **剩余（需要真实 Key / 维护者决定）**
 1. 配真实 embedding Key 后跑向量命中与 `docs/insights.sql` 验收
@@ -374,7 +375,7 @@ P1 子项状态：
 | 7 | 抽取/关系候选改为向量检索 + 降级 | `src/lib/ai/extract.ts`、`relationSuggest.ts` | 单测 + 抽查效果 | ✅ 代码完成 |
 | 8 | events 表 + analytics + 埋点 | 见 P1-B | 视图有数据 | ✅ 代码完成；落库验收待云端 |
 | 9 | 指标 SQL 视图文档 | `docs/insights.sql` | 4 个指标可查 | ✅ 完成 |
-| 10 | 测试/构建/E2E/README 更新 | `tests/*`、`README.md` | 全绿 | ✅ typecheck / lint / test（177）/ build 全绿；浏览器 E2E 待真实 Key 与可用 HTTPS |
+| 10 | 测试/构建/E2E/README 更新 | `tests/*`、`README.md` | 全绿 | ✅ typecheck / lint / test（204）/ build 全绿；线上 E2E 14/14 + 复用 5/5；拍题/公式专项 E2E 待补 |
 | 11 | P1-D：CI + keepalive + `.nvmrc` + `?demo=1` + DEPLOY + README | `.github/workflows/*`、`.nvmrc`、`AppProviders.tsx`、`docs/DEPLOY.md`、`README.md` | CI 徽章全绿 + 公网 Demo | ✅ 完成（2026-10-24：CI 全绿 + <https://zhimy.kasho.fun>） |
 | 12 | 收编/移动时新建父级路径（空图谱可用） | `PositionPicker.tsx`、`graphStore.ts`、`path.ts`、四处调用点 | 新建 `物理 / 电学` 并复用；循环守卫；显式归位直接 active | ✅ 完成（单测覆盖 path 解析/复用/阻断） |
 | 13 | 讲解正文 LaTeX 公式渲染 | `MarkdownLite.tsx`、`TeXMath.tsx`、`lib/math/*`、`RichText.tsx`、AI 提示词 | `\(...\)`/`$...$`/`$$...$$` 渲染为公式；复杂公式可渲染 | ✅ 完成（2026-10-24 改用 KaTeX） |
@@ -384,7 +385,7 @@ P1 子项状态：
 | 17 | 流式思维链 + 逐字显示 | `sse.ts`、`llmClient.ts`、`ChatScreen.tsx`、`useTypewriter.ts`、`MessageBubble.tsx`、`types` | `reasoning_content`/`reasoning` 实时面板；正文逐字上屏；`payload.reasoning` 刷新可回看 | ✅ 代码完成（需推理模型验收） |
 | 18 | 多会话 + system prompt 放宽 | `schema.sql`、`conversations.ts`、`chatStore.ts`、repo、`ChatScreen.tsx`、`prompt.ts` | 默认新会话、历史切换/删除、上下文隔离；全学科提示词 | ✅ 代码完成；`db:init` 47 条语句 ok（浏览器验收待执行） |
 
-> 1–18 为技术主线，均已落到代码并上线；#11 的部署已于 2026-10-24 完成（GitHub + Vercel + keepalive），剩余仅为 Supabase Auth URL 配置与真实 Key 的指标验收。
+> 1–18 为技术主线，均已落到代码并上线；#11 的部署已于 2026-10-24 完成（GitHub + Vercel + keepalive + 自定义域名 + Supabase Auth URL），剩余仅为真实 Key 的指标验收与拍题/公式专项 E2E。
 
 ## 9. 接手第一步 checklist
 
@@ -462,3 +463,6 @@ P1 子项状态：
 | 2026-10-24 | **system prompt 放宽到全学科**：去掉“中学理科助教”和 400 字硬限制 | 用户会用哲学、编程等非理科问题；身份限制会导致模型在思考里纠结“是否该回答” |
 | 2026-10-24 | P1-C 改为**本地缩略图**：原图只喂当次模型，缩略图存 IndexedDB，不做 Supabase Storage | 图片是一次性输入，避免桶/RLS/签名 URL/额度与清理成本；代价是不跨设备、清缓存丢失 |
 | 2026-10-24 | 图片请求**视觉模型优先、未配置沿用文本模型**；发送前压到 1600px，代理上限 4MB | 修复“设了视觉模型仍用文本模型”和“未配置时静默丢图”；控制 base64 请求体在 Vercel 4.5MB 限制内 |
+| 2026-10-24 | **收编同名改为复用**：adopt 先按「同父级 + 标题大小写不敏感」查重，命中复用节点、补来源/关系，摘要为空时补写 | 数据库唯一索引 `(user_id,parent_id,lower(title))` 决定了不能重复插入；直接报唯一约束对用户不可解释，复用比“新建+改名”更符合知识图谱语义 |
+| 2026-10-24 | **循环守卫下沉到 store**：新增 `reparentError`，reparent/moveNode 统一校验 | UI 守卫（拖拽、位置选择器）覆盖不到首页、详情页等调用方；守卫必须在数据入口，而不是每个按钮各写一遍 |
+| 2026-10-24 | **清空/重载图谱时删除 sources**：DataRepo 增加 deleteAllSources | 节点删除后来源不再被引用；不清理会随使用无限累积，且导出 JSON 会带上无用数据 |
