@@ -168,7 +168,7 @@ function renderInline(text: string): ReactNode[] {
         return (
           <code
             key={index}
-            className="rounded bg-surface-2 px-1 py-0.5 text-[0.92em] text-accent"
+            className="rounded border border-line bg-shell px-1 py-0.5 font-mono text-[0.92em] text-accent"
           >
             {token.value}
           </code>
@@ -186,26 +186,26 @@ export function MarkdownLite({ markdown }: { markdown: string }) {
   const blocks = parseMarkdownBlocks(markdown);
   if (blocks.length === 0) return null;
   return (
-    <div className="space-y-3 text-sm leading-7 text-ink/90">
+    <div className="max-w-[68ch] space-y-3 text-[15px] leading-[1.8] text-ink">
       {blocks.map((block, index) => {
         switch (block.type) {
           case "heading": {
             if (block.level === 1) {
               return (
-                <h2 key={index} className="mt-6 text-xl font-semibold text-ink">
+                <h2 key={index} className="mt-7 text-[21px] font-[750] leading-[1.35] tracking-[-0.025em] text-ink">
                   {renderInline(block.text)}
                 </h2>
               );
             }
             if (block.level === 2) {
               return (
-                <h3 key={index} className="mt-5 border-l-2 border-accent/60 pl-2 text-base font-semibold text-ink">
+                <h3 key={index} className="mt-5 border-l-2 border-accent pl-3 text-lg font-[750] leading-[1.35] tracking-[-0.025em] text-ink">
                   {renderInline(block.text)}
                 </h3>
               );
             }
             return (
-              <h4 key={index} className="mt-4 text-sm font-semibold text-ink">
+              <h4 key={index} className="mt-4 text-[15px] font-[750] tracking-[-0.02em] text-ink">
                 {renderInline(block.text)}
               </h4>
             );
@@ -230,7 +230,7 @@ export function MarkdownLite({ markdown }: { markdown: string }) {
             return (
               <blockquote
                 key={index}
-                className="rounded-r-lg border-l-2 border-line bg-surface-2/50 px-3 py-2 text-xs text-muted"
+                className="rounded-r-xl border-l-2 border-accent bg-shell px-4 py-3 text-sm leading-relaxed text-muted"
               >
                 {renderInline(block.text)}
               </blockquote>
@@ -239,7 +239,7 @@ export function MarkdownLite({ markdown }: { markdown: string }) {
             return (
               <pre
                 key={index}
-                className="overflow-x-auto rounded-xl border border-line bg-canvas p-3 text-xs leading-relaxed text-ink/80"
+                className="overflow-x-auto rounded-xl border border-line bg-shell p-3 text-xs leading-relaxed text-ink"
               >
                 <code>{block.text}</code>
               </pre>

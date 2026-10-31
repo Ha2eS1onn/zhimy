@@ -46,6 +46,7 @@ interface AtlasCanvasProps {
   neighborIds: Set<string>;
   badges: Map<string, number>;
   autoRotate: boolean;
+  reducedMotion?: boolean;
   showAllRelations?: boolean;
   connectMode?: boolean;
   connectSourceId?: string | null;
@@ -91,6 +92,7 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
     neighborIds,
     badges,
     autoRotate,
+    reducedMotion = false,
     showAllRelations = false,
     connectMode = false,
     connectSourceId = null,
@@ -119,6 +121,7 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
   const neighborRef = useRef(neighborIds);
   const badgesRef = useRef(badges);
   const autoRotateRef = useRef(autoRotate);
+  const reducedMotionRef = useRef(reducedMotion);
   const showAllRelationsRef = useRef(showAllRelations);
   const connectSourceRef = useRef(connectSourceId);
   const onSelectRef = useRef(onSelect);
@@ -134,6 +137,7 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
   neighborRef.current = neighborIds;
   badgesRef.current = badges;
   autoRotateRef.current = autoRotate;
+  reducedMotionRef.current = reducedMotion;
   showAllRelationsRef.current = showAllRelations;
   connectModeRef.current = connectMode;
   connectSourceRef.current = connectSourceId;
@@ -203,6 +207,7 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
       connectSourceId: connectSourceRef.current,
       titleOf: (id) => titleRef.current.get(id),
       theme,
+      reducedMotion: reducedMotionRef.current,
     });
   }, [theme]);
 
@@ -215,13 +220,21 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
 
       const target = targetRef.current;
       if (target) {
-        camera.yaw = approachAngle(camera.yaw, target.yaw, dt);
-        camera.pitch = approach(camera.pitch, target.pitch, dt);
-        camera.zoom = approach(camera.zoom, target.zoom, dt);
-        if (cameraReached(camera, target)) targetRef.current = null;
-        else animating = true;
+        if (reducedMotionRef.current) {
+          camera.yaw = target.yaw;
+          camera.pitch = target.pitch;
+          camera.zoom = target.zoom;
+          targetRef.current = null;
+        } else {
+          camera.yaw = approachAngle(camera.yaw, target.yaw, dt);
+          camera.pitch = approach(camera.pitch, target.pitch, dt);
+          camera.zoom = approach(camera.zoom, target.zoom, dt);
+          if (cameraReached(camera, target)) targetRef.current = null;
+          else animating = true;
+        }
       }
       if (
+        !reducedMotionRef.current &&
         autoRotateRef.current &&
         !rotatingRef.current &&
         !nodeDragRef.current &&
@@ -230,7 +243,7 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
         camera.yaw += AUTO_ROTATE_SPEED * dt;
         animating = true;
       }
-      if (time < pulseUntilRef.current) animating = true;
+      if (!reducedMotionRef.current && time < pulseUntilRef.current) animating = true;
 
       draw();
 
@@ -252,7 +265,9 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
   }, [loop]);
 
   const requestDraw = useCallback(() => {
-    if (!runningRef.current) draw();
+    // 即使 RAF 正在运行也立即补一帧：后台标签页或节流环境里 RAF 可能被暂停，
+    // 否则数据更新后会出现“标题已有节点、画布仍空白”的停留态。
+    draw();
   }, [draw]);
 
   useEffect(() => {
@@ -300,10 +315,23 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
   }, [requestDraw]);
 
   useEffect(() => {
-    pulseUntilRef.current = performance.now() + 1200;
+    if (!reducedMotion) pulseUntilRef.current = performance.now() + 1200;
     requestDraw();
-    if (selectedId) ensureLoop();
-  }, [selectedId, requestDraw, ensureLoop]);
+    if (selectedId && !reducedMotion) ensureLoop();
+  }, [selectedId, reducedMotion, requestDraw, ensureLoop]);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      targetRef.current = null;
+      pulseUntilRef.current = 0;
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+      runningRef.current = false;
+      requestDraw();
+      return;
+    }
+    if (autoRotateRef.current && !document.hidden) ensureLoop();
+  }, [reducedMotion, requestDraw, ensureLoop]);
 
   useEffect(() => {
     requestDraw();
@@ -353,6 +381,12 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
     const debugTarget = window as unknown as {
       __zhimyAtlasDebug?: {
         projectNode: (id: string) => { x: number; y: number } | null;
+        projectedNodes: () => Array<{
+          id: string;
+          title: string;
+          x: number;
+          y: number;
+        }>;
       };
     };
     debugTarget.__zhimyAtlasDebug = {
@@ -360,6 +394,11 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
         const node = projectedRef.current.find((item) => item.id === id);
         return node ? { x: node.x, y: node.y } : null;
       },
+      projectedNodes: () =>
+        projectedRef.current.flatMap((item) => {
+          const title = titleRef.current.get(item.id);
+          return title ? [{ id: item.id, title, x: item.x, y: item.y }] : [];
+        }),
     };
     return () => {
       delete debugTarget.__zhimyAtlasDebug;
@@ -373,12 +412,25 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
         const node = layoutRef.current.byId.get(id);
         if (!node) return;
         const { yaw, pitch } = focusTargetFor(node.position);
-        targetRef.current = { yaw, pitch, zoom: cameraRef.current.zoom };
-        ensureLoop();
+        const next = { yaw, pitch, zoom: cameraRef.current.zoom };
+        if (reducedMotionRef.current) {
+          cameraRef.current = { ...next };
+          targetRef.current = null;
+          requestDraw();
+        } else {
+          targetRef.current = next;
+          ensureLoop();
+        }
       },
       resetView: () => {
-        targetRef.current = { ...DEFAULT_CAMERA };
-        ensureLoop();
+        if (reducedMotionRef.current) {
+          cameraRef.current = { ...DEFAULT_CAMERA };
+          targetRef.current = null;
+          requestDraw();
+        } else {
+          targetRef.current = { ...DEFAULT_CAMERA };
+          ensureLoop();
+        }
       },
       zoomBy: (factor: number) => {
         cameraRef.current.zoom = clampZoom(cameraRef.current.zoom * factor);
@@ -579,8 +631,14 @@ export const AtlasCanvas = forwardRef<AtlasCanvasHandle, AtlasCanvasProps>(funct
           requestDraw();
         }}
         onDoubleClick={() => {
-          targetRef.current = { ...DEFAULT_CAMERA };
-          ensureLoop();
+          if (reducedMotionRef.current) {
+            cameraRef.current = { ...DEFAULT_CAMERA };
+            targetRef.current = null;
+            requestDraw();
+          } else {
+            targetRef.current = { ...DEFAULT_CAMERA };
+            ensureLoop();
+          }
         }}
       />
     </div>

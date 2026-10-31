@@ -59,7 +59,7 @@ export function Composer({ busy, streaming, modeLabel, onOpenSettings, onSend, o
   };
 
   return (
-    <div className="shrink-0 bg-shell/95 px-3 pb-3 pt-2.5 backdrop-blur md:px-5 md:py-3">
+    <div className="shrink-0 border-t border-line bg-shell px-3 pb-3 pt-2.5 md:px-5 md:py-3">
       <div className="mx-auto w-full max-w-3xl">
         {image ? (
           <div className="mb-2 flex items-center gap-2">
@@ -67,7 +67,7 @@ export function Composer({ busy, streaming, modeLabel, onOpenSettings, onSend, o
             <img
               src={image.dataUrl}
               alt="待发送的题目图片"
-              className="h-14 w-14 rounded-lg border border-line object-cover"
+              className="h-14 w-14 rounded-xl border border-line object-cover"
             />
             <span className="truncate text-[11px] text-muted">{image.file.name}</span>
             <button
@@ -93,7 +93,7 @@ export function Composer({ busy, streaming, modeLabel, onOpenSettings, onSend, o
           />
           <button
             type="button"
-            className="grid size-9 shrink-0 place-items-center rounded-xl text-muted hover:bg-surface-2 hover:text-ink"
+            className="icon-btn size-11 shrink-0"
             aria-label="上传题目图片"
             onClick={() => fileInputRef.current?.click()}
           >
@@ -102,7 +102,7 @@ export function Composer({ busy, streaming, modeLabel, onOpenSettings, onSend, o
           <textarea
             ref={textareaRef}
             aria-label="输入题目或追问"
-            className="max-h-28 min-h-9 flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-relaxed text-ink outline-none placeholder:text-muted md:max-h-40"
+            className="max-h-28 min-h-11 flex-1 resize-none bg-transparent px-1 py-3 text-sm leading-relaxed text-ink outline-none placeholder:text-muted md:max-h-40"
             rows={1}
             placeholder="输入题目或追问…"
             value={text}
@@ -134,7 +134,7 @@ export function Composer({ busy, streaming, modeLabel, onOpenSettings, onSend, o
         <div className="mt-1.5 flex min-w-0 items-center justify-between gap-3 text-[11px] text-muted">
           <button
             type="button"
-            className="min-w-0 max-w-[72%] truncate text-left hover:text-ink sm:max-w-none"
+            className="text-link min-w-0 max-w-[72%] truncate text-[11px] sm:max-w-none"
             onClick={onOpenSettings}
             title={modeLabel}
           >

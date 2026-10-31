@@ -38,12 +38,13 @@ function applyTheme(preference: "light" | "dark" | "system") {
   document.documentElement.style.colorScheme = resolved;
   document
     .querySelector('meta[name="theme-color"]')
-    ?.setAttribute("content", resolved === "dark" ? "#0a1424" : "#f3f7fc");
+    ?.setAttribute("content", resolved === "dark" ? "#14232b" : "#e9f2ee");
 }
 
 /** 将持久化偏好同步到 DOM；系统主题变化只在“跟随系统”时生效。 */
 export function ThemeController() {
   const theme = useSettingsStore((state) => state.theme);
+  const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const [hydrated, setHydrated] = useState(false);
 
   // 首帧由内联脚本按 localStorage 上色；等偏好真正水合后再接管，避免闪回系统主题。
@@ -61,6 +62,12 @@ export function ThemeController() {
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, [hydrated, theme]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (reducedMotion) document.documentElement.dataset.reducedMotion = "true";
+    else delete document.documentElement.dataset.reducedMotion;
+  }, [hydrated, reducedMotion]);
 
   return null;
 }

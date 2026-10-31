@@ -16,8 +16,8 @@ export function MobileTopBar() {
   const openSettings = useUIStore((state) => state.openSettings);
   return (
     <header className="mobile-topbar">
-      <Link href="/" className="flex items-center gap-2.5" aria-label="知脉首页">
-        <span className="brand-mark size-8 rounded-lg text-xs">
+      <Link href="/" className="flex min-h-11 items-center gap-2.5" aria-label="知脉首页">
+        <span className="brand-mark size-9 rounded-xl text-xs">
           知
         </span>
         <span>
@@ -26,12 +26,12 @@ export function MobileTopBar() {
         </span>
       </Link>
       <div className="flex items-center gap-1.5">
-        <ThemeToggle className="icon-btn size-10 rounded-xl" />
+        <ThemeToggle className="icon-btn size-11" />
         <button
           type="button"
           aria-label="设置"
           onClick={() => openSettings("account")}
-          className="icon-btn size-10 rounded-xl"
+          className="icon-btn size-11"
         >
           <Icon name="settings" size={18} />
         </button>
@@ -52,13 +52,13 @@ export function MobileTabBar() {
         <Link
           key={tab.href}
           href={tab.href}
-          className="mobile-tab flex min-h-[60px] flex-1 flex-col items-center justify-center gap-0.5 text-[10px] text-muted"
+          className="mobile-tab flex min-h-[60px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted"
           data-active={isActive(tab.href)}
           aria-current={isActive(tab.href) ? "page" : undefined}
         >
           <span
             className={`grid size-8 place-items-center rounded-xl ${
-              isActive(tab.href) ? "bg-surface-2 text-accent" : "text-muted"
+              isActive(tab.href) ? "border border-line bg-surface text-accent shadow-[0_2px_0_var(--shadow-line)]" : "text-muted"
             }`}
           >
             <Icon name={tab.icon} size={18} />

@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { PositionPicker } from "@/components/common/PositionPicker";
 import { EVENTS, track } from "@/lib/analytics";
 import { buildPath } from "@/lib/path";
-import { RELATION_META } from "@/lib/relations";
+import { RELATION_META, relationColor } from "@/lib/relations";
+import { useResolvedTheme } from "@/components/shell/Theme";
 import { useChatStore } from "@/store/chatStore";
 import { useGraphStore } from "@/store/graphStore";
 import { toast } from "@/store/toastStore";
@@ -31,6 +32,7 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
   const [busy, setBusy] = useState(false);
   /** 用户是否显式选过位置（含新建父级路径）：显式归位后不再进待处理。 */
   const [placed, setPlaced] = useState(false);
+  const theme = useResolvedTheme();
 
   const confidence = Math.round(suggestion.confidence * 100);
   const lowConfidence = suggestion.confidence < 0.75;
@@ -46,7 +48,7 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
 
   if (suggestion.status === "dismissed") {
     return (
-      <div className="rounded-2xl bg-surface-2/40 px-3 py-2 text-xs text-muted">
+      <div className="rounded-[18px] border border-line bg-shell px-3 py-2 text-xs text-muted">
         已忽略：{suggestion.title}
       </div>
     );
@@ -54,7 +56,7 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
 
   if (suggestion.status === "adopted") {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-accent/10 px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-[18px] border border-accent/40 bg-accent/10 px-3 py-2">
         <span className="flex items-center gap-1.5 text-xs text-ink">
           <Icon name="check" size={14} className="text-accent" />
           {suggestion.adoptedReused ? "已关联：" : "已收编："}
@@ -133,7 +135,7 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
   };
 
   return (
-    <div className="rounded-2xl bg-surface-2/35 p-3">
+    <div className="rounded-[24px] border border-line bg-surface p-3.5 shadow-[var(--shadow-card)]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <label className="label" htmlFor={`title-${suggestion.id}`}>
@@ -141,7 +143,7 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
           </label>
           <input
             id={`title-${suggestion.id}`}
-            className="mt-1 w-full rounded-lg bg-surface px-2.5 py-1.5 text-sm font-medium text-ink outline-none focus:ring-1 focus:ring-accent"
+            className="input mt-1 min-h-11 text-sm font-medium"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="知识点名称"
@@ -158,7 +160,7 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
       <label className="mt-2 block">
         <span className="label">摘要</span>
         <textarea
-          className="mt-1 w-full resize-none rounded-lg bg-surface px-2.5 py-1.5 text-xs leading-relaxed text-ink outline-none focus:ring-1 focus:ring-accent"
+          className="textarea mt-1 text-xs leading-relaxed"
           rows={2}
           value={summary}
           onChange={(event) => setSummary(event.target.value)}
@@ -166,7 +168,7 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
         />
       </label>
 
-      <div className="mt-2 rounded-xl bg-surface-2/70 px-3 py-2">
+      <div className="mt-2 rounded-xl border border-line bg-shell px-3 py-2">
         <p className="flex items-center gap-1 text-[11px] text-muted">
           <Icon name="atlas" size={12} /> 建议路径
         </p>
@@ -186,9 +188,9 @@ export function CaptureCard({ suggestion, messageId }: CaptureCardProps) {
                 className="chip hover:text-danger"
                 title="点击取消这条建议关联"
               >
-                <span style={{ color: meta.color }}>{meta.label}</span>
+                <span style={{ color: relationColor(relation.type, theme) }}>{meta.label}</span>
                 {relation.targetTitle}
-                <span className="text-muted">✕</span>
+                <Icon name="close" size={12} className="text-muted" />
               </button>
             );
           })}

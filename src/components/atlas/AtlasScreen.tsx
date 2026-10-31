@@ -6,6 +6,7 @@ import Link from "next/link";
 import { AtlasCanvas, type AtlasCanvasHandle, type NodeMovePayload } from "./CanvasAtlas";
 import { AtlasPanel } from "./AtlasPanel";
 import { RelationEditor } from "./RelationEditor";
+import { MintyIllustration } from "@/components/common/MintyIllustration";
 import { Icon } from "../shell/Icon";
 import { useResolvedTheme } from "../shell/Theme";
 import { EVENTS, track } from "@/lib/analytics";
@@ -37,6 +38,7 @@ export function AtlasScreen() {
   const setDensity = useSettingsStore((state) => state.setDensity);
   const autoRotate = useSettingsStore((state) => state.autoRotate);
   const setAutoRotate = useSettingsStore((state) => state.setAutoRotate);
+  const reducedMotion = useSettingsStore((state) => state.reducedMotion);
   const theme = useResolvedTheme();
 
   const canvasRef = useRef<AtlasCanvasHandle | null>(null);
@@ -216,7 +218,7 @@ export function AtlasScreen() {
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-canvas">
       {/* 顶栏 */}
-      <header className="z-20 flex shrink-0 flex-col gap-1.5 border-b border-line bg-shell/90 px-3 py-1.5 backdrop-blur md:gap-2 md:px-4 md:py-2">
+      <header className="z-20 flex shrink-0 flex-col gap-1.5 border-b border-line bg-shell px-3 py-1.5 md:gap-2 md:px-4 md:py-2">
         <div className="flex items-center gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto text-xs text-muted">
             {selectedNode ? (
@@ -225,7 +227,7 @@ export function AtlasScreen() {
                   {index > 0 ? <span className="text-line">/</span> : null}
                   <button
                     type="button"
-                    className={index === list.length - 1 ? "text-ink" : "hover:text-ink"}
+                    className={`flex min-h-11 items-center ${index === list.length - 1 ? "text-ink" : "hover:text-ink"}`}
                     onClick={() => handleSelect(node.id)}
                   >
                     {node.title}
@@ -240,7 +242,7 @@ export function AtlasScreen() {
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
-              className="icon-btn size-8"
+              className="icon-btn size-11"
               aria-label="搜索知识点"
               onClick={() => setSearchOpen((value) => !value)}
             >
@@ -248,11 +250,13 @@ export function AtlasScreen() {
             </button>
             <button
               type="button"
-              className={`icon-btn hidden size-9 md:grid ${
+              className={`icon-btn hidden size-11 md:grid ${
                 autoRotate ? "text-accent" : "text-muted"
               }`}
-              aria-label={autoRotate ? "关闭自动旋转" : "开启自动旋转"}
+              aria-label={reducedMotion ? "已开启减少动画" : autoRotate ? "关闭自动旋转" : "开启自动旋转"}
               aria-pressed={autoRotate}
+              disabled={reducedMotion}
+              title={reducedMotion ? "关闭“减少动画”后可恢复自动旋转" : undefined}
               onClick={() => setAutoRotate(!autoRotate)}
             >
               <Icon name="rotate" size={17} />
@@ -275,7 +279,7 @@ export function AtlasScreen() {
             </button>
             <button
               type="button"
-              className="icon-btn hidden size-9 md:grid"
+              className="icon-btn hidden size-11 md:grid"
               aria-label="复位视角"
               onClick={() => canvasRef.current?.resetView()}
             >
@@ -283,7 +287,7 @@ export function AtlasScreen() {
             </button>
             <button
               type="button"
-              className={`icon-btn grid size-9 md:hidden ${
+              className={`icon-btn grid size-11 md:hidden ${
                 toolsOpen || connectMode || showAllRelations ? "text-accent" : "text-muted"
               }`}
               aria-label="图谱工具"
@@ -356,7 +360,7 @@ export function AtlasScreen() {
         </div>
 
         {connectMode ? (
-          <div className="motion-reveal rounded-lg bg-warn/10 px-2.5 py-1.5 text-[11px] text-warn">
+          <div className="motion-reveal rounded-xl border border-[color-mix(in_srgb,var(--orange)_30%,var(--line))] bg-[var(--soft-orange)] px-3 py-2 text-[11px] text-ink">
             {connectSourceId
               ? "已选起点：再点击另一个知识点建立关系，点空白处取消。"
               : "连线模式：先点起点知识点，再点终点知识点。"}
@@ -374,9 +378,9 @@ export function AtlasScreen() {
         ) : null}
 
         {searchOpen ? (
-          <div className="atlas-search motion-reveal rounded-xl bg-surface p-2 shadow-[var(--neu-soft)]">
+          <div className="atlas-search motion-reveal rounded-[18px] border border-line bg-surface p-2 shadow-[var(--shadow-float)]">
             <input
-              className="w-full bg-transparent px-2 py-1.5 text-sm text-ink outline-none placeholder:text-muted"
+              className="min-h-11 w-full rounded-xl bg-transparent px-3 py-2 text-sm text-ink outline-none placeholder:text-muted"
               placeholder="搜索知识点，Enter 定位"
               value={query}
               autoFocus
@@ -398,7 +402,7 @@ export function AtlasScreen() {
                     <li key={hit.node.id}>
                       <button
                         type="button"
-                        className="flex w-full flex-col rounded-lg px-2 py-1.5 text-left hover:bg-surface-2"
+                        className="flex min-h-11 w-full flex-col justify-center rounded-xl px-3 py-2 text-left hover:bg-surface-2"
                         onClick={() => handleSelect(hit.node.id)}
                       >
                         <span className="text-sm text-ink">{hit.node.title}</span>
@@ -428,6 +432,7 @@ export function AtlasScreen() {
           neighborIds={neighborSet}
           badges={badges}
           autoRotate={autoRotate}
+          reducedMotion={reducedMotion}
           showAllRelations={showAllRelations}
           connectMode={connectMode}
           connectSourceId={connectSourceId}
@@ -436,24 +441,23 @@ export function AtlasScreen() {
           onMoveNode={(nodeId, payload) => void handleMoveNode(nodeId, payload)}
         />
 
-        <div className="atlas-vignette pointer-events-none absolute inset-0 z-[1]" />
-
         {/* 图例与操作提示 */}
         <div className="pointer-events-none absolute bottom-3 left-3 z-10 space-y-1.5 text-[10px] text-muted">
-          <div className="flex items-center gap-3 rounded-lg bg-shell/70 px-2 py-1 backdrop-blur">
+          <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-3 py-1.5">
             <LegendItem color={relationColor("prerequisite", theme)} label="先修" />
             <LegendItem color={relationColor("related", theme)} label="相关" />
             <LegendItem color={relationColor("contrast", theme)} label="易混" />
           </div>
-          <p className="hidden rounded-lg px-2 py-1 text-muted/90 backdrop-blur md:block">
+          <p className="hidden rounded-xl border border-line bg-surface px-3 py-1.5 text-muted md:block">
             拖动旋转 · 滚轮缩放 · 双击复位
           </p>
         </div>
 
         {nodes.length === 0 && !loading ? (
           <div className="absolute inset-0 z-10 grid place-items-center px-4">
-            <div className="card max-w-sm px-5 py-6 text-center">
-              <p className="text-sm font-medium text-ink">还没有知识点</p>
+            <div className="card max-w-sm px-6 py-7 text-center">
+              <MintyIllustration variant="graph" className="mx-auto h-24 w-48" />
+              <p className="mt-2 text-base font-[750] tracking-[-0.02em] text-ink">还没有知识点</p>
               <p className="mt-1.5 text-xs leading-relaxed text-muted">
                 载入示例，或从一次提问开始。
               </p>
@@ -479,7 +483,7 @@ export function AtlasScreen() {
 
         {loading ? (
           <div className="absolute inset-x-0 top-0 z-10 flex justify-center">
-            <span className="mt-3 rounded-full bg-shell/80 px-3 py-1 text-[11px] text-muted backdrop-blur">
+            <span className="mt-3 rounded-full border border-line bg-surface px-3 py-1 text-[11px] text-muted shadow-[var(--shadow-card)]">
               正在同步云端数据…
             </span>
           </div>

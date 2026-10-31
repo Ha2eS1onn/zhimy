@@ -24,11 +24,13 @@ interface SettingsState {
   density: Density;
   autoRotate: boolean;
   theme: ThemePreference;
+  reducedMotion: boolean;
   setLlm: (patch: Partial<LlmSettings>) => void;
   clearApiKey: () => void;
   setDensity: (density: Density) => void;
   setAutoRotate: (autoRotate: boolean) => void;
   setTheme: (theme: ThemePreference) => void;
+  setReducedMotion: (reducedMotion: boolean) => void;
 }
 
 /** 本机设置（含 BYOK 的 Key）：只写浏览器 localStorage，不上传、不入库。 */
@@ -39,6 +41,7 @@ export const useSettingsStore = create<SettingsState>()(
       density: "standard",
       autoRotate: true,
       theme: "system",
+      reducedMotion: false,
       setLlm: (patch) => set((state) => ({ llm: { ...state.llm, ...patch } })),
       clearApiKey: () =>
         set((state) => ({
@@ -47,19 +50,25 @@ export const useSettingsStore = create<SettingsState>()(
       setDensity: (density) => set({ density }),
       setAutoRotate: (autoRotate) => set({ autoRotate }),
       setTheme: (theme) => set({ theme }),
+      setReducedMotion: (reducedMotion) => set({ reducedMotion }),
     }),
     {
       name: "zhimy:settings:v1",
-      version: 3,
-      // 兼容旧配置：补齐向量字段与主题偏好，避免旧 localStorage 读到 undefined。
+      version: 4,
+      // 兼容旧配置：补齐向量字段、主题与减少动画偏好，避免旧 localStorage 读到 undefined。
       migrate: (persisted) => {
         const state = persisted as
-          | { llm?: Partial<LlmSettings>; theme?: ThemePreference }
+          | {
+              llm?: Partial<LlmSettings>;
+              theme?: ThemePreference;
+              reducedMotion?: boolean;
+            }
           | undefined;
         return {
           ...(state ?? {}),
           llm: { ...DEFAULT_LLM_SETTINGS, ...(state?.llm ?? {}) },
           theme: state?.theme ?? "system",
+          reducedMotion: state?.reducedMotion ?? false,
         };
       },
       skipHydration: true,
@@ -68,6 +77,7 @@ export const useSettingsStore = create<SettingsState>()(
         density: state.density,
         autoRotate: state.autoRotate,
         theme: state.theme,
+        reducedMotion: state.reducedMotion,
       }),
     },
   ),

@@ -4,9 +4,10 @@ import { useMemo, useState } from "react";
 import { Sheet } from "@/components/common/Sheet";
 import { EVENTS, track } from "@/lib/analytics";
 import { buildPath } from "@/lib/path";
-import { RELATION_META, relationKey } from "@/lib/relations";
+import { RELATION_META, relationColor, relationKey } from "@/lib/relations";
 import { searchNodes } from "@/lib/search";
 import { useGraphStore } from "@/store/graphStore";
+import { useResolvedTheme } from "@/components/shell/Theme";
 import { toast } from "@/store/toastStore";
 import type { KnowledgeNode, Relation, RelationType } from "@/types";
 
@@ -37,6 +38,7 @@ export function RelationEditor({
   const [type, setType] = useState<RelationType>("related");
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
+  const theme = useResolvedTheme();
 
   const from = nodes.find((node) => node.id === fromId);
 
@@ -106,13 +108,13 @@ export function RelationEditor({
                   key={option}
                   type="button"
                   onClick={() => setType(option)}
-                  className={`rounded-xl border px-2 py-2 text-left text-xs transition-colors ${
+                  className={`min-h-11 rounded-xl border px-2.5 py-2 text-left text-xs transition-colors ${
                     active
-                      ? "border-accent/60 bg-accent/10 text-ink"
-                      : "border-line bg-surface text-muted hover:text-ink"
+                      ? "border-accent bg-accent/10 text-ink"
+                      : "border-line bg-surface text-muted hover:border-accent hover:text-ink"
                   }`}
                 >
-                  <span className="flex items-center gap-1 font-medium" style={{ color: meta.color }}>
+                  <span className="flex items-center gap-1 font-semibold" style={{ color: relationColor(option, theme) }}>
                     {meta.label}
                   </span>
                   <span className="mt-0.5 block text-[10px] text-muted">
@@ -154,10 +156,10 @@ export function RelationEditor({
                     key={node.id}
                     type="button"
                     onClick={() => setTargetId(node.id)}
-                    className={`flex w-full flex-col rounded-lg border px-3 py-2 text-left transition-colors ${
+                    className={`flex min-h-11 w-full flex-col rounded-xl border px-3 py-2 text-left transition-colors ${
                       active
-                        ? "border-accent/60 bg-accent/10"
-                        : "border-line bg-surface hover:bg-surface-2"
+                        ? "border-accent bg-accent/10"
+                        : "border-line bg-surface hover:border-accent"
                     }`}
                   >
                     <span className="text-sm text-ink">{node.title}</span>

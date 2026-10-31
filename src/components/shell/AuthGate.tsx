@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { EVENTS, track } from "@/lib/analytics";
 import { useSessionStore } from "@/store/sessionStore";
+import { MintyIllustration } from "@/components/common/MintyIllustration";
 
 export function AuthGate() {
   const [email, setEmail] = useState("");
@@ -28,17 +29,19 @@ export function AuthGate() {
   };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-shell px-4">
-      <div className="card w-full max-w-sm p-6">
-        <div className="flex items-center gap-3">
-          <span className="brand-mark size-10 text-lg">
-            知
-          </span>
-          <div>
-            <h1 className="text-base font-semibold">登录知脉</h1>
-            <p className="text-xs text-muted">用绑定的邮箱登录，三端数据保持一致。</p>
+    <main id="main" className="flex min-h-dvh items-center justify-center bg-shell px-4 py-8">
+      <div className="card w-full max-w-md p-6 md:p-8">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="brand-mark size-10 text-lg">知</span>
+            <div>
+              <p className="eyebrow">个人知识地图</p>
+              <h1 className="mt-1 text-xl font-[750] tracking-[-0.03em] text-ink">登录知脉</h1>
+            </div>
           </div>
+          <MintyIllustration variant="account" className="h-16 w-24 shrink-0" />
         </div>
+        <p className="mt-4 text-sm leading-relaxed text-muted">用绑定的邮箱登录，三端数据保持一致。</p>
 
         <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
           <label className="block">
@@ -86,6 +89,6 @@ export function AuthGate() {
           以游客身份继续（数据同样保存在云端）
         </button>
       </div>
-    </div>
+    </main>
   );
 }

@@ -85,6 +85,7 @@ export interface RenderInput {
   /** 布局 id → 标题（标签渲染用，避免渲染器依赖数据仓库）。 */
   titleOf: (id: string) => string | undefined;
   theme?: "light" | "dark";
+  reducedMotion?: boolean;
 }
 
 interface ScenePalette {
@@ -105,33 +106,33 @@ interface ScenePalette {
 function scenePalette(theme: "light" | "dark"): ScenePalette {
   if (theme === "light") {
     return {
-      canvas: "#eaf1f9",
-      hierarchy: "23, 38, 61",
-      selectedRing: "rgba(23, 38, 61, 0.82)",
-      hoverRing: "rgba(23, 38, 61, 0.5)",
-      dragRing: "rgba(23, 38, 61, 0.8)",
-      dropRing: "rgba(37, 99, 235, 0.95)",
-      sourceRing: "rgba(163, 95, 0, 0.95)",
-      badgeFill: "rgba(248, 251, 255, 0.94)",
-      badgeBorder: "rgba(23, 38, 61, 0.22)",
-      badgeText: "rgba(23, 38, 61, 0.88)",
-      labelHalo: "rgba(243, 247, 252, 0.92)",
-      labelText: "rgba(23, 38, 61, 0.95)",
+      canvas: "#e9f2ee",
+      hierarchy: "34, 48, 62",
+      selectedRing: "rgba(228, 87, 46, 0.95)",
+      hoverRing: "rgba(34, 48, 62, 0.48)",
+      dragRing: "rgba(37, 107, 71, 0.9)",
+      dropRing: "rgba(37, 107, 71, 0.95)",
+      sourceRing: "rgba(228, 87, 46, 0.95)",
+      badgeFill: "#fafaf3",
+      badgeBorder: "#c6d6cc",
+      badgeText: "#22303e",
+      labelHalo: "rgba(233, 242, 238, 0.94)",
+      labelText: "rgba(34, 48, 62, 0.96)",
     };
   }
   return {
-    canvas: "#07111f",
-    hierarchy: "207, 226, 250",
-    selectedRing: "rgba(255, 255, 255, 0.85)",
-    hoverRing: "rgba(255, 255, 255, 0.55)",
-    dragRing: "rgba(255, 255, 255, 0.9)",
-    dropRing: "rgba(121, 174, 252, 0.95)",
-    sourceRing: "rgba(241, 202, 114, 0.95)",
-    badgeFill: "rgba(10, 20, 36, 0.9)",
-    badgeBorder: "rgba(255, 255, 255, 0.22)",
-    badgeText: "rgba(237, 245, 255, 0.92)",
-    labelHalo: "rgba(7, 17, 31, 0.88)",
-    labelText: "rgba(237, 245, 255, 0.96)",
+    canvas: "#14232b",
+    hierarchy: "238, 244, 235",
+    selectedRing: "rgba(242, 141, 102, 0.98)",
+    hoverRing: "rgba(238, 244, 235, 0.5)",
+    dragRing: "rgba(155, 219, 178, 0.92)",
+    dropRing: "rgba(155, 219, 178, 0.98)",
+    sourceRing: "rgba(242, 141, 102, 0.98)",
+    badgeFill: "#1b2d34",
+    badgeBorder: "#3b5155",
+    badgeText: "#eef4eb",
+    labelHalo: "rgba(20, 35, 43, 0.94)",
+    labelText: "rgba(238, 244, 235, 0.96)",
   };
 }
 
@@ -183,7 +184,7 @@ export function renderScene(input: RenderInput): void {
     ctx.stroke();
   }
 
-  const pulse = 1 + 0.06 * Math.sin(input.timeMs / 260);
+  const pulse = input.reducedMotion ? 1 : 1 + 0.06 * Math.sin(input.timeMs / 260);
 
   // 2a. 全量关系线（编辑模式）：只画两端都可见的关系，整体压暗。
   if (showAllRelations) {
@@ -214,14 +215,6 @@ export function renderScene(input: RenderInput): void {
         const other = byId.get(otherId);
         if (!other) continue;
         const color = relationColor(relation.type, input.theme ?? "dark");
-        // 外发光
-        ctx.strokeStyle = `${color}22`;
-        ctx.lineWidth = RELATION_LINE_WIDTH + 4;
-        ctx.beginPath();
-        ctx.moveTo(selected.x, selected.y);
-        ctx.lineTo(other.x, other.y);
-        ctx.stroke();
-        // 主线
         ctx.strokeStyle = color;
         ctx.globalAlpha = 0.9;
         ctx.lineWidth = RELATION_LINE_WIDTH;
@@ -242,7 +235,7 @@ export function renderScene(input: RenderInput): void {
     const fade = depthFade(node.z, camera, dimmed ? 0.12 : 0.32, 1);
     const alpha = (dimmed ? 0.32 : 1) * fade;
     const radius = isSelected ? node.screenRadius * pulse : node.screenRadius;
-    const sprite = getNodeSprite(node.color, radius, dpr);
+    const sprite = getNodeSprite(node.color, radius, dpr, input.theme ?? "dark");
     if (sprite) {
       const drawSize = spriteDrawSize(radius);
       ctx.globalAlpha = alpha;
@@ -259,41 +252,39 @@ export function renderScene(input: RenderInput): void {
 
     if (isSelected) {
       ctx.strokeStyle = palette.selectedRing;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(node.x, node.y, radius * 1.9, 0, Math.PI * 2);
+      ctx.arc(node.x, node.y, radius + 8, 0, Math.PI * 2);
       ctx.stroke();
     } else if (node.id === hoveredId) {
       ctx.strokeStyle = palette.hoverRing;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.arc(node.x, node.y, radius * 1.6, 0, Math.PI * 2);
+      ctx.arc(node.x, node.y, radius + 5, 0, Math.PI * 2);
       ctx.stroke();
     }
 
-    // 拖动中的节点：虚线白环；落点目标：青色高亮环。
+    // 拖动中的节点：实线环；落点目标：绿色实线环。
     if (node.id === dragNodeId) {
-      ctx.setLineDash([4, 3]);
       ctx.strokeStyle = palette.dragRing;
-      ctx.lineWidth = 1.6;
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(node.x, node.y, radius * 2.1, 0, Math.PI * 2);
+      ctx.arc(node.x, node.y, radius + 6, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.setLineDash([]);
     }
     if (node.id === dropTargetId) {
       ctx.strokeStyle = palette.dropRing;
-      ctx.lineWidth = 2.2;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.arc(node.x, node.y, radius * 2.3, 0, Math.PI * 2);
+      ctx.arc(node.x, node.y, radius + 9, 0, Math.PI * 2);
       ctx.stroke();
     }
-    // 连线模式的源节点：琥珀色环。
+    // 连线模式的源节点：橙色环。
     if (node.id === connectSourceId) {
       ctx.strokeStyle = palette.sourceRing;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.arc(node.x, node.y, radius * 2.1, 0, Math.PI * 2);
+      ctx.arc(node.x, node.y, radius + 6, 0, Math.PI * 2);
       ctx.stroke();
     }
   }
@@ -353,9 +344,8 @@ export function renderScene(input: RenderInput): void {
       drawnRects.push(rect);
       const fade = depthFade(node.z, camera, 0.35, 1);
       ctx.globalAlpha = fade;
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = palette.labelHalo;
-      ctx.strokeText(title, x, y);
+      ctx.fillStyle = palette.labelHalo;
+      ctx.fillRect(x - 3, y - 8, width + 6, 16);
       ctx.fillStyle = palette.labelText;
       ctx.fillText(title, x, y);
       ctx.globalAlpha = 1;

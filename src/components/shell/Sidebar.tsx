@@ -26,13 +26,13 @@ export function Sidebar() {
   return (
     <aside className="app-sidebar">
       <div className="px-3 py-5 xl:px-4">
-        <Link href="/" className="flex items-center gap-2.5" aria-label="知脉首页">
+        <Link href="/" className="flex min-h-11 items-center gap-2.5" aria-label="知脉首页">
           <span className="brand-mark size-10 text-[15px]">
             知
           </span>
           <span className="hidden xl:block">
-            <span className="block text-[15px] font-semibold tracking-wide text-ink">知脉</span>
-            <span className="block text-[10px] text-muted">AI 知识地图</span>
+            <span className="block text-[15px] font-[750] tracking-[-0.02em] text-ink">知脉</span>
+            <span className="block text-[10px] tracking-[0.08em] text-muted">AI 知识地图</span>
           </span>
         </Link>
       </div>

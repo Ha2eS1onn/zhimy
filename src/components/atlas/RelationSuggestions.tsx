@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { RELATION_META } from "@/lib/relations";
+import { RELATION_META, relationColor } from "@/lib/relations";
+import { useResolvedTheme } from "@/components/shell/Theme";
 import {
   sharedSourceSuggestions,
   suggestRelationsWithLlm,
@@ -35,6 +36,7 @@ export function RelationSuggestions({
   const [ignored, setIgnored] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const theme = useResolvedTheme();
 
   const shared = useMemo(
     () => sharedSourceSuggestions(node, nodes, relations, nodeSources),
@@ -125,12 +127,12 @@ export function RelationSuggestions({
           {suggestions.map((suggestion) => (
             <li
               key={suggestion.id}
-              className="rounded-lg border border-line bg-surface px-2.5 py-2"
+              className="rounded-xl border border-line bg-surface px-3 py-2"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-1.5 text-xs">
                   <span
-                    style={{ color: RELATION_META[suggestion.type].color }}
+                    style={{ color: relationColor(suggestion.type, theme) }}
                     className="shrink-0"
                   >
                     {RELATION_META[suggestion.type].label}

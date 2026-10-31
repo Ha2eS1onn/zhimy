@@ -5,15 +5,14 @@ import { useSessionStore } from "@/store/sessionStore";
 export function ConfigGuide() {
   const bootstrap = useSessionStore((state) => state.bootstrap);
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-shell px-4 py-10">
+    <main id="main" className="flex min-h-dvh items-center justify-center bg-shell px-4 py-10">
       <div className="card w-full max-w-xl p-6 md:p-8">
         <div className="flex items-center gap-3">
-          <span className="brand-mark size-10 text-lg">
-            知
-          </span>
+          <span className="brand-mark size-10 text-lg">知</span>
           <div>
-            <h1 className="text-lg font-semibold">还差一步：连接 Supabase</h1>
-            <p className="text-xs text-muted">云端账号与数据已经就绪，现在只缺你的项目配置。</p>
+            <p className="eyebrow">首次配置</p>
+            <h1 className="mt-1 text-xl font-[750] tracking-[-0.03em]">还差一步：连接 Supabase</h1>
+            <p className="mt-1 text-xs leading-relaxed text-muted">云端账号与数据已经就绪，现在只缺你的项目配置。</p>
           </div>
         </div>
 
@@ -32,7 +31,7 @@ export function ConfigGuide() {
           </li>
           <li>
             <p className="font-medium">3. 把三个值写进项目根目录的 .env.local</p>
-            <pre className="mt-2 overflow-x-auto rounded-xl border border-line bg-canvas p-3 text-[11px] leading-relaxed text-muted">
+            <pre className="mt-2 overflow-x-auto rounded-xl border border-line bg-shell p-3 font-mono text-[11px] leading-relaxed text-ink">
               {`NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
 SUPABASE_DB_URL=postgresql://postgres:...@db.xxxx.supabase.co:5432/postgres`}
@@ -43,7 +42,7 @@ SUPABASE_DB_URL=postgresql://postgres:...@db.xxxx.supabase.co:5432/postgres`}
           </li>
           <li>
             <p className="font-medium">4. 初始化数据库并重启开发服务器</p>
-            <pre className="mt-2 overflow-x-auto rounded-xl border border-line bg-canvas p-3 text-[11px] leading-relaxed text-muted">
+            <pre className="mt-2 overflow-x-auto rounded-xl border border-line bg-shell p-3 font-mono text-[11px] leading-relaxed text-ink">
               {`npm run db:init
 npm run dev`}
             </pre>
@@ -69,6 +68,6 @@ npm run dev`}
           </a>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

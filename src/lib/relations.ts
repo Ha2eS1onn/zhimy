@@ -20,10 +20,10 @@ export function relationKey(type: RelationType, fromId: string, toId: string): s
 }
 
 export const RELATION_META: Record<RelationType, { label: string; color: string }> = {
-  prerequisite: { label: "先修", color: "#FFB300" },
-  related: { label: "相关", color: "#4DD0E1" },
-  contrast: { label: "易混", color: "#FF5252" },
-  source: { label: "同源", color: "#90A4AE" },
+  prerequisite: { label: "先修", color: "#e9b95f" },
+  related: { label: "相关", color: "#78c8d4" },
+  contrast: { label: "易混", color: "#f58b92" },
+  source: { label: "同源", color: "#a9bdc6" },
 };
 
 export function relationLabel(type: RelationType): string {

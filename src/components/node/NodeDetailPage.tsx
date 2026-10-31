@@ -223,7 +223,7 @@ export function NodeDetailPage() {
 
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
-            <header className="card p-4 md:p-5">
+            <header className="card p-5 md:p-6">
               <p className="text-[11px] text-muted">
                 {path.map((item, index) => (
                   <span key={item.id}>
@@ -265,7 +265,7 @@ export function NodeDetailPage() {
                 </div>
               ) : (
                 <>
-                  <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">{node.title}</h1>
+                  <h1 className="mt-1 text-[28px] font-[750] leading-[1.24] tracking-[-0.03em] text-ink md:text-[36px]">{node.title}</h1>
                   <p className="mt-1 text-sm leading-relaxed text-muted">
                     {node.summary || "暂无摘要。"}
                   </p>
@@ -316,9 +316,9 @@ export function NodeDetailPage() {
                 onGenerate={() => void generate()}
               />
             ) : (
-              <section className="card p-4 md:p-5">
+              <section className="card p-5 md:p-6">
                 <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-ink">讲解</h2>
+                  <h2 className="text-base font-[750] tracking-[-0.02em] text-ink">讲解</h2>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -342,8 +342,8 @@ export function NodeDetailPage() {
                 {node.detail.trim() ? (
                   <MarkdownLite markdown={node.detail} />
                 ) : (
-                  <div className="rounded-2xl bg-surface-2/60 px-4 py-10 text-center">
-                    <p className="text-sm text-ink">暂无讲解</p>
+                  <div className="rounded-[18px] border border-line bg-shell px-4 py-10 text-center">
+                    <p className="text-sm font-[750] text-ink">暂无讲解</p>
                     <p className="mt-1 text-xs text-muted">生成一份，或自己写。</p>
                     <div className="mt-4 flex justify-center gap-2">
                       <button
@@ -379,8 +379,8 @@ export function NodeDetailPage() {
           </button>
 
           <aside className={`${showMeta ? "block motion-reveal" : "hidden"} space-y-4 lg:block`}>
-            <section className="card p-4">
-              <h2 className="text-sm font-semibold text-ink">来源对话（{nodeSourceList.length}）</h2>
+            <section className="card p-5">
+              <h2 className="text-base font-[750] tracking-[-0.02em] text-ink">来源对话（{nodeSourceList.length}）</h2>
               {nodeSourceList.length === 0 ? (
                 <p className="mt-2 text-xs text-muted">暂无来源。</p>
               ) : (
@@ -410,9 +410,9 @@ export function NodeDetailPage() {
               )}
             </section>
 
-            <section className="card p-4">
+            <section className="card p-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-ink">关系（{related.length}）</h2>
+                <h2 className="text-base font-[750] tracking-[-0.02em] text-ink">关系（{related.length}）</h2>
                 <button
                   type="button"
                   className="btn-ghost btn-sm"
@@ -430,8 +430,8 @@ export function NodeDetailPage() {
               />
             </section>
 
-            <section className="card p-4">
-              <h2 className="text-sm font-semibold text-ink">子知识点（{children.length}）</h2>
+            <section className="card p-5">
+              <h2 className="text-base font-[750] tracking-[-0.02em] text-ink">子知识点（{children.length}）</h2>
               {children.length === 0 ? (
                 <p className="mt-2 text-xs text-muted">暂无子知识点。</p>
               ) : (
@@ -440,7 +440,7 @@ export function NodeDetailPage() {
                     <li key={child.id}>
                       <Link
                         href={`/node/${child.id}`}
-                        className="block truncate rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink hover:border-accent/40"
+                        className="flex min-h-11 items-center truncate rounded-xl border border-line bg-surface px-3 text-xs text-ink hover:border-accent"
                       >
                         {child.title}
                       </Link>
@@ -451,7 +451,7 @@ export function NodeDetailPage() {
             </section>
 
             <section className="card p-4 text-[11px] text-muted">
-              <h2 className="text-sm font-semibold text-ink">信息</h2>
+              <h2 className="text-base font-[750] tracking-[-0.02em] text-ink">信息</h2>
               <dl className="mt-2 space-y-1">
                 <div className="flex justify-between gap-2">
                   <dt>收编时间</dt>

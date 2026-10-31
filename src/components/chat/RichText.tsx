@@ -15,7 +15,7 @@ export function RichText({ text }: { text: string }) {
   if (segments.length === 0) return null;
 
   return (
-    <div className="space-y-1.5 text-sm leading-relaxed text-ink">
+    <div className="space-y-1.5 text-[15px] leading-[1.7] text-ink">
       {segments.map((segment, segmentIndex) => {
         if (segment.type === "math") {
           return <TeXMath key={`math-${segmentIndex}`} tex={segment.value} display />;
@@ -52,7 +52,7 @@ function renderTextLines(text: string, segmentIndex: number): ReactNode[] {
       nodes.push(
         <pre
           key={`${key}-code`}
-          className="overflow-x-auto rounded-xl border border-line bg-canvas p-3 text-xs leading-relaxed text-ink/80"
+          className="overflow-x-auto rounded-xl border border-line bg-shell p-3 text-xs leading-relaxed text-ink"
         >
           {fence[1] ? (
             <span className="mb-1 block text-[10px] uppercase tracking-wide text-muted">
@@ -108,7 +108,7 @@ function renderInline(text: string): ReactNode[] {
         return (
           <code
             key={index}
-            className="rounded bg-surface-2 px-1 py-0.5 text-[0.92em] text-accent"
+            className="rounded border border-line bg-shell px-1 py-0.5 font-mono text-[0.92em] text-accent"
           >
             {token.value}
           </code>

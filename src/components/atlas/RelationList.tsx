@@ -11,9 +11,16 @@ import {
 import { EVENTS, track } from "@/lib/analytics";
 import { useGraphStore } from "@/store/graphStore";
 import { toast } from "@/store/toastStore";
+import { Listbox, type ListboxOption } from "@/components/common/Listbox";
+import { Icon } from "@/components/shell/Icon";
+import { useResolvedTheme } from "@/components/shell/Theme";
 import type { KnowledgeNode, Relation, RelationType } from "@/types";
 
 const TYPE_OPTIONS: RelationType[] = ["prerequisite", "related", "contrast", "source"];
+const TYPE_ITEMS: ListboxOption<RelationType>[] = TYPE_OPTIONS.map((type) => ({
+  value: type,
+  label: relationLabel(type),
+}));
 
 interface RelationListProps {
   nodeId: string;
@@ -36,6 +43,7 @@ export function RelationList({
   const updateRelationType = useGraphStore((state) => state.updateRelationType);
   const deleteRelation = useGraphStore((state) => state.deleteRelation);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const theme = useResolvedTheme();
 
   const related = relationsOf(relations, nodeId);
   if (related.length === 0) {
@@ -79,43 +87,38 @@ export function RelationList({
         return (
           <li
             key={relation.id}
-            className="flex items-center justify-between gap-2 rounded-lg border border-line bg-surface px-2.5 py-1.5"
+            className="flex items-center justify-between gap-2 rounded-xl border border-line bg-surface px-2.5 py-1.5"
           >
             <button
               type="button"
               onClick={() => onSelect(other.id)}
-              className="flex min-w-0 flex-1 items-center gap-2 text-left hover:text-accent"
+              className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left hover:text-accent"
               title="定位到这个知识点"
             >
               <span
                 className="size-1.5 shrink-0 rounded-full"
-                style={{ background: relationColor(relation.type) }}
+                style={{ background: relationColor(relation.type, theme) }}
               />
               <span className="truncate text-xs text-ink">{other.title}</span>
             </button>
             {editable ? (
               <span className="flex shrink-0 items-center gap-1">
-                <select
-                  className="rounded-md border border-line bg-surface-2 px-1 py-0.5 text-[10px] text-muted outline-none focus:border-accent/60"
+                <Listbox
                   value={relation.type}
+                  options={TYPE_ITEMS}
+                  onChange={(type) => void handleTypeChange(relation, type)}
+                  label={`「${other.title}」的关系类型`}
                   disabled={busyId === relation.id}
-                  onChange={(event) => void handleTypeChange(relation, event.target.value as RelationType)}
-                  aria-label="关系类型"
-                >
-                  {TYPE_OPTIONS.map((type) => (
-                    <option key={type} value={type}>
-                      {relationLabel(type)}
-                    </option>
-                  ))}
-                </select>
+                  className="w-[74px]"
+                />
                 <button
                   type="button"
-                  className="rounded px-1 text-[11px] text-muted hover:text-danger"
+                  className="icon-btn size-11 text-muted hover:text-danger"
                   aria-label="删除关系"
                   disabled={busyId === relation.id}
                   onClick={() => void handleDelete(relation, other.title)}
                 >
-                  ✕
+                  <Icon name="close" size={15} />
                 </button>
               </span>
             ) : (

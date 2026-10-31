@@ -27,6 +27,52 @@ const TARGETS = [
   { name: "home-mobile-sm", route: "/", width: 320, height: 568 },
   { name: "chat-mobile-sm", route: "/chat", width: 320, height: 568 },
   { name: "atlas-mobile-sm", route: "/atlas", width: 320, height: 568 },
+  {
+    name: "atlas-seeded-desktop",
+    route: "/atlas",
+    width: 1440,
+    height: 900,
+    seed: true,
+    panelNode: "物理",
+  },
+  {
+    name: "atlas-seeded-canvas",
+    route: "/atlas",
+    width: 1440,
+    height: 900,
+    seed: true,
+  },
+  {
+    name: "settings-desktop",
+    route: "/",
+    width: 1440,
+    height: 900,
+    openSettings: true,
+  },
+  {
+    name: "settings-mobile",
+    route: "/",
+    width: 390,
+    height: 844,
+    openSettings: true,
+  },
+  {
+    name: "reduced-motion-desktop",
+    route: "/",
+    width: 1440,
+    height: 900,
+    openSettings: true,
+    reduceMotion: true,
+  },
+  {
+    name: "node-detail-desktop",
+    route: "/atlas",
+    width: 1440,
+    height: 900,
+    seed: true,
+    panelNode: "物理",
+    openDetail: true,
+  },
 ];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -100,6 +146,42 @@ async function createTarget() {
   return response.json();
 }
 
+async function evaluate(cdp, expression) {
+  const result = await cdp.send("Runtime.evaluate", {
+    expression,
+    returnByValue: true,
+    awaitPromise: true,
+  });
+  return result.result?.value;
+}
+
+async function waitForValue(cdp, expression, timeoutMs = 15000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const value = await evaluate(cdp, expression);
+    if (value) return value;
+    await sleep(500);
+  }
+  return null;
+}
+
+async function clickAt(cdp, x, y) {
+  await cdp.send("Input.dispatchMouseEvent", {
+    type: "mousePressed",
+    x,
+    y,
+    button: "left",
+    clickCount: 1,
+  });
+  await cdp.send("Input.dispatchMouseEvent", {
+    type: "mouseReleased",
+    x,
+    y,
+    button: "left",
+    clickCount: 1,
+  });
+}
+
 async function capture(target) {
   const page = await createTarget();
   const cdp = new CDP(page.webSocketDebuggerUrl);
@@ -133,10 +215,121 @@ async function capture(target) {
   await cdp.send("Page.navigate", { url: `${baseUrl}${target.route}` });
   await sleep(target.route.includes("atlas") ? 3600 : 2600);
 
+  if (target.seed) {
+    const seeded = await waitForValue(
+      cdp,
+      `(() => {
+        const button = [...document.querySelectorAll("button")].find(
+          (item) => item.textContent?.trim() === "载入示例",
+        );
+        if (!button) return false;
+        button.click();
+        return true;
+      })()`,
+      20000,
+    );
+    await sleep(seeded ? 2500 : 500);
+  }
+
+  if (target.panelNode) {
+    const point = await waitForValue(
+      cdp,
+      `(() => {
+        const projected = window.__zhimyAtlasDebug
+          ?.projectedNodes()
+          .find((item) => item.title === ${JSON.stringify(target.panelNode)});
+        const canvas = document.querySelector("canvas");
+        if (!projected || !canvas) return null;
+        const rect = canvas.getBoundingClientRect();
+        return { x: rect.left + projected.x, y: rect.top + projected.y };
+      })()`,
+      20000,
+    );
+    console.log(`  node probe: ${JSON.stringify(point)}`);
+    if (point) {
+      await clickAt(cdp, point.x, point.y);
+      await sleep(1400);
+    }
+  }
+
+  if (target.openSettings) {
+    const opened = await waitForValue(
+      cdp,
+      `(() => {
+        const button = [...document.querySelectorAll("button")].find(
+          (item) =>
+            item.offsetParent !== null &&
+            (item.getAttribute("aria-label") === "设置" || item.textContent?.trim() === "设置"),
+        );
+        if (!button) return false;
+        button.click();
+        return true;
+      })()`,
+      5000,
+    );
+    if (opened) await sleep(900);
+  }
+
+  if (target.reduceMotion) {
+    await evaluate(
+      cdp,
+      `(() => {
+        const row = [...document.querySelectorAll("label")].find(
+          (item) => item.textContent?.includes("减少动画"),
+        );
+        row?.querySelector("input")?.click();
+        return Boolean(row);
+      })()`,
+    );
+    await sleep(500);
+  }
+
+  if (target.openDetail) {
+    await evaluate(
+      cdp,
+      `(() => {
+        const link = [...document.querySelectorAll('a[href^="/node/"]')].find(
+          (item) => item.textContent?.includes("完整讲解"),
+        );
+        link?.click();
+        return Boolean(link);
+      })()`,
+    );
+    await sleep(1800);
+  }
+
   const text = await cdp.send("Runtime.evaluate", {
     expression: "document.body.innerText.slice(0, 400)",
     returnByValue: true,
   });
+  const audit = await evaluate(
+    cdp,
+    `(() => {
+      const blur = [...document.querySelectorAll("*")].filter(
+        (element) => getComputedStyle(element).backdropFilter !== "none",
+      ).length;
+      const controls = [...document.querySelectorAll("button, a[href], input, textarea")]
+        .filter((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0 && rect.height < 44;
+        })
+        .slice(0, 4)
+        .map((element) => ({
+          tag: element.tagName.toLowerCase(),
+          text: (element.textContent || element.getAttribute("aria-label") || "").trim().slice(0, 18),
+          height: Math.round(element.getBoundingClientRect().height),
+        }));
+      return {
+        overflow: Math.max(0, document.documentElement.scrollWidth - window.innerWidth),
+        blur,
+        controlsUnder44: controls.length,
+        controls,
+        themeColor: document.querySelector('meta[name="theme-color"]')?.content,
+        reducedMotion: document.documentElement.dataset.reducedMotion ?? "off",
+      };
+    })()`,
+  );
+  console.log(`  audit: ${JSON.stringify(audit)}`);
   const shot = await cdp.send("Page.captureScreenshot", {
     format: "png",
     captureBeyondViewport: false,
@@ -183,7 +376,10 @@ try {
     }
     await sleep(250);
   }
-  for (const target of TARGETS) {
+  const only = process.env.SCREENSHOT_FILTER?.split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+  for (const target of TARGETS.filter((item) => !only || only.includes(item.name))) {
     await capture(target);
   }
   console.log("\n截图完成 ✅");

@@ -132,16 +132,16 @@ export function AtlasPanel({
   return (
     <div
       data-enter={animateEnter}
-      className="atlas-panel pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex max-h-[62dvh] flex-col overflow-hidden rounded-t-[24px] bg-shell/95 shadow-[var(--neu-raised)] backdrop-blur md:max-h-[55vh] xl:inset-y-0 xl:left-auto xl:right-0 xl:max-h-none xl:w-[380px] xl:rounded-none xl:rounded-l-[24px]"
+      className="atlas-panel pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex max-h-[62dvh] flex-col overflow-hidden rounded-t-[24px] border-t border-line bg-surface shadow-[var(--shadow-float)] md:max-h-[55vh] xl:inset-y-0 xl:left-auto xl:right-0 xl:max-h-none xl:w-[380px] xl:rounded-none xl:rounded-l-[24px] xl:border-t-0 xl:border-l"
     >
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between border-b border-line px-4 py-3">
         <span className="text-[11px] text-muted">
           知识点 · {path.length}
           {node.status === "inbox" ? " · 待归位" : ""}
           {node.manualPosition ? " · 手动定位" : ""}
         </span>
-        <button type="button" className="btn-ghost btn-sm" onClick={onClose} aria-label="关闭详情">
-          ✕
+        <button type="button" className="icon-btn" onClick={onClose} aria-label="关闭详情">
+          <Icon name="close" size={17} />
         </button>
       </div>
 
@@ -198,7 +198,7 @@ export function AtlasPanel({
           </div>
         ) : (
           <>
-            <h2 className="mt-1.5 text-lg font-semibold text-ink">{node.title}</h2>
+            <h2 className="mt-1.5 text-xl font-[750] leading-[1.24] tracking-[-0.03em] text-ink">{node.title}</h2>
             <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-ink/80">
               {node.summary || "暂无摘要。"}
             </p>
@@ -278,7 +278,7 @@ export function AtlasPanel({
                   <button
                     type="button"
                     onClick={() => onSelect(child.id)}
-                    className="flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-left hover:border-accent/40"
+                    className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-left hover:border-accent"
                   >
                     <span className="min-w-0">
                       <span className="block truncate text-xs text-ink">{child.title}</span>

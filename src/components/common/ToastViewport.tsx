@@ -3,9 +3,9 @@
 import { useToastStore } from "@/store/toastStore";
 
 const TONE_CLASS: Record<string, string> = {
-  info: "border-line bg-surface-2 text-ink",
-  success: "border-ok/30 bg-ok/10 text-ok",
-  error: "border-danger/40 bg-danger/10 text-danger",
+  info: "border-line bg-surface text-ink",
+  success: "border-ok/50 bg-surface text-ok",
+  error: "border-danger/50 bg-surface text-danger",
 };
 
 export function ToastViewport() {
@@ -24,7 +24,7 @@ export function ToastViewport() {
           type="button"
           data-state={toastItem.leaving ? "leaving" : "open"}
           onClick={() => dismiss(toastItem.id)}
-          className={`toast-item pointer-events-auto max-w-[92vw] rounded-xl border px-3.5 py-2 text-left text-xs shadow-lg backdrop-blur ${TONE_CLASS[toastItem.tone] ?? TONE_CLASS.info}`}
+          className={`toast-item pointer-events-auto min-h-11 max-w-[92vw] rounded-xl border px-4 py-2.5 text-left text-xs shadow-[var(--shadow-float)] ${TONE_CLASS[toastItem.tone] ?? TONE_CLASS.info}`}
         >
           {toastItem.message}
         </button>

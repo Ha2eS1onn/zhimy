@@ -1,62 +1,72 @@
-/** 节点光晕精灵缓存：径向渐变 + 外发光约 2.6 倍，避免每帧重建渐变。 */
+/** 扁平纸感节点精灵：纸面圆片 + 1px 墨线 + 硬偏移影，无渐变、无光晕。 */
 
-const GLOW_FACTOR = 2.6;
+const SPRITE_PADDING = 7;
+const SHADOW_OFFSET = 3;
 const cache = new Map<string, HTMLCanvasElement>();
 
-export function hexToRgba(hex: string, alpha: number): string {
-  const normalized = hex.replace("#", "");
-  const full =
-    normalized.length === 3
-      ? normalized
-          .split("")
-          .map((c) => c + c)
-          .join("")
-      : normalized;
-  const value = Number.parseInt(full, 16);
-  const r = (value >> 16) & 255;
-  const g = (value >> 8) & 255;
-  const b = value & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+function spritePalette(theme: "light" | "dark") {
+  return theme === "light"
+    ? { paper: "#fafaf3", ink: "#22303e", shadow: "rgba(34, 48, 62, 0.28)" }
+    : { paper: "#1b2d34", ink: "#eef4eb", shadow: "rgba(0, 0, 0, 0.55)" };
 }
 
-function createSprite(color: string, radius: number, dpr: number): HTMLCanvasElement | null {
+function createSprite(
+  color: string,
+  radius: number,
+  dpr: number,
+  theme: "light" | "dark",
+): HTMLCanvasElement | null {
   if (typeof document === "undefined") return null;
-  const cssSize = Math.ceil(radius * 2 * GLOW_FACTOR);
+  const cssSize = Math.ceil((radius + SPRITE_PADDING) * 2);
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(2, Math.ceil(cssSize * dpr));
   canvas.height = Math.max(2, Math.ceil(cssSize * dpr));
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
-  const center = canvas.width / 2;
-  // 中心亮 → 主色 → 透明的径向渐变；描边光晕由外圈柔化。
-  const gradient = ctx.createRadialGradient(center, center, 0, center, center, canvas.width / 2);
-  gradient.addColorStop(0, "rgba(255, 255, 255, 0.98)");
-  gradient.addColorStop(0.16, hexToRgba(color, 0.98));
-  gradient.addColorStop(0.3, hexToRgba(color, 0.55));
-  gradient.addColorStop(0.55, hexToRgba(color, 0.14));
-  gradient.addColorStop(1, hexToRgba(color, 0));
-  ctx.fillStyle = gradient;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const palette = spritePalette(theme);
+  const center = cssSize / 2;
+
+  ctx.fillStyle = palette.shadow;
   ctx.beginPath();
-  ctx.arc(center, center, canvas.width / 2, 0, Math.PI * 2);
+  ctx.arc(center, center + SHADOW_OFFSET, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = palette.paper;
+  ctx.beginPath();
+  ctx.arc(center, center, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = palette.ink;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(center, center, Math.max(1.5, radius * 0.34), 0, Math.PI * 2);
   ctx.fill();
   return canvas;
 }
 
-/** 取（或创建）节点精灵；按颜色 + 0.5px 桶 + dpr 缓存。 */
-export function getNodeSprite(color: string, radiusCssPx: number, dpr: number): HTMLCanvasElement | null {
+/** 取（或创建）节点精灵；按颜色 + 0.5px 桶 + dpr + 主题缓存。 */
+export function getNodeSprite(
+  color: string,
+  radiusCssPx: number,
+  dpr: number,
+  theme: "light" | "dark" = "dark",
+): HTMLCanvasElement | null {
   const bucket = Math.max(2, Math.round(radiusCssPx * 2) / 2);
   const dprBucket = Math.max(1, Math.round(dpr * 2) / 2);
-  const key = `${color}|${bucket}|${dprBucket}`;
+  const key = `${theme}|${color}|${bucket}|${dprBucket}`;
   const cached = cache.get(key);
   if (cached) return cached;
-  const sprite = createSprite(color, bucket, dprBucket);
+  const sprite = createSprite(color, bucket, dprBucket, theme);
   if (sprite) cache.set(key, sprite);
   return sprite;
 }
 
-/** 绘制尺寸（CSS 像素）——精灵本身带 2.6 倍光晕，需要用更大的画布尺寸绘制。 */
+/** 绘制尺寸（CSS 像素）——精灵包含硬偏移影与安全留白。 */
 export function spriteDrawSize(radiusCssPx: number): number {
-  return Math.ceil(radiusCssPx * 2 * GLOW_FACTOR);
+  return Math.ceil((radiusCssPx + SPRITE_PADDING) * 2);
 }
 
 export function clearSpriteCache(): void {

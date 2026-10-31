@@ -15,7 +15,7 @@ export const MessageBubble = memo(function MessageBubble({ message }: { message:
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-surface-2 px-3.5 py-2.5">
+        <div className="max-w-[85%] rounded-[18px] rounded-br-md border border-line bg-shell px-3.5 py-2.5">
           {message.imageName ? (
             <LocalThumbnail
               id={message.id}
@@ -44,7 +44,7 @@ export const MessageBubble = memo(function MessageBubble({ message }: { message:
   return (
     <div className="space-y-2.5">
       {reasoning ? (
-        <details className="max-w-[92%] rounded-2xl bg-surface px-3 py-2 shadow-[var(--neu-soft)]">
+        <details className="max-w-[92%] rounded-[18px] border border-line bg-surface px-3 py-2">
           <summary className="cursor-pointer text-[11px] text-muted">思考</summary>
           <div className="details-body mt-1.5 max-h-64 overflow-y-auto whitespace-pre-wrap text-[12px] leading-relaxed text-muted">
             {reasoning}
@@ -52,12 +52,12 @@ export const MessageBubble = memo(function MessageBubble({ message }: { message:
         </details>
       ) : null}
 
-      <div className="max-w-[92%] rounded-2xl rounded-bl-md bg-surface px-4 py-3 shadow-[var(--neu-soft)]">
+      <div className="max-w-[92%] rounded-[18px] rounded-bl-md border border-line bg-surface px-4 py-3">
         <RichText text={message.content} />
       </div>
 
       {hit && hitNode ? (
-        <div className="max-w-[92%] rounded-2xl bg-surface px-4 py-3 shadow-[var(--neu-soft)]">
+        <div className="max-w-[92%] rounded-[18px] border border-line bg-surface px-4 py-3">
           <p className="flex items-center gap-1.5 text-[11px] text-accent">已收录</p>
           <p className="mt-1 break-all text-sm text-ink">
             {buildPath(nodes, hitNode.id)

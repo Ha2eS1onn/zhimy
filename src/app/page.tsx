@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { PositionPicker } from "@/components/common/PositionPicker";
+import { MintyIllustration } from "@/components/common/MintyIllustration";
 import { Icon } from "@/components/shell/Icon";
 import { buildPath, pathLabel } from "@/lib/path";
 import { useGraphStore } from "@/store/graphStore";
@@ -70,10 +71,12 @@ export default function HomePage() {
       <div className="page-wrap">
         <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs text-muted" suppressHydrationWarning>
-            {greeting}
+          <p className="eyebrow" suppressHydrationWarning>
+            {greeting} · 继续生长
           </p>
-          <h1 className="page-title mt-2">今天，想弄懂什么？</h1>
+          <h1 className="page-title mt-3">
+            今天，想<span className="highlight">弄懂</span>什么？
+          </h1>
           <p className="page-subtitle hidden sm:block">把问题留下来，把知识放回原位。</p>
         </div>
         {user ? (
@@ -90,7 +93,7 @@ export default function HomePage() {
       </header>
 
       <form
-        className="ask-box card mt-6 flex items-center gap-2 p-2 pl-5"
+        className="ask-box card mt-7 flex items-center gap-3 rounded-[24px] p-2 pl-5"
         onSubmit={(event) => {
           event.preventDefault();
           ask(question);
@@ -99,7 +102,7 @@ export default function HomePage() {
         <Icon name="spark" size={18} className="shrink-0 text-accent" />
         <input
           aria-label="输入问题"
-          className="min-w-0 flex-1 bg-transparent py-2 text-sm text-ink outline-none placeholder:text-muted"
+          className="min-h-11 min-w-0 flex-1 bg-transparent py-3 text-sm text-ink outline-none placeholder:text-muted"
           placeholder="拍题、追问，或输入一个知识点"
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
@@ -116,15 +119,21 @@ export default function HomePage() {
         ))}
       </div>
 
-      <section className="card mt-5 grid grid-cols-3">
+      <section className="card mt-5 grid grid-cols-3 divide-x divide-line overflow-hidden">
         <StatCard label="待处理" value={derived.inbox.length} href="/chat" />
         <StatCard label="知识点" value={derived.active.length} href="/atlas" />
         <StatCard label="学科" value={derived.subjects.length} href="/atlas" />
       </section>
 
       {nodes.length === 0 && !loading ? (
-        <section className="card mt-4 flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-          <p className="text-xs text-muted">图谱为空</p>
+        <section className="card mt-4 flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <MintyIllustration variant="graph" className="h-16 w-28 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-ink">图谱还是一张白纸</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted">先问一个问题，或载入示例看看知识如何长出来。</p>
+            </div>
+          </div>
           <div className="flex gap-2">
             <button
               type="button"
@@ -163,7 +172,7 @@ export default function HomePage() {
       <div className="mt-5 grid gap-5 lg:grid-cols-5">
         <section className="card self-start p-5 lg:col-span-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-ink">待处理</h2>
+            <h2 className="text-base font-[750] tracking-[-0.02em] text-ink">待处理</h2>
             <span className="text-[11px] text-muted">{derived.inbox.length}</span>
           </div>
           {derived.inbox.length === 0 ? (
@@ -200,8 +209,8 @@ export default function HomePage() {
 
         <section className="card self-start p-5 lg:col-span-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-ink">最近收编</h2>
-            <Link href="/atlas" className="text-[11px] text-muted hover:text-accent">
+            <h2 className="text-base font-[750] tracking-[-0.02em] text-ink">最近收编</h2>
+            <Link href="/atlas" className="text-link text-xs">
               全部
             </Link>
           </div>
@@ -261,9 +270,9 @@ function StatCard({
   return (
     <Link
       href={href}
-      className="flex min-w-0 flex-col items-center gap-0.5 px-2 py-3 transition-colors hover:bg-surface-2"
+      className="flex min-h-16 min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-3 transition-colors hover:bg-surface-2"
     >
-      <span className="text-xl font-semibold tabular-nums text-ink md:text-2xl">{value}</span>
+      <span className="text-xl font-[750] tabular-nums tracking-[-0.03em] text-ink md:text-2xl">{value}</span>
       <span className="text-[11px] text-muted">{label}</span>
     </Link>
   );

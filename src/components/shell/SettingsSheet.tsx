@@ -65,12 +65,35 @@ export function SettingsSheet() {
         ))}
       </div>
 
+      <MotionPreference />
+
       <div key={tab} className="motion-fade">
         {tab === "llm" ? <LlmSection /> : null}
         {tab === "account" ? <AccountSection demo={demo} /> : null}
         {tab === "data" ? <DataSection /> : null}
       </div>
     </Sheet>
+  );
+}
+
+function MotionPreference() {
+  const reducedMotion = useSettingsStore((state) => state.reducedMotion);
+  const setReducedMotion = useSettingsStore((state) => state.setReducedMotion);
+  return (
+    <label className="mb-4 flex min-h-11 cursor-pointer items-center justify-between gap-4 rounded-xl border border-line bg-shell px-3 py-2">
+      <span>
+        <span className="block text-xs font-semibold text-ink">减少动画</span>
+        <span className="mt-0.5 block text-[11px] leading-relaxed text-muted">
+          关闭入场、抽屉和知识图谱的自动运动。
+        </span>
+      </span>
+      <input
+        type="checkbox"
+        checked={reducedMotion}
+        onChange={(event) => setReducedMotion(event.target.checked)}
+        className="size-5 shrink-0 accent-[var(--green)]"
+      />
+    </label>
   );
 }
 
@@ -213,7 +236,7 @@ function LlmSection() {
             <button
               type="button"
               onClick={() => setShowKey((value) => !value)}
-              className="absolute inset-y-0 right-2 my-auto h-7 rounded-lg px-2 text-[11px] text-muted hover:bg-surface-2"
+              className="absolute inset-y-0 right-1 my-auto min-h-11 rounded-lg px-3 text-[11px] text-muted hover:text-ink"
             >
               {showKey ? "隐藏" : "显示"}
             </button>
@@ -262,8 +285,8 @@ function LlmSection() {
             换模型后旧向量不会混用，需在「数据」页重建索引。
           </span>
         </label>
-        <details className="rounded-xl border border-line bg-surface-2/60 px-3 py-2">
-          <summary className="cursor-pointer text-[11px] text-muted">
+        <details className="rounded-xl border border-line bg-shell px-3 py-2">
+          <summary className="flex min-h-11 cursor-pointer items-center text-[11px] font-medium text-muted">
             向量服务独立配置（可选，默认沿用上面的接口地址与 Key）
           </summary>
           <div className="details-body mt-2 space-y-2">
@@ -353,8 +376,8 @@ function LlmSection() {
         </p>
       ) : null}
 
-      <div className="rounded-xl border border-line bg-surface-2 p-3 text-[11px] leading-relaxed text-muted">
-        <p className="font-medium text-ink">关于 Key 的安全边界</p>
+      <div className="rounded-xl border border-line bg-shell p-3 text-[11px] leading-relaxed text-muted">
+        <p className="font-semibold text-ink">关于 Key 的安全边界</p>
         <ul className="mt-1 list-disc space-y-0.5 pl-4">
           <li>Key 只写入本机 localStorage，不会同步到云端，也不会出现在导出数据里。</li>
           <li>代理模式下 Key 随请求发给本站服务端转发给模型服务商，不保存、不记录日志。</li>

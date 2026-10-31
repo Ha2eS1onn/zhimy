@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Sheet } from "@/components/common/Sheet";
+import { MintyIllustration } from "@/components/common/MintyIllustration";
 import { Icon } from "../shell/Icon";
 import { streamMockAnswer } from "@/lib/ai/mock";
 import { streamChat } from "@/lib/ai/llmClient";
@@ -402,10 +403,10 @@ export function ChatScreen() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-shell">
-      <header className="shrink-0 bg-shell/80 px-4 py-2.5 backdrop-blur md:px-6 md:py-3">
+      <header className="shrink-0 border-b border-line bg-shell px-4 py-2.5 md:px-6 md:py-3">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-sm font-semibold text-ink md:text-base">对话</h1>
+            <h1 className="text-base font-[750] tracking-[-0.03em] text-ink">对话</h1>
             <p className="truncate text-[11px] text-muted">
               {conversationReady && activeConversation ? activeConversation.title : "新对话"} · 拍题或直接提问
             </p>
@@ -463,8 +464,9 @@ export function ChatScreen() {
           !messagesLoading &&
           !conversationsLoading ? (
             <div className="card mt-2 px-5 py-7 text-center md:mt-8">
-              <p className="text-sm font-medium text-ink">从一个问题开始</p>
-              <p className="mt-1.5 text-xs leading-relaxed text-muted">
+              <MintyIllustration variant="capture" className="mx-auto h-24 w-44" />
+              <p className="mt-2 text-base font-[750] tracking-[-0.02em] text-ink">从一个问题开始</p>
+              <p className="mx-auto mt-1.5 max-w-[46ch] text-xs leading-relaxed text-muted">
                 提问、拍题，把值得留下的知识收进来。
               </p>
               <div className="mt-5 flex flex-wrap justify-center gap-2">
@@ -489,7 +491,7 @@ export function ChatScreen() {
           {streaming && streamingReasoning ? (
             <details
               open={!streamingText}
-              className="max-w-[92%] rounded-2xl rounded-bl-md bg-surface px-4 py-3 shadow-[var(--neu-soft)]"
+              className="max-w-[92%] rounded-[18px] rounded-bl-md border border-line bg-surface px-4 py-3"
             >
               <summary className="cursor-pointer text-[11px] text-muted">
                 {streamingText ? "思考" : "思考中"}
@@ -507,7 +509,7 @@ export function ChatScreen() {
           ) : null}
 
           {streaming && (streamingText || !streamingReasoning) ? (
-            <div className="max-w-[92%] rounded-2xl rounded-bl-md bg-surface px-4 py-3 shadow-[var(--neu-soft)]">
+            <div className="max-w-[92%] rounded-[18px] rounded-bl-md border border-line bg-surface px-4 py-3">
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">
                 {streamingText || "思考中"}
                 <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-accent align-middle" />
@@ -569,10 +571,10 @@ export function ChatScreen() {
                   onClick={() => void handleSelectConversation(conversation.id)}
                   disabled={busy || streaming}
                   aria-current={conversation.id === activeConversationId ? "true" : undefined}
-                  className={`min-w-0 flex-1 rounded-xl border px-3 py-2 text-left transition ${
+                  className={`min-h-11 min-w-0 flex-1 rounded-xl border px-3 py-2 text-left transition ${
                     conversation.id === activeConversationId
-                      ? "border-accent/50 bg-accent/5"
-                      : "border-line bg-surface hover:border-accent/30"
+                      ? "border-accent bg-accent/10"
+                      : "border-line bg-surface hover:border-accent"
                   }`}
                 >
                   <p className="truncate text-xs text-ink">{conversation.title}</p>
@@ -585,7 +587,7 @@ export function ChatScreen() {
                   onClick={() => void handleDeleteConversation(conversation)}
                   disabled={busy || streaming}
                   aria-label={`删除对话：${conversation.title}`}
-                  className="grid w-9 place-items-center rounded-xl border border-line text-muted transition hover:border-danger/40 hover:text-danger"
+                  className="grid min-h-11 w-11 place-items-center rounded-xl border border-line text-muted transition hover:border-danger/40 hover:text-danger"
                 >
                   <Icon name="close" size={13} />
                 </button>

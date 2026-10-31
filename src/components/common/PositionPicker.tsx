@@ -118,7 +118,7 @@ export function PositionPicker({
 
       {onCreatePath ? (
         <form
-          className="mt-3 rounded-xl border border-dashed border-line bg-surface-2/50 p-3"
+          className="mt-3 rounded-xl border border-line bg-shell p-3"
           onSubmit={(event) => void handleCreatePath(event)}
         >
           <label className="label" htmlFor="zhimy-new-path">
@@ -165,10 +165,10 @@ export function PositionPicker({
         <button
           type="button"
           onClick={() => handleSelect(null)}
-          className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
+          className={`flex min-h-11 w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
             currentParentId === null
-              ? "border-accent/50 bg-accent/10 text-ink"
-              : "border-line bg-surface text-muted hover:bg-surface-2"
+              ? "border-accent bg-accent/10 text-ink"
+              : "border-line bg-surface text-muted hover:border-accent hover:text-ink"
           }`}
         >
           <span>顶层（学科级）</span>
@@ -183,10 +183,10 @@ export function PositionPicker({
               key={node.id}
               type="button"
               onClick={() => handleSelect(node.id)}
-              className={`flex w-full flex-col rounded-xl border px-3 py-2 text-left transition-colors ${
+              className={`flex min-h-11 w-full flex-col rounded-xl border px-3 py-2 text-left transition-colors ${
                 currentParentId === node.id
-                  ? "border-accent/50 bg-accent/10"
-                  : "border-line bg-surface hover:bg-surface-2"
+                  ? "border-accent bg-accent/10"
+                  : "border-line bg-surface hover:border-accent"
               }`}
             >
               <span className="text-sm text-ink">{node.title}</span>

@@ -11,13 +11,16 @@ const THEME_BOOT_SCRIPT = `
     var saved = JSON.parse(localStorage.getItem("zhimy:settings:v1") || "null");
     var value = saved && saved.state && saved.state.theme;
     if (value === "light" || value === "dark" || value === "system") preference = value;
+    if (saved && saved.state && saved.state.reducedMotion === true) {
+      document.documentElement.dataset.reducedMotion = "true";
+    }
   } catch (_) {}
   var dark = preference === "dark" || (preference === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
   var resolved = dark ? "dark" : "light";
   document.documentElement.dataset.theme = resolved;
   document.documentElement.style.colorScheme = resolved;
   var meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", dark ? "#0a1424" : "#f3f7fc");
+  if (meta) meta.setAttribute("content", dark ? "#14232b" : "#e9f2ee");
 })();
 `;
 
@@ -37,10 +40,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#f3f7fc" />
+        <meta name="theme-color" content="#e9f2ee" />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body>
+        <a className="skip-link" href="#main">跳到主要内容</a>
         <ThemeController />
         <AppProviders>{children}</AppProviders>
       </body>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSettingsStore } from "@/store/settingsStore";
 
 /**
  * 把模型返回的 chunk 平滑成“逐字上屏”。
@@ -32,6 +33,7 @@ export function useTypewriter(): Typewriter {
   const targetRef = useRef<string[]>([]);
   const visibleRef = useRef(0);
   const timerRef = useRef<number | null>(null);
+  const reducedMotion = useSettingsStore((state) => state.reducedMotion);
 
   const stop = useCallback(() => {
     if (timerRef.current !== null) {
@@ -66,9 +68,14 @@ export function useTypewriter(): Typewriter {
     (chunk: string) => {
       if (!chunk) return;
       targetRef.current.push(...Array.from(chunk));
+      if (reducedMotion) {
+        visibleRef.current = targetRef.current.length;
+        render();
+        return;
+      }
       start();
     },
-    [start],
+    [reducedMotion, render, start],
   );
 
   const flush = useCallback(() => {
@@ -85,6 +92,13 @@ export function useTypewriter(): Typewriter {
     visibleRef.current = 0;
     setText("");
   }, [stop]);
+
+  useEffect(() => {
+    if (!reducedMotion) return;
+    stop();
+    visibleRef.current = targetRef.current.length;
+    render();
+  }, [reducedMotion, render, stop]);
 
   useEffect(() => stop, [stop]);
 

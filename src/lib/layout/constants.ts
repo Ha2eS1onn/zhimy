@@ -43,14 +43,14 @@ export const DENSITY_LABEL: Record<Density, string> = {
 
 /** 分支配色板（方案 §5.5）。 */
 export const NODE_COLORS = [
-  "#E040FB",
-  "#FFD54F",
-  "#4DD0E1",
-  "#C6FF00",
-  "#FF5252",
-  "#B388FF",
-  "#448AFF",
-  "#FF8A65",
+  "#5d9e78",
+  "#d6a147",
+  "#5f98bb",
+  "#c97462",
+  "#9178b3",
+  "#8a9b61",
+  "#bd845b",
+  "#56a09a",
 ] as const;
 
 /** 相机基线距离与视场角。 */
