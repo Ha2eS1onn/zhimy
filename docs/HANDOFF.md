@@ -1,6 +1,6 @@
 # 知脉 · 进度汇报与后续计划（交接文档）
 
-> 更新：2026-10-24 ｜ 分支 `main` ｜ 线上 Demo <https://zhimy.kasho.fun>（备用 <https://zhimy.vercel.app>） ｜ 仓库 <https://github.com/Ha2eS1onn/zhimy> ｜ 阅读对象：接手本项目的开发者 / Agent
+> 更新：2026-10-31 ｜ 分支 `main` ｜ 线上 Demo <https://zhimy.kasho.fun>（备用 <https://zhimy.vercel.app>） ｜ 仓库 <https://github.com/Ha2eS1onn/zhimy> ｜ 阅读对象：接手本项目的开发者 / Agent
 >
 > 本文档只写"事实 + 决策 + 下一步"，产品理念与交互细节见 [产品方案](知脉-知识地图产品方案-v1.0.docx) 与 [README](../README.md)。
 >
@@ -10,10 +10,12 @@
 
 - 这是「知脉」——把 AI 答疑沉淀成**可寻址、可联想、可收纳的个人知识图谱**的 Web 应用（Next.js 16 + Supabase）。
 - **P1-A 真实命中（pgvector 1024 维 + 关键词兜底）与 P1-B 指标埋点（events + insights）已完成 ✅**；**P1-C 拍题链路代码完成 🟡**（原图只喂当次请求的模型、视觉模型优先，不上传云端；聊天缩略图存本机 IndexedDB；浏览器验收待执行）；**P1-D 已完成 ✅**——仓库已公开、CI 首跑全绿、Vercel 生产部署上线（主域名 <https://zhimy.kasho.fun>，备用 <https://zhimy.vercel.app>，Let's Encrypt 证书已签发）、keepalive 已配置并手动验证通过、Git 连接已开启 push 自动部署（2026-10-24）。
+- **全站视觉系统 v2（2026-10-31，commit `35f0113`）已完成 ✅**：从蓝灰新拟态重写为 minty-paper——薄荷墙色 `--wall` + 奶油纸面 `--paper` 双材质、零模糊硬投影、绿色主强调、橙色短词马克笔、扁平线稿插图；覆盖首页、对话、知识图谱、节点详情、登录/配置/错误页、设置与所有抽屉，并同步深浅主题。新增 `Listbox` 与 `MintyIllustration`，设置新增“减少动画”（store v4）。
+- **当前验证（2026-10-31）**：`npm run typecheck`、`npm run lint`、`npm run build` 通过；1440 / 1024 / 390 / 320 浅深主题截图完成，320px 无横向溢出、主要控件 ≥44px、无残留 `backdrop-filter`。`npm run test` 在本机被 Vitest 5.0.5 环境故障阻塞：27/27 个测试文件在 `describe` 收集阶段报 `TypeError: Cannot read properties of undefined (reading 'config')`，断言未执行；该问题也影响未改动的既有测试，推送后需观察 CI 并优先修复测试运行环境。
 - 当前状态（2026-10-24）：**P1 全部改动已提交并推送**（`b659a6b` 向量命中 / `872233b` 会话+埋点+拍题+公式 / `a3654f1` 部署与 CI / `934c6ec` 徽章 / `5e6ecf4`、`4888c28`、`aa7762c` 部署与域名文档 / `9ea959f` 技术债修复）。整体验证：`typecheck` / `lint` 通过、vitest **26 个文件 204 个用例全绿**、`next build` 通过（8 条路由 + Proxy）、CI 在 GitHub 上实跑全绿（2m36s）、`npm run db:init` 47 条语句全部 ok、线上 `/api/health` 返回 `{"ok":true}`、匿名登录 REST 校验通过。**线上 E2E（Playwright / Chromium headless，2026-10-24）**：主流程 **14/14** + 同名收编复用 **5/5**，均 0 console error / 0 page error / 0 failed request。主流程覆盖：`?demo=1` 自动载入 102 节点 → 3D 渲染 → 对话流式回答 → 抽取 2 张收编卡 → 收编写入 → `/atlas?node=` 深链定位 → 详情页 AI 模板生成 → 保存 → 刷新后仍在 → 进入对话页默认新会话；复用覆盖：两张同名建议只产生 1 个节点、无唯一约束报错。**尚未执行**：`verify-rls` 双账号校验、拍题/公式/思维链的线上自动化验收、向量命中「5 种问法」验收（缺真实 embedding Key）。
 - **向量命中的「5 种问法 ≥4 命中」云端验收尚未执行**：需要维护者配置真实 embedding Key 后按第 9 节 checklist 验证；无 Key 时按设计降级关键词，不影响构建与基础使用。
 - 部署方案：**Vercel Hobby（免费）+ GitHub Actions CI + 每日 keepalive**，定位是公开 Demo 与工程完整度；不做 VPS/Docker/备案/商业合规（详见 P1-D 与 `docs/DEPLOY.md`）。
-- 下一步建议：① 配真实 embedding Key 跑「5 种问法 ≥4 命中」与 `docs/insights.sql` 落库验收；② 补拍题/公式/思维链的线上专项验收（主闭环已 E2E 通过）；③ P2 增强（复习闭环、Realtime、分享）。自定义域名与 Supabase Auth 的 Site URL / Redirect URLs 已于 2026-10-24 配置完成。
+- 下一步建议：① 修复 Vitest 5.0.5 的测试收集故障并跑通全量测试与 CI；② 配真实 embedding Key 跑「5 种问法 ≥4 命中」与 `docs/insights.sql` 落库验收；③ 补拍题/公式/思维链的线上专项验收（主闭环已 E2E 通过）；④ P2 增强（复习闭环、Realtime、分享）。自定义域名与 Supabase Auth 的 Site URL / Redirect URLs 已于 2026-10-24 配置完成。
 - 流式体验（2026-10-24）：SSE 支持读取 `reasoning_content` / `reasoning` / `thinking` / `reasoning_details`，聊天里展示可折叠「思考过程」；正文用前端打字机逐字上屏。思维链存入当前账号的 `chat_messages.payload`（上限 2 万字），不写 events。
 - 多会话（2026-10-24）：新增 `conversations`，`chat_messages.conversation_id` 归属；进入 `/chat` 默认新对话（空会话不写库，发第一条消息才建会话），顶部「历史」切换/删除，`?c=` 恢复；每个会话的上下文完全隔离。system prompt 同时放宽到全学科（哲学、编程等）。
 
@@ -49,7 +51,7 @@ npm run dev:proxy              # 开发服务器（Node 请求走代理；网络
 ```powershell
 npm run typecheck
 npm run lint
-npm run test          # 纯逻辑单测（本轮新增向量/埋点/schema 相关用例，数量以实际输出为准）
+npm run test          # 纯逻辑单测；2026-10-31 本机 Vitest 5.0.5 在收集阶段报 config undefined，先修复测试环境再以实际输出为准
 npm run build         # 生产构建；路由含 /、/chat、/atlas、/node/[id]、/api/llm/chat、/api/llm/embeddings、/api/health
 npm run db:init       # 幂等：建表/索引/RLS/触发器 + pgvector/embedding 列/HNSW/RPC + events 表
 npm run verify:rls    # 双匿名账号验证 RLS（需代理环境变量）
@@ -92,13 +94,19 @@ P1 子项状态：
 | P1-C 拍题链路 | 🟡 代码完成，浏览器验收待执行 | 原图只用于当次视觉模型请求，不上传云端；聊天/来源缩略图存本机 IndexedDB（2026-10-24 决策，见第 5 节 #16） |
 | P1-D 部署 + CI | ✅ 完成（2026-10-24） | GitHub 仓库公开 + CI 全绿；Vercel 生产部署 <https://zhimy.kasho.fun>（备用 vercel.app）；keepalive 已配 `vars.SUPABASE_URL` / `secrets.SUPABASE_ANON_KEY` 并手动跑通；已连接 Git（push 自动部署） |
 
+**视觉系统 v2（2026-10-31）✅**：不属于 P2 功能范围，但已作为全站体验升级完成，代码见 `35f0113`，说明见 3.1 / 3.4 / 5 #21–23。P2 功能完成度仍按上表约 40% 计算。
+
 ## 3. 已实现能力（模块 → 关键文件）
 
-### 3.1 应用外壳 / 三端
+### 3.1 应用外壳 / 三端 / 视觉系统
 
-- 桌面侧栏 216px / 平板图标栏 64px / 手机顶栏 + 底部 Tab
+- 桌面完整侧栏 224px / 平板图标栏 72px / 手机顶栏 + 底部 Tab（功能断点保持 `md=768px`、`xl=1200px`）
+- **minty-paper 视觉系统（2026-10-31）**：`src/app/globals.css` 统一两套语义表面（`--wall` / `--paper`）、绿色主强调、橙色短词马克笔与焦点环、`0 4px 0` 零模糊硬投影、中文标题补偿、深浅主题和 `data-reduced-motion`；全站不再使用 `--neu-*`、`backdrop-filter`、发光渐变或原生 `<select>`。
+- 公共交互原语：`.btn*` / `.input` / `.textarea` / `.chip` / `.segmented` / `.nav-item` / `.card` / `.highlight` / `.eyebrow` / `.text-link` / `.skip-link`；卡片圆角上限 24px，可点击目标统一 ≥44px。
+- 新增 `src/components/common/Listbox.tsx`：替代关系类型原生 select，支持 ↑↓ / Home / End / Enter / Esc / Tab / 点击外部关闭与 ARIA。
+- 新增 `src/components/common/MintyIllustration.tsx`：`capture/graph/account/error` 四种扁平线稿 SVG，固定 art 色板，深色主题下不会出现浅底浅字。
 - 文件：`src/components/shell/*`、`src/app/layout.tsx`、`src/proxy.ts`（Supabase 会话刷新，Next 16 的 proxy 约定）
-- 全局弹层：`Sheet`、`ToastViewport`、`PositionPicker`（`src/components/common/`）
+- 全局弹层：`Sheet`（补充初始焦点、Tab 焦点圈定、关闭后焦点恢复）、`ToastViewport`、`PositionPicker`（`src/components/common/`）
 
 ### 3.2 账号（匿名游客 + 邮箱绑定 + 登录切换）
 
@@ -122,12 +130,13 @@ P1 子项状态：
 
 - 确定性分层球壳布局 + **手动位置覆盖**：`src/lib/layout/layout.ts`（读 `node.manualPosition`，子树自动跟随）
 - 投影/逆投影、轨道相机：`src/lib/atlas/camera.ts`（pitch ±55°、zoom 0.7–1.8，点击聚焦、双击复位）
-- 渲染：`src/lib/atlas/renderer.ts`（预渲染光晕精灵、层级线、1 跳关系线、全部关系线模式、拖拽/落点高亮、折叠 +N）
+- 渲染：`src/lib/atlas/renderer.ts`（纸面节点精灵 + 约 3px 硬偏移影、层级线、1 跳关系线、全部关系线模式、拖拽/落点实线环、折叠 +N）；2026-10-31 移除径向渐变光晕、关系线外发光和标签 `strokeText`，标签改为 wall 色底 + ink 文本
+- 图谱主题：`sprites.ts` 缓存 key 纳入 light/dark，节点不再发光；`layout/constants.ts` 换成低饱和分支色；`relations.ts` 四类关系色在 Canvas 与 DOM 共用 `relationColor(type, theme)`
 - 交互：`src/components/atlas/CanvasAtlas.tsx`（空白拖拽旋转、节点拖拽移动 + 拖到节点上改父级 + 防环、双指缩放、连线模式点击）
 - 页面/面板/工具栏：`src/components/atlas/AtlasScreen.tsx`、`AtlasPanel.tsx`
 - 位置选择：`src/components/common/PositionPicker.tsx`（搜索/顶层 + 新建父级路径），atlas 面板、详情页、首页整理待处理、收编卡片共用；换位置时会把「自己 + 后代」传给 `createPath` 做循环守卫（`src/lib/path.ts` 的 `blockedSubtree`）。**2026-10-24 起守卫下沉到 store**：`reparentError` 统一校验，`graphStore.reparent` / `moveNode` 都会先检查，避免其它调用方绕过 UI 造环
 - 关系编辑：`RelationList.tsx`（改类型/删除）、`RelationEditor.tsx`（手动建立）、`RelationSuggestions.tsx`（同源启发式 + AI 推荐，采纳才写入）
-- 只读调试钩子：开发环境 `window.__zhimyAtlasDebug.projectNode(id)`（生产不挂载，供 E2E 用）
+- 只读调试钩子：开发环境 `window.__zhimyAtlasDebug.projectNode(id)` 与 `projectedNodes()`（生产不挂载，供 E2E / 截图脚本按标题定位节点）
 
 ### 3.5 知识点完整讲解子页
 
@@ -144,7 +153,7 @@ P1 子项状态：
 - **向量模型（P1-A 新增）**：预设里带 `embeddingModel`（OpenAI `text-embedding-3-small`、智谱 `embedding-3`、硅基流动 `BAAI/bge-m3`）；支持独立「向量 Base URL / 向量 Key」（留空复用对话配置），可「测试向量」并「重建向量索引」
 - 客户端：`src/lib/ai/llmClient.ts`（SSE、错误映射、AbortSignal、temperature/maxTokens）；向量走 `src/lib/ai/embeddings.ts`
 - 服务端代理：`src/app/api/llm/chat/route.ts` 与 `src/app/api/llm/embeddings/route.ts`（登录校验、https、域名白名单、DNS 私网拦截，防 SSRF；`src/lib/ai/proxyGuard.ts` + `ipGuard.ts`）
-- Key 只存本机 localStorage，不入库、不导出；设置 store v2 迁移补齐 embedding 字段（旧配置不会读到 undefined）
+- Key 只存本机 localStorage，不入库、不导出；设置 store 当前为 **v4**：v2 补齐 embedding 字段，v4 新增 `reducedMotion`（默认 false），旧配置迁移不会读到 undefined
 
 ### 3.7 数据与运维
 
@@ -232,6 +241,9 @@ P1 子项状态：
 18. **流式思维链 + 打字机（2026-10-24）**：SSE 兼容 `reasoning_content` / `reasoning` / `thinking` / `reasoning_details`（只被动读取，不主动要求模型输出思考），正文由 `useTypewriter` 以 24ms 的节奏逐字上屏，网络结束时 flush。完整 reasoning 写入 `chat_messages.payload.reasoning`（截断到 2 万字），不写 events、不参与抽取；最终消息里默认折叠，可刷新后回看。
 19. **多会话与上下文隔离（2026-10-24）**：新增 `conversations`，消息按 `conversation_id` 归属；进入 `/chat` 默认新对话草稿（空会话不写库），首条消息才创建会话；顶部历史可切换/删除，`?c=` 恢复。每个会话独立加载消息，主对话历史、抽取上下文、思维链都只作用于当前会话。
 20. **system prompt 放宽（2026-10-24）**：从“中学理科助教”改为不限学段/学科的学习助手，覆盖哲学、编程、语言学习等；同时去掉 400 字硬上限和“只讲题目”的限制，代码问题允许 Markdown 代码块。
+21. **全站采用 minty-paper，而非继续新拟态（2026-10-31，commit `35f0113`）**：页面是薄荷墙色 `--wall`，内容/抽屉是奶油纸 `--paper`，层级只用 `0 4px 0` 硬投影；绿色用于状态和主操作，橙色只做短词笔迹、焦点环和小面积提示。原因是旧新拟态依赖双向柔影和玻璃叠层，在高密度知识应用里层级发灰，且深色模式容易变成发光界面。保留现有信息架构和 768/1200 功能断点，只重塑视觉，避免视觉改造影响图谱手势和业务状态。
+22. **“减少动画”由用户显式开关控制，不跟随系统 media query（2026-10-31）**：设置中新增 `reducedMotion`，通过 `html[data-reduced-motion]` 同时关闭 CSS 动画、打字机逐字、Sheet 退场等待以及 Canvas 自动旋转/选中脉冲。保留产品统一节奏，同时给需要静止界面的用户可操作入口；设置持久化版本升至 v4。
+23. **深色硬投影必须使用黑色系（2026-10-31）**：浅色下 `--shadow-line` 由 line/ink 混色，深色下显式改为 `rgba(0,0,0,.45/.62)`；不能继续沿用浅色墨混色，否则深色底上的投影会变成发光晕，整套纸感视觉会失真。
 
 ## 6. 已知限制与技术债
 
@@ -253,21 +265,25 @@ P1 子项状态：
 - Markdown-lite 不支持表格/图片；公式由 KaTeX 渲染，未安装的扩展（如 mhchem `\ce{}`）会红色高亮；详情正文无版本历史/撤销
 - 演示模式数据在内存，刷新即重置
 - 移动端手势较密（拖节点 vs 旋转靠"是否按中节点"区分），未做专门的编辑模式
+- **视觉 v2 采用手工 + 截图验收，没有像素基线自动比对**：`scripts/screenshot.mjs` 会输出 overflow / blur / <44px 控件审计，但仍需人工判断层级与气质；截图产物在 `_verify/`（gitignored），仓库只保留 `docs/screenshots/` 的代表图
 
 ### 工程/环境
 
 - 开发环境在网络受限时依赖 Clash 代理（`dev:proxy`）；本轮实测 Postgres 5432 可直连（`db:init` / `--direct` 可用），但 HTTPS 到 `*.supabase.co` 会被重置；浏览器端 E2E 需要能访问 Supabase HTTPS 的网络或代理
 - **启动屏卡住的已知环境原因（2026-10-23 实测）**：Clash 7897 在监听但 Windows `ProxyEnable=0`（系统代理未开），`npm run dev` 下浏览器直连 Supabase HTTPS 失败 → 一直停在「正在连接你的知识图谱…」。修复：开启 Clash 系统代理/TUN（浏览器侧）并 `npm run dev:proxy`（Node 侧）；无头 Edge 加 `--proxy-server=http://127.0.0.1:7897` 已实测可访问 Supabase。现在启动 6s 显示提示、15s 转错误页；`next.config.ts` 会自动把本机网卡 IPv4 加入 `allowedDevOrigins`（局域网访问不再拦 HMR）
 - Windows 沙箱/受限终端下 `next build`/`vitest`/无头 Edge 会 `spawn EPERM`（需要正常终端权限）；本轮 `typecheck`/`lint` 在沙箱内跑，`test`/`build` 在完整权限下跑，均通过
+- **Vitest 5.0.5 测试收集故障（2026-10-31）**：`npm run test` 在 27/27 个测试文件的 `describe(...)` 处报 `TypeError: Cannot read properties of undefined (reading 'config')`，包括未改动的既有测试，0 个断言执行；`--config` 显式指定、`--no-isolate`、`dot` reporter 均未绕过。`typecheck` / `lint` / `build` 正常。需要固定到可用 Vitest 版本或等待上游修复，再恢复"全量测试通过"的验收口径
 - `next-env.d.ts` 会在 dev / build 之间自动切换内容，`git status` 常变脏；提交前 `git checkout -- next-env.d.ts` 即可
 - E2E 脚本在 `_verify/`（未提交，依赖本机 Edge 与测试账号 profile）；向量命中的 E2E 额外需要真实 embedding Key
 - 测试账号数据：Supabase 里有一个匿名账号被载入示例图谱、收编了"电路故障分析"、创建过测试关系、详情页有 E2E 标记；用户自己的浏览器账号是独立的，不受影响
-- CI 工作流尚未在 GitHub 上实际运行；`.github/workflows/keepalive.yml` 需要仓库配置 `vars.SUPABASE_URL` + `secrets.SUPABASE_ANON_KEY` 后才生效（未配置时自动跳过）
+- CI 工作流已在 GitHub 实跑（2026-10-24 首跑 2m36s 全绿）；但 2026-10-31 本机 Vitest 5.0.5 收集故障可能同样影响 CI，推送后需查看本次 Actions 结果；`.github/workflows/keepalive.yml` 需要仓库配置 `vars.SUPABASE_URL` + `secrets.SUPABASE_ANON_KEY` 后才生效（未配置时自动跳过）
 - Supabase 免费项目 7 天不活跃会暂停（数据保留）
 
 ## 7. 计划与完成情况（按优先级）
 
 > 排序依据：先把技术主线做扎实（真实命中 + 指标），再做拍题链路与 P2 增强。P1-A / P1-B / P1-C（简化版）已完成；剩余优先级：完成 P1-D 实际部署 → P2 增强（复习闭环、Realtime、分享）。部署只做"公开 Demo + 工程完整度"，不阻塞主线。
+>
+> 2026-10-31 追加：视觉系统 v2 已完成（`35f0113`），不改变 P1/P2 功能边界；当前最先要处理的是 Vitest 收集故障与 CI 验证，再继续真实 Key 验收和 P2。
 
 ### P1-A 真实命中：pgvector embedding ✅（2026-10-23 完成）
 
@@ -375,7 +391,7 @@ P1 子项状态：
 | 7 | 抽取/关系候选改为向量检索 + 降级 | `src/lib/ai/extract.ts`、`relationSuggest.ts` | 单测 + 抽查效果 | ✅ 代码完成 |
 | 8 | events 表 + analytics + 埋点 | 见 P1-B | 视图有数据 | ✅ 代码完成；落库验收待云端 |
 | 9 | 指标 SQL 视图文档 | `docs/insights.sql` | 4 个指标可查 | ✅ 完成 |
-| 10 | 测试/构建/E2E/README 更新 | `tests/*`、`README.md` | 全绿 | ✅ typecheck / lint / test（204）/ build 全绿；线上 E2E 14/14 + 复用 5/5；拍题/公式专项 E2E 待补 |
+| 10 | 测试/构建/E2E/README 更新 | `tests/*`、`README.md` | 全绿 | ✅（2026-10-24）typecheck / lint / test（204）/ build 全绿；线上 E2E 14/14 + 复用 5/5；拍题/公式专项 E2E 待补。2026-10-31 本机 Vitest 5.0.5 收集故障见第 6 节，测试当前 🟡 |
 | 11 | P1-D：CI + keepalive + `.nvmrc` + `?demo=1` + DEPLOY + README | `.github/workflows/*`、`.nvmrc`、`AppProviders.tsx`、`docs/DEPLOY.md`、`README.md` | CI 徽章全绿 + 公网 Demo | ✅ 完成（2026-10-24：CI 全绿 + <https://zhimy.kasho.fun>） |
 | 12 | 收编/移动时新建父级路径（空图谱可用） | `PositionPicker.tsx`、`graphStore.ts`、`path.ts`、四处调用点 | 新建 `物理 / 电学` 并复用；循环守卫；显式归位直接 active | ✅ 完成（单测覆盖 path 解析/复用/阻断） |
 | 13 | 讲解正文 LaTeX 公式渲染 | `MarkdownLite.tsx`、`TeXMath.tsx`、`lib/math/*`、`RichText.tsx`、AI 提示词 | `\(...\)`/`$...$`/`$$...$$` 渲染为公式；复杂公式可渲染 | ✅ 完成（2026-10-24 改用 KaTeX） |
@@ -384,20 +400,26 @@ P1 子项状态：
 | 16 | 复杂公式：KaTeX 替换自研子集 | `TeXMath.tsx`、`RichText.tsx`、`lib/math/*`、`layout.tsx`、`globals.css`、测试 | 截图公式（`\overrightarrow`、`\left|`、嵌套分数/根号）正常；跨行 `$$` 与数字坐标不再原文显示 | ✅ 代码完成（浏览器公式验收待跑） |
 | 17 | 流式思维链 + 逐字显示 | `sse.ts`、`llmClient.ts`、`ChatScreen.tsx`、`useTypewriter.ts`、`MessageBubble.tsx`、`types` | `reasoning_content`/`reasoning` 实时面板；正文逐字上屏；`payload.reasoning` 刷新可回看 | ✅ 代码完成（需推理模型验收） |
 | 18 | 多会话 + system prompt 放宽 | `schema.sql`、`conversations.ts`、`chatStore.ts`、repo、`ChatScreen.tsx`、`prompt.ts` | 默认新会话、历史切换/删除、上下文隔离；全学科提示词 | ✅ 代码完成；`db:init` 47 条语句 ok（浏览器验收待执行） |
+| 19 | minty-paper Token、公共原语、深浅主题 | `src/app/globals.css`、`layout.tsx`、`Theme.tsx`、`settingsStore.ts` | wall/paper 双材质、硬投影、橙色焦点/笔迹、中文标题、reducedMotion | ✅ 完成（`35f0113`；typecheck / lint / build 通过） |
+| 20 | 应用壳、Sheet、设置、状态页与共享控件 | `src/components/shell/*`、`src/components/common/{Sheet,PositionPicker,ToastViewport}.tsx`、新增 `Listbox.tsx` / `MintyIllustration.tsx` | 44px 命中、Sheet 焦点圈定与恢复、自定义 listbox、纸感空态插图 | ✅ 完成（截图 + 键盘行为检查） |
+| 21 | 首页 / 对话 / 详情页视觉重写 | `src/app/page.tsx`、`src/components/chat/*`、`src/components/node/*` | 双材质消息、硬投影输入器、单一橙色短词批注、纸张阅读排版 | ✅ 完成（保留业务逻辑） |
+| 22 | Atlas + Canvas 纸感换肤与 reducedMotion | `src/components/atlas/*`、`src/lib/atlas/{renderer,sprites}.ts`、`src/lib/layout/constants.ts`、`src/lib/relations.ts` | 节点纸面 + 硬影、去光晕/描边文字、橙色选中环、停止自动旋转/脉冲、即时补帧 | ✅ 完成（浅色图谱截图验证） |
+| 23 | 视觉回归工具与文档截图 | `scripts/screenshot.mjs`、`docs/screenshots/*` | 1440/1024/390/320、深浅主题、settings/reducedMotion/图谱面板/节点详情，审计 overflow/blur/<44px | ✅ 完成（手工截图验收；自动化断言受 Vitest 故障影响） |
 
-> 1–18 为技术主线，均已落到代码并上线；#11 的部署已于 2026-10-24 完成（GitHub + Vercel + keepalive + 自定义域名 + Supabase Auth URL），剩余仅为真实 Key 的指标验收与拍题/公式专项 E2E。
+> 1–18 为技术主线，均已落到代码并上线；#11 的部署已于 2026-10-24 完成（GitHub + Vercel + keepalive + 自定义域名 + Supabase Auth URL），剩余仅为真实 Key 的指标验收与拍题/公式专项 E2E。19–23 为 2026-10-31 视觉系统 v2。
 
 ## 9. 接手第一步 checklist
 
 1. 读 [README](../README.md)、本文档、[产品方案](知脉-知识地图产品方案-v1.0.docx)、[部署手册](DEPLOY.md)
 2. 确认 `.env.local` 存在且 Supabase 项目可访问（问项目所有者，不要提交密钥）
 3. `npm install`；`npm run dev:proxy` 打开页面；确认当前匿名账号可用
-4. 跑一遍自检：`typecheck` → `lint` → `test` → `build` → `db:init`（确认语句全部 ok，数量以脚本输出为准）→ `node scripts/verify-rls.mjs --direct`；仓库推送后 GitHub Actions CI 应同步全绿
+4. 跑一遍自检：`typecheck` → `lint` → `test` → `build` → `db:init`（确认语句全部 ok，数量以脚本输出为准）→ `node scripts/verify-rls.mjs --direct`。**2026-10-31 注意**：当前 Vitest 5.0.5 在收集阶段报 `config undefined`，`test` 需先修复运行环境；`typecheck` / `lint` / `build` 已通过。仓库推送后 GitHub Actions CI 可能同样受此影响，先看本次 Actions 结果
 5. **向量命中验收（需要真实 embedding Key）**：设置 → 模型 → 向量模型（如 `BAAI/bge-m3` 或 `text-embedding-3-small`）→「测试向量」→「重建向量索引」→ 对同一知识点用 5 种不同说法提问（≥4 次命中正确路径、无关问题不命中）→ 在 Supabase SQL Editor 执行 `docs/insights.sql`，确认 `hit_attempt` / 命中率 / 向量覆盖率有数据
 6. 无 Key / 未配置向量模型时：确认对话仍可用、命中自动降级关键词（这是设计行为，不是 bug）
 7. 浏览关键路径：对话收编 → 3D 定位/拖拽/连线 → 详情页生成与编辑；若已部署，打开 README 里的 Live Demo 跑一遍"提问 → 收编 → 3D 找到"（`?demo=1` 可自动载入示例图谱）。**会话验收**：在 `/chat` 发一条消息 → 新建对话再发另一条，确认两个会话历史互不串；刷新 `/chat?c=<id>` 能恢复；历史面板删除一个会话后消息消失。**拍题验收**：先在设置里填好视觉模型，发图提问确认模型能复述题干；刷新后缩略图仍在（同浏览器）、详情页来源可见；无痕窗口同账号只显示文件名；DevTools Network 不应出现 Supabase Storage 请求。**公式验收**：把截图里的 `\overrightarrow{DE}`、`\left|...\right|`、嵌套分数/根号发进聊天与详情预览，确认不再显示原始 `$$`/反斜杠；`$(1,0,0)$` 能渲染而 `$5` 保持文字。**流式验收**：用 `deepseek-reasoner` 一类支持 reasoning 的模型发问，确认思考面板实时增长、正文逐字出现；刷新后在消息里可展开「思考过程」。
 8. 后续按第 7 节执行：先完成 P1-D 实际部署（需账号授权），再做 P2 增强；P1-C 已按简化方案完成（图片云端持久化与 OCR 不做）。每完成一项跑全量检查 + 提交。
 9. 提交前：`git checkout -- next-env.d.ts`（避免生成文件噪音），确认 `.env.local` 未被提交
+10. **视觉回归**：启动 `npm run dev` 后运行 `SCREENSHOT_THEME=light node scripts/screenshot.mjs http://127.0.0.1:3100 _verify/light`；关注 `audit` 的 overflow / blur / <44px 控件，以及 `_verify` 截图中的墙纸双材质、唯一橙色短词、硬投影和深浅主题可读性。可加 `SCREENSHOT_FILTER=settings-mobile,atlas-seeded-desktop,node-detail-desktop` 只跑关键状态
 
 ## 10. 风险与注意事项
 
@@ -426,7 +448,9 @@ P1 子项状态：
 | **指标埋点（P1-B）** | `src/lib/analytics.ts`（+ `analyticsCore.ts`）、`docs/insights.sql`、`supabase/schema.sql` 的 events 表 |
 | 路径/检索/关系规则 | `src/lib/{path,search,relations}.ts` |
 | 账号与设置 | `src/store/sessionStore.ts`、`src/components/shell/SettingsSheet.tsx`、`src/lib/authErrors.ts` |
-| 文案与视觉令牌 | `src/app/globals.css`（颜色/断点/字体） |
+| **视觉系统 / Token / 公共样式** | `src/app/globals.css`（wall/paper、硬投影、art 色板、reducedMotion、公共原语）、`src/components/shell/Theme.tsx` |
+| **线稿插图 / 自定义选择器** | `src/components/common/MintyIllustration.tsx`、`src/components/common/Listbox.tsx` |
+| **视觉回归截图** | `scripts/screenshot.mjs`（深浅主题、设备矩阵、图谱/详情/设置状态与 overflow/blur/44px 审计）、`docs/screenshots/`（README 代表图） |
 | **Markdown / 公式渲染** | `src/components/node/MarkdownLite.tsx`、`TeXMath.tsx`（KaTeX）、`src/lib/math/{inline,display}.ts`、`src/components/chat/RichText.tsx` |
 | **拍题图片 / 本地缩略图（P1-C）** | `src/lib/media/{imageInputCore,imageThumbnails,localThumbnailStore}.ts`、`src/lib/ai/chatTurns.ts`、`src/components/common/LocalThumbnail.tsx` |
 | **流式思维链 / 打字机** | `src/lib/ai/sse.ts`（reasoning 提取）、`llmClient.ts`、`src/components/chat/ChatScreen.tsx`、`useTypewriter.ts`、`MessageBubble.tsx` |
@@ -466,3 +490,8 @@ P1 子项状态：
 | 2026-10-24 | **收编同名改为复用**：adopt 先按「同父级 + 标题大小写不敏感」查重，命中复用节点、补来源/关系，摘要为空时补写 | 数据库唯一索引 `(user_id,parent_id,lower(title))` 决定了不能重复插入；直接报唯一约束对用户不可解释，复用比“新建+改名”更符合知识图谱语义 |
 | 2026-10-24 | **循环守卫下沉到 store**：新增 `reparentError`，reparent/moveNode 统一校验 | UI 守卫（拖拽、位置选择器）覆盖不到首页、详情页等调用方；守卫必须在数据入口，而不是每个按钮各写一遍 |
 | 2026-10-24 | **清空/重载图谱时删除 sources**：DataRepo 增加 deleteAllSources | 节点删除后来源不再被引用；不清理会随使用无限累积，且导出 JSON 会带上无用数据 |
+| 2026-10-31 | 全站视觉切换为 **minty-paper**：mint 墙 + 奶油纸、零模糊硬投影、绿色主强调、橙色小面积笔迹 | 旧新拟态的柔影/玻璃在高密度知识应用里层级发灰，深色模式易发光；新语汇更清晰、可印刷感更强，同时保留现有工业级信息密度 |
+| 2026-10-31 | 中文标题使用 750 字重、1.24 行高、-0.03em 字距；正文保持 15–16px / 1.6–1.8 行高 | 直接套英文 `.055em / 1.06` 会把中文挤成一团；视觉升级不能牺牲长文阅读 |
+| 2026-10-31 | 减少动画使用应用内显式开关 `html[data-reduced-motion]`，不跟随 `prefers-reduced-motion` | 产品希望所有人看到统一入场节奏，同时给用户明确的关闭入口；开关覆盖 CSS、打字机、Sheet 与 Canvas，避免“名不副实” |
+| 2026-10-31 | Canvas 选中环改 3px 橙色，普通 hover 1px，关系线去掉外发光；标签使用底色块而非 `strokeText` | 橙色只用于小面积焦点，避免发光科技感；文字描边在深色/浅色切换时容易脏，底色块更接近纸张标签 |
+| 2026-10-31 | 扩展 `scripts/screenshot.mjs` 作为视觉回归入口，不引入 Playwright/图片差异依赖 | 现有项目已经用 Edge CDP 做截图；扩展审计 + 多状态截图成本低，符合零额外依赖策略。缺点是仍需人工判断气质 |
