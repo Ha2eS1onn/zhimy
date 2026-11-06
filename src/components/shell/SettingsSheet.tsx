@@ -18,6 +18,7 @@ import { toast } from "@/store/toastStore";
 import { useUIStore, type SettingsTab } from "@/store/uiStore";
 import { Icon } from "../shell/Icon";
 import { Sheet } from "@/components/common/Sheet";
+import { PwaInstallRow } from "./PwaInstallRow";
 
 const TABS: Array<{ id: SettingsTab; label: string }> = [
   { id: "llm", label: "模型" },
@@ -66,6 +67,7 @@ export function SettingsSheet() {
       </div>
 
       <MotionPreference />
+      <PwaInstallRow />
 
       <div key={tab} className="motion-fade">
         {tab === "llm" ? <LlmSection /> : null}

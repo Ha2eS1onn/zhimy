@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#e9f2ee" />
+    <meta name="robots" content="noindex" />
+    <title>离线 · 知脉</title>
+    <style>
+      /* 自包含离线页：不引用任何外部资源，Service Worker 缓存后一定能显示。 */
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: #e9f2ee;
+        color: #22303e;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+        -webkit-tap-highlight-color: transparent;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        min-height: 100dvh;
+        padding: 24px;
+      }
+      .card {
+        width: 100%;
+        max-width: 420px;
+        padding: 32px 28px;
+        border: 1px solid #c6d6cc;
+        border-radius: 24px;
+        background: #fafaf3;
+        box-shadow: 0 4px 0 #a9bdb1;
+      }
+      .brand {
+        display: grid;
+        place-items: center;
+        width: 52px;
+        height: 52px;
+        border: 1px solid #c6d6cc;
+        border-radius: 16px;
+        background: #e9f2ee;
+        color: #256b47;
+        font-size: 26px;
+        font-weight: 700;
+        box-shadow: 0 4px 0 #a9bdb1;
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 20px 0 0;
+        color: #256b47;
+        font-size: 11px;
+        font-weight: 750;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .eyebrow::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: #256b47;
+        box-shadow: 0 0 0 4px rgba(37, 107, 71, 0.1);
+      }
+      h1 {
+        margin: 10px 0 0;
+        font-size: 30px;
+        font-weight: 750;
+        line-height: 1.24;
+        letter-spacing: -0.03em;
+      }
+      p {
+        margin: 12px 0 0;
+        color: #52635e;
+        font-size: 14px;
+        line-height: 1.8;
+      }
+      button {
+        min-height: 44px;
+        margin-top: 24px;
+        padding: 12px 24px;
+        border: 0;
+        border-radius: 999px;
+        background: #22303e;
+        color: #fafaf3;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 650;
+        cursor: pointer;
+        box-shadow: 0 4px 0 #a9bdb1;
+      }
+      button:active {
+        transform: translateY(2px);
+        box-shadow: 0 2px 0 #a9bdb1;
+      }
+      button:focus-visible {
+        outline: 3px solid #e4572e;
+        outline-offset: 3px;
+      }
+      .hint {
+        font-size: 12px;
+        color: #52635e;
+        opacity: 0.85;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <span class="brand" aria-hidden="true">知</span>
+      <p class="eyebrow">知脉 · AI 知识地图</p>
+      <h1>你现在离线</h1>
+      <p>
+        知识图谱、对话和复习记录都存在云端，需要联网才能读取。网络恢复后点下面重试。
+      </p>
+      <button type="button" onclick="location.reload()">重新连接</button>
+      <p class="hint">没有网络的这段时间里，你输入过的内容不会丢失；回来重新加载即可继续。</p>
+    </main>
+  </body>
+</html>

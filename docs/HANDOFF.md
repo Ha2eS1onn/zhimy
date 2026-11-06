@@ -11,11 +11,12 @@
 - 这是「知脉」——把 AI 答疑沉淀成**可寻址、可联想、可收纳的个人知识图谱**的 Web 应用（Next.js 16 + Supabase）。
 - **P1-A 真实命中（pgvector 1024 维 + 关键词兜底）与 P1-B 指标埋点（events + insights）已完成 ✅**；**P1-C 拍题链路代码完成 🟡**（原图只喂当次请求的模型、视觉模型优先，不上传云端；聊天缩略图存本机 IndexedDB；浏览器验收待执行）；**P1-D 已完成 ✅**——仓库已公开、CI 首跑全绿、Vercel 生产部署上线（主域名 <https://zhimy.kasho.fun>，备用 <https://zhimy.vercel.app>，Let's Encrypt 证书已签发）、keepalive 已配置并手动验证通过、Git 连接已开启 push 自动部署（2026-10-24）。
 - **全站视觉系统 v2（2026-10-31，commit `35f0113`）已完成 ✅**：从蓝灰新拟态重写为 minty-paper——薄荷墙色 `--wall` + 奶油纸面 `--paper` 双材质、零模糊硬投影、绿色主强调、橙色短词马克笔、扁平线稿插图；覆盖首页、对话、知识图谱、节点详情、登录/配置/错误页、设置与所有抽屉，并同步深浅主题。新增 `Listbox` 与 `MintyIllustration`，设置新增“减少动画”（store v4）。
-- **当前验证（2026-11-06）**：`npm run test` **29 个测试文件 / 238 个用例全绿**（含复习调度、schema、mappers、埋点与 JSON 导入用例），`npm run typecheck` / `lint` / `build` 通过；`npm run db:init` **52/52 条语句 ok**，`node scripts/verify-rls.mjs --direct` 覆盖复习状态归属并通过；复习页 1440 / 390 / 320 截图 `overflow 0 / blur 0 / <44px 控件 0`，浏览器实测评级后待复习 10 → 9、刷新仍为 9、0 console error。**2026-10-31 记录的“Vitest 5.0.5 在收集阶段报 `config undefined`、27/27 文件失败”已被实测推翻**：真实原因是 Node 测试环境缺少 `window.localStorage`，zustand `persist` 在 storage 不可用时不会挂载 `api.persist`，只影响 `tests/settings.test.ts` 的 3 个用例；已在 `tests/setup.ts` 注入内存 storage、在 `vitest.config.ts` 注册 `setupFiles` 修复，无需降级 Vitest。JSON 导入真实写库验收：测试账号知识点 102 → 104，父子关系与来源正确；清理后恢复 102、0 残留。
+- **当前验证（2026-11-06）**：`npm run test` **29 个测试文件 / 238 个用例全绿**（含复习调度、schema、mappers、埋点与 JSON 导入用例），`npm run typecheck` / `lint` / `build` 通过；`npm run db:init` **52/52 条语句 ok**，`node scripts/verify-rls.mjs --direct` 覆盖复习状态归属并通过；复习页 1440 / 390 / 320 截图 `overflow 0 / blur 0 / <44px 控件 0`，浏览器实测评级后待复习 10 → 9、刷新仍为 9、0 console error。**2026-10-31 记录的“Vitest 5.0.5 在收集阶段报 `config undefined`、27/27 文件失败”已被实测推翻**：真实原因是 Node 测试环境缺少 `window.localStorage`，zustand `persist` 在 storage 不可用时不会挂载 `api.persist`，只影响 `tests/settings.test.ts` 的 3 个用例；已在 `tests/setup.ts` 注入内存 storage、在 `vitest.config.ts` 注册 `setupFiles` 修复，无需降级 Vitest。JSON 导入真实写库验收：测试账号知识点 102 → 104，父子关系与来源正确；清理后恢复 102、0 残留。**PWA 验收（2026-11-06）**：`npm run build` 产物含 `/manifest.webmanifest`，Chrome CDP `Page.getInstallabilityErrors` 为空、`controlled: true`；停服后导航回退 `/offline.html`；Cache Storage 仅 `/_next/static/chunks/*` 与图标/manifest/offline.html；390 视口 `/`、`/chat`、`/atlas`、`/review` 均 `overflow 0`（见 3.13）。
 - 当前状态（2026-10-24）：**P1 全部改动已提交并推送**（`b659a6b` 向量命中 / `872233b` 会话+埋点+拍题+公式 / `a3654f1` 部署与 CI / `934c6ec` 徽章 / `5e6ecf4`、`4888c28`、`aa7762c` 部署与域名文档 / `9ea959f` 技术债修复）。整体验证：`typecheck` / `lint` 通过、vitest **26 个文件 204 个用例全绿**、`next build` 通过（8 条路由 + Proxy）、CI 在 GitHub 上实跑全绿（2m36s）、`npm run db:init` 47 条语句全部 ok、线上 `/api/health` 返回 `{"ok":true}`、匿名登录 REST 校验通过。**线上 E2E（Playwright / Chromium headless，2026-10-24）**：主流程 **14/14** + 同名收编复用 **5/5**，均 0 console error / 0 page error / 0 failed request。主流程覆盖：`?demo=1` 自动载入 102 节点 → 3D 渲染 → 对话流式回答 → 抽取 2 张收编卡 → 收编写入 → `/atlas?node=` 深链定位 → 详情页 AI 模板生成 → 保存 → 刷新后仍在 → 进入对话页默认新会话；复用覆盖：两张同名建议只产生 1 个节点、无唯一约束报错。**尚未执行**：`verify-rls` 双账号校验、拍题/公式/思维链的线上自动化验收、向量命中「5 种问法」验收（缺真实 embedding Key）。
 - **向量命中的「5 种问法 ≥4 命中」云端验收尚未执行**：需要维护者配置真实 embedding Key 后按第 9 节 checklist 验证；无 Key 时按设计降级关键词，不影响构建与基础使用。
 - 部署方案：**Vercel Hobby（免费）+ GitHub Actions CI + 每日 keepalive**，定位是公开 Demo 与工程完整度；不做 VPS/Docker/备案/商业合规（详见 P1-D 与 `docs/DEPLOY.md`）。
 - 项目状态（2026-11-06）：**P2 功能冻结**——只保留复习闭环与 JSON 导入，分享 / Realtime / 应用内删号 / 移动端壳 / 3D 性能明确不做；边界与声明见 `docs/DECLARATIONS.md`。后续进入维护模式（bugfix、依赖更新、文档、可选验收），不再排新功能。仍可选：配真实 embedding Key 跑「5 种问法 ≥4 命中」与 `docs/insights.sql` 验收、补拍题/公式/思维链专项 E2E。自定义域名与 Supabase Auth 的 Site URL / Redirect URLs 已于 2026-10-24 配置完成。
+- **PWA 可安装（2026-11-06）✅**：新增 `src/app/manifest.ts`（192/512/maskable 图标 + 三个快捷方式）、`public/sw.js`（静态资源 cache-first、页面与 `/api/` 永不缓存）、`public/offline.html` 离线回退页、`src/components/shell/PwaBridge.tsx`（生产环境注册 SW 并桥接安装事件），设置页新增「安装为应用」。说明见 3.13；这是 Web 应用的可安装能力，**不属于**声明里冻结的「移动端编辑壳」。CDP 验收：`Page.getInstallabilityErrors` 为空（可安装）、断网导航回退离线页、Cache Storage 只含图标/chunk/offline.html、390 视口四条路由 overflow 0。
 - 流式体验（2026-10-24）：SSE 支持读取 `reasoning_content` / `reasoning` / `thinking` / `reasoning_details`，聊天里展示可折叠「思考过程」；正文用前端打字机逐字上屏。思维链存入当前账号的 `chat_messages.payload`（上限 2 万字），不写 events。
 - 多会话（2026-10-24）：新增 `conversations`，`chat_messages.conversation_id` 归属；进入 `/chat` 默认新对话（空会话不写库，发第一条消息才建会话），顶部「历史」切换/删除，`?c=` 恢复；每个会话的上下文完全隔离。system prompt 同时放宽到全学科（哲学、编程等）。
 
@@ -52,7 +53,7 @@ npm run dev:proxy              # 开发服务器（Node 请求走代理；网络
 npm run typecheck
 npm run lint
 npm run test          # 纯逻辑单测；29 文件 / 238 用例。按 AGENTS.md：小步改动只跑 typecheck / lint，全量 test 在大环节收尾、提交或交付前跑
-npm run build         # 生产构建；路由含 /、/chat、/atlas、/node/[id]、/api/llm/chat、/api/llm/embeddings、/api/health
+npm run build         # 生产构建；路由含 /、/chat、/atlas、/node/[id]、/review、/api/llm/chat、/api/llm/embeddings、/api/health、/manifest.webmanifest、/icon.png、/apple-icon.png
 npm run db:init       # 幂等：建表/索引/RLS/触发器 + pgvector/embedding 列/HNSW/RPC + events 表
 npm run verify:rls    # 双匿名账号验证 RLS（需代理环境变量）
 node scripts/verify-rls.mjs --direct   # 用 SUPABASE_DB_URL 直连 Postgres 校验同一套 RLS（含 events/向量表/会话归属；HTTPS 被重置时用）
@@ -83,7 +84,7 @@ $env:NODE_USE_ENV_PROXY="1"
 |---|---|---|---|
 | P0 原型 | 可点击原型、3D 知识库、三端布局 | ✅ 完成 | 额外完成云账号与持久化（原属 P1） |
 | P1 MVP | 账号、真实 AI、数据持久化、三大页面 | ✅ 完成 | 账号✅ 持久化✅ 三大页面✅ 真实 AI✅；P1-A 向量命中✅、P1-B 指标埋点✅、P1-C 拍题缩略图（本地）🟡 浏览器验收待跑、P1-D 部署✅（线上 Demo 已上线） |
-| P2 增强 | 复习、关系编辑、导出、分享 | 🟡 功能冻结（2026-11-06） | 关系编辑✅ 导出/导入 JSON✅ 复习闭环✅；分享、Realtime、应用内删号、移动端壳、3D 性能明确不做（见 `docs/DECLARATIONS.md`） |
+| P2 增强 | 复习、关系编辑、导出、分享 | 🟡 功能冻结（2026-11-06） | 关系编辑✅ 导出/导入 JSON✅ 复习闭环✅ PWA 可安装✅；分享、Realtime、应用内删号、移动端壳、3D 性能明确不做（见 `docs/DECLARATIONS.md`） |
 
 P1 子项状态：
 
@@ -94,7 +95,7 @@ P1 子项状态：
 | P1-C 拍题链路 | 🟡 代码完成，浏览器验收待执行 | 原图只用于当次视觉模型请求，不上传云端；聊天/来源缩略图存本机 IndexedDB（2026-10-24 决策，见第 5 节 #16） |
 | P1-D 部署 + CI | ✅ 完成（2026-10-24） | GitHub 仓库公开 + CI 全绿；Vercel 生产部署 <https://zhimy.kasho.fun>（备用 vercel.app）；keepalive 已配 `vars.SUPABASE_URL` / `secrets.SUPABASE_ANON_KEY` 并手动跑通；已连接 Git（push 自动部署） |
 
-**视觉系统 v2（2026-10-31）✅**：不属于 P2 功能范围，但已作为全站体验升级完成，代码见 `35f0113`，说明见 3.1 / 3.4 / 5 #21–23。**复习闭环（2026-11-06）✅**：P2 第一项功能，说明见 3.11 / 5 #24。**JSON 导入（2026-11-06）✅**：补齐数据管理闭环，说明见 3.12 / 5 #25。**P2 功能已冻结**：不再按百分比扩展，具体边界见 `docs/DECLARATIONS.md`。
+**视觉系统 v2（2026-10-31）✅**：不属于 P2 功能范围，但已作为全站体验升级完成，代码见 `35f0113`，说明见 3.1 / 3.4 / 5 #21–23。**复习闭环（2026-11-06）✅**：P2 第一项功能，说明见 3.11 / 5 #24。**JSON 导入（2026-11-06）✅**：补齐数据管理闭环，说明见 3.12 / 5 #25。**P2 功能已冻结**：不再按百分比扩展，具体边界见 `docs/DECLARATIONS.md`。**PWA 可安装（2026-11-06）✅**：Web 应用的可安装能力（manifest + Service Worker + 离线页），不属于冻结项里的「移动端编辑壳」，说明见 3.13。
 
 ## 3. 已实现能力（模块 → 关键文件）
 
@@ -214,6 +215,19 @@ P1 子项状态：
 - 测试：`tests/importGraph.test.ts` 11 例（解析、版本、id/同名复用、备份内同名、子先于父、父级缺失、孤儿关系、来源复用、脏字段、无向规范化与去重）。
 - 验收：真实 Supabase 测试账号导入 2 节点 + 1 关系 + 1 来源，首页知识点 102 → 104；父子 id 映射、来源与关系落库正确；清理后恢复 102、0 残留；0 console error。
 
+### 3.13 PWA 可安装（2026-11-06 ✅）
+
+- manifest：`src/app/manifest.ts`（Next 文件约定，构建出 `/manifest.webmanifest` 并自动注入 `<link rel="manifest">`）；`name / short_name / start_url / scope / display: standalone / background_color / theme_color (#e9f2ee) / lang: zh-CN`，三个快捷方式指向 `/review`、`/chat`、`/atlas`。
+- 图标：`public/icons/{icon-192,icon-512,maskable-512}.png`（manifest 用）、`src/app/icon.png`（512 favicon 源）、`src/app/apple-icon.png`（iOS 主屏 180）、`src/app/favicon.ico`（16/32/48，去阴影简版）；全部由 `scripts/build-pwa-icons.py` 用 Pillow 按 minty-paper 语汇绘制（薄荷墙底 + 奶油纸卡片 + 墨绿「知」+ 橙色马克笔 + 零模糊硬投影），改色改字号后重跑即可；CI 不跑这个脚本，只要 PNG 已入库。
+- Service Worker：`public/sw.js`。`/_next/static/*` cache-first（内容哈希命名，安全）；`/icons/*` 与 `/manifest.webmanifest` stale-while-revalidate；**navigation 永远走网络**，失败回退 `/offline.html`；同源 `/api/*` 与跨域请求（Supabase）完全不拦截。理由：图谱与对话是私有数据，缓存 HTML 会在共享设备上残留上一个使用者的界面，也会让部署更新延迟生效。
+  - 维护注意：改了 `offline.html` 或 `PRECACHE` 列表后必须 bump `sw.js` 顶部的 `VERSION`，否则旧缓存（同名 URL 的 cache-first 条目）不会刷新，`activate` 只清理旧版本名的缓存。
+- 离线页：`public/offline.html`，自包含（内联 CSS、零外部请求），断网时展示「你现在离线」+「重新连接」。
+- 注册与安装入口：`src/components/shell/PwaBridge.tsx` 在生产环境注册（dev 反向注销旧 SW，避免本地调试被缓存干扰）、监听 `beforeinstallprompt` / `appinstalled` / `display-mode`，状态经 `useSyncExternalStore` 暴露给 `PwaInstallRow.tsx`（设置页「安装为应用」；没有安装事件时按 iOS / 桌面分别给提示）。
+- metadata：`src/app/layout.tsx` 增加 `metadataBase`（`src/lib/site.ts`：`NEXT_PUBLIC_SITE_URL` → Vercel 域名 → localhost）、`appleWebApp`（capable + title + statusBarStyle）、`formatDetection.telephone: false`；另手写 `apple-mobile-web-app-capable` 兼容老 iOS。
+- 不引入 `next-pwa` / `serwist`：保持零运行时依赖，缓存策略集中在一个文件里（决策见第 12 节）。
+- 验收（Edge headless + CDP，2026-11-06）：`Page.getAppManifest` 解析成功无错误；`Page.getInstallabilityErrors = []`；`navigator.serviceWorker.controller` 为 true；停服后 `GET /` 由 SW 回退到离线页（DOM 含「你现在离线」）；Cache Storage 只有 `zhimy-static-v1`，条目全是 `/_next/static/chunks/*.js` + 图标 + manifest + offline.html，**无 HTML、无 `/api`、无 Supabase 数据**；390 视口 `/`、`/chat`、`/atlas`、`/review` 的 `scrollWidth === 390`、越界元素 0。
+- 截图：`docs/screenshots/pwa/{pwa-home-1280,pwa-home-390,pwa-offline}.png`。
+
 ## 4. 数据模型与迁移
 
 ### 表
@@ -282,7 +296,7 @@ P1 子项状态：
 - **会话**：进入对话页默认新对话，旧会话需从「历史」进入；暂不支持重命名、搜索、置顶或跨会话合并。空会话不落库，发送第一条消息时才创建；删除会话会级联删除消息；迁移前的历史消息统一归入「历史对话」。`?c=` 只做恢复提示，不是稳定的分享链接
 - **system prompt**：已放宽到全学科，但知识抽取/讲解生成仍以“知识点”为单位；纯代码项目、长篇创作等可能只抽出少量可收编节点，属于产品模型限制
 - **有基础埋点但没有应用内看板**：`events` 只记事件名与少量属性，聚合查询需在 Supabase SQL Editor 手动执行 `docs/insights.sql`
-- **已上线，主闭环 E2E 通过**：<https://zhimy.kasho.fun> 可访问（证书至 2027-01-22）、`/api/health` 正常、匿名登录可用；Playwright 线上跑通「示例图谱 → 对话 → 收编 → 3D 深链 → 详情生成/保存 → 刷新持久化」14 项。**未覆盖**：拍题缩略图、公式渲染、思维链面板的线上自动化验收。**邮箱绑定注意**：Supabase 当前 `mailer_autoconfirm = false`（需确认邮件），免费版内置 SMTP 额度极低，公开 Demo 的「绑定邮箱」大概率收不到确认信；要在 Demo 演示该流程需配置自有 SMTP 或临时关闭 Confirm email（仅演示项目可接受）。无 PWA service worker；Hobby 函数区域美东，国内访问延迟较高
+- **已上线，主闭环 E2E 通过**：<https://zhimy.kasho.fun> 可访问（证书至 2027-01-22）、`/api/health` 正常、匿名登录可用；Playwright 线上跑通「示例图谱 → 对话 → 收编 → 3D 深链 → 详情生成/保存 → 刷新持久化」14 项。**未覆盖**：拍题缩略图、公式渲染、思维链面板的线上自动化验收。**邮箱绑定注意**：Supabase 当前 `mailer_autoconfirm = false`（需确认邮件），免费版内置 SMTP 额度极低，公开 Demo 的「绑定邮箱」大概率收不到确认信；要在 Demo 演示该流程需配置自有 SMTP 或临时关闭 Confirm email（仅演示项目可接受）。**已支持 PWA 安装（2026-11-06）**：可装到桌面 / 主屏幕、独立窗口打开、有离线回退页；但只是 Web 应用的壳——页面与 `/api/` 刻意不缓存，断网时只能看到离线提示，不能离线读写图谱；iOS 需 Safari「分享 → 添加到主屏幕」，不做 Google Play / 应用商店分发、不做桌面 exe / 安卓 apk 原生壳；Hobby 函数区域美东，国内访问延迟较高
 - 无账号删除/数据删除入口；JSON 导入已支持（仅 v1、≤5 MB、复用优先不覆盖、逐条写入未包事务，失败可能部分落库）；无 JSON 导入预览页（用 confirm 统计）
 - **复习闭环已可用，但仍是 MVP**：只做 SM-2 简化版（不是 FSRS），`again` 固定 10 分钟后重来；不自动把新收编节点加入复习，需要手动或批量加入；没有复习提醒通知、跨端实时刷新和题目自动生成；`due_at` 由客户端计算，设备时钟异常会影响到期判断；复习状态依赖 `db:init` 建表，未迁移的环境 `/review` 会显示加载失败
 - 跨端同步靠"重新打开/切回页面刷新"，无 Realtime
@@ -291,7 +305,7 @@ P1 子项状态：
 - 演示模式数据在内存，刷新即重置
 - 移动端手势较密（拖节点 vs 旋转靠"是否按中节点"区分），未做专门的编辑模式
 - **视觉 v2 采用手工 + 截图验收，没有像素基线自动比对**：`scripts/screenshot.mjs` 会输出 overflow / blur / <44px 控件审计，但仍需人工判断层级与气质；截图产物在 `_verify/`（gitignored），仓库只保留 `docs/screenshots/` 的代表图
-- **功能边界已冻结（2026-11-06）**：分享、Realtime、应用内删号、移动端编辑壳、3D 性能不再实现；数据删除方式、隐私与 AI 免责见 `docs/DECLARATIONS.md`
+- **功能边界已冻结（2026-11-06）**：分享、Realtime、应用内删号、移动端编辑壳、3D 性能不再实现；数据删除方式、隐私与 AI 免责见 `docs/DECLARATIONS.md`。PWA 安装能力（3.13）是 Web 特性，不属于「移动端编辑壳」
 
 ### 工程/环境
 
@@ -501,6 +515,7 @@ P1 子项状态：
 | **流式思维链 / 打字机** | `src/lib/ai/sse.ts`（reasoning 提取）、`llmClient.ts`、`src/components/chat/ChatScreen.tsx`、`useTypewriter.ts`、`MessageBubble.tsx` |
 | **会话 / 上下文隔离** | `supabase/schema.sql`（conversations / conversation_id）、`src/lib/conversations.ts`、`src/store/chatStore.ts`、`src/components/chat/ChatScreen.tsx` |
 | **项目声明 / 隐私 / 免责** | `docs/DECLARATIONS.md`（功能边界、数据与隐私、删号方式、未成年人、许可） |
+| **PWA / 离线 / 图标** | `src/app/manifest.ts`、`public/sw.js`、`public/offline.html`、`src/components/shell/{PwaBridge,PwaInstallRow}.tsx`、`src/lib/site.ts`、`scripts/build-pwa-icons.py`、`docs/screenshots/pwa/` |
 | **部署 / CI / Demo / 健康检查** | `docs/DEPLOY.md`、`.github/workflows/{ci,keepalive}.yml`、`.nvmrc`、`src/components/shell/AppProviders.tsx`（`?demo=1`）、`src/app/api/health/route.ts` |
 
 ## 12. 决策记录（需要改之前先确认）
@@ -545,3 +560,5 @@ P1 子项状态：
 | 2026-11-06 | 复习闭环用 SM-2 简化版 + 手动/批量加入（不自动入队）；`review_state` 为调度事实来源，评级同步 `nodes.mastery` | 四档固定间隔可解释、可单测，不引入日期/算法依赖；示例图谱 100+ 节点自动入队会瞬间打爆队列；独立表避免 nodes 频繁写调度字段；间隔上限 365 天防止连续 easy 让日期溢出 |
 | 2026-11-06 | JSON 导入采用「复用优先 + 新 id 重生成」，失败不包事务 | 导入是合并而非覆盖，避免冲掉现有讲解/关系；数据库 `uuid` 列要求合法 id，重生成同时规避冲突；未新增 RPC，失败时可能部分落库，UI 提示可重试 |
 | 2026-11-06 | **P2 功能冻结**：只保留复习闭环 + JSON 导入，分享 / Realtime / 应用内删号 / 移动端壳 / 3D 性能不再排期；补 `docs/DECLARATIONS.md` | 个人开源非商业 Demo 已覆盖核心闭环；继续加功能收益递减，维护成本与合规风险上升；先把边界和隐私说清楚比继续扩展更重要 |
+| 2026-11-06 | **PWA 用 Next 原生 `app/manifest.ts` + 手写 `public/sw.js`**，不引 `next-pwa`/`serwist`；页面与 `/api/` 一律不缓存 | 保持零运行时依赖；图谱/对话是私有数据，缓存 HTML 会在共享设备残留上一个使用者的界面、也会让部署更新延迟生效；`/_next/static` 是内容哈希命名，cache-first 无冲突 |
+| 2026-11-06 | PWA 图标用 Pillow 脚本（`scripts/build-pwa-icons.py`）离线生成并入库，不在 CI 里渲染 | 图标是资产、不随构建变化；沙箱下浏览器渲染子进程受限，Pillow 更稳定；用系统字体「微软雅黑 Bold」保证中文「知」字质量 |

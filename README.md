@@ -163,6 +163,7 @@ NEXT_PUBLIC_DEMO_MODE=1
 - `.github/workflows/ci.yml`：push / PR 跑 `npm ci → typecheck → lint → test → build`，不配置任何云端密钥
 - `.github/workflows/keepalive.yml`：每日 ping 一次 Supabase REST，规避免费项目 7 天不活跃暂停（未配置 secrets 时自动跳过）
 - 支持 `?demo=1` 自动载入示例图谱，适合公开 Demo
+- 已支持 **PWA 安装**（`app/manifest.ts` + Service Worker + 离线页）：桌面 Chrome / Edge 可从地址栏安装，安卓 Chrome 有「安装应用」，iOS 用 Safari「分享 → 添加到主屏幕」。Vercel 自带 HTTPS，无需额外配置；离线时只能看到离线提示，页面与接口刻意不缓存
 
 [![CI](https://github.com/Ha2eS1onn/zhimy/actions/workflows/ci.yml/badge.svg)](https://github.com/Ha2eS1onn/zhimy/actions/workflows/ci.yml)
 
@@ -180,11 +181,12 @@ src/
 │  ├─ atlas/page.tsx        # 3D 知识库（拖拽定位 / 连线 / 关系编辑）
 │  ├─ node/[id]/page.tsx    # 知识点完整讲解子页
 │  ├─ review/page.tsx       # 复习闭环（到期队列 / 四档评级）
+│  ├─ manifest.ts           # PWA manifest（图标 / 快捷方式 / standalone）
 │  ├─ api/llm/chat/route.ts # BYOK 对话代理（认证 + https + 白名单 + 防 SSRF）
 │  ├─ api/llm/embeddings/route.ts # 向量代理（同样的防护）
 │  └─ api/health/route.ts   # 健康检查
 ├─ components/
-│  ├─ shell/                # AppShell / 侧栏 / 移动端导航 / 设置弹层
+│  ├─ shell/                # AppShell / 侧栏 / 移动端导航 / 设置弹层 / PWA 注册与安装入口
 │  ├─ chat/                 # 对话流、收编卡片、输入器
 │  ├─ atlas/                # Canvas 渲染、详情面板、关系列表/编辑器/建议
 │  ├─ node/                 # 完整讲解页、Markdown-lite 渲染与正文编辑器
@@ -206,7 +208,10 @@ src/
 └─ proxy.ts                 # Supabase 会话刷新（Next 16 proxy 约定）
 supabase/schema.sql         # 数据库结构（幂等；含 pgvector / events / RPC）
 docs/insights.sql           # 指标聚合 SQL（Supabase SQL Editor 执行）
-scripts/                    # db-init / verify-rls / embed-backfill / 无头截图
+public/sw.js                # Service Worker（静态资源 cache-first；页面 / API 不缓存）
+public/offline.html         # 离线回退页（自包含）
+public/icons/               # PWA 图标（192 / 512 / maskable）
+scripts/                    # db-init / verify-rls / embed-backfill / 无头截图 / PWA 图标
 .github/workflows/          # CI + Supabase 保活
 tests/                      # 纯逻辑单元测试
 ```
@@ -226,7 +231,7 @@ tests/                      # 纯逻辑单元测试
 
 知脉是个人开源、MIT、非商业项目，线上 Demo 仅用于技术展示，不承诺 SLA、数据持久性或内容准确性。完整声明（定位、数据与隐私、AI 免责、功能边界、删除数据、未成年人）见 [docs/DECLARATIONS.md](docs/DECLARATIONS.md)。
 
-**功能边界（2026-11-06 冻结）**：已实现收编、知识图谱、完整讲解、复习闭环、JSON 导入/导出；**明确不做**分享只读链接、Realtime 跨端同步、应用内删号、移动端编辑壳、3D WebGL 升级、商业化 / 多租户 / 班级共享。
+**功能边界（2026-11-06 冻结）**：已实现收编、知识图谱、完整讲解、复习闭环、JSON 导入/导出、PWA 安装（Web 应用的可安装能力，不是独立移动端壳）；**明确不做**分享只读链接、Realtime 跨端同步、应用内删号、移动端编辑壳、3D WebGL 升级、商业化 / 多租户 / 班级共享。
 
 ## 路线图
 
@@ -245,6 +250,7 @@ tests/                      # 纯逻辑单元测试
 - 题目图片**不上传云端**：原图只用于当次模型提问（发送前压到 1600px），聊天缩略图仅存在当前浏览器 IndexedDB（最多 200 张，未加密）；换设备、无痕窗口或清站点数据后图片不会出现，只保留文件名提示，属于设计取舍而非故障
 - **图片识图依赖模型能力**：设置里的「视觉模型」留空时会沿用文本模型，纯文本模型（如 `deepseek-chat`）会拒绝图片输入；视觉模型需与 Base URL / Key 属于同一服务商。发图后模型说“没看到图片”，先检查这里
 - 明确不做 Realtime；跨端同步靠重新打开页面刷新
+- **PWA 只是「可安装的壳」**：Service Worker 只缓存静态资源（`/_next/static`、图标、离线页），页面与 `/api/` 刻意不缓存（既是隐私考虑，也让部署更新立即生效），断网时只显示离线页、不能离线读写图谱；不提供桌面 exe / 安卓 apk 原生包，也不做应用商店分发；iOS 只能手动「分享 → 添加到主屏幕」
 - **会话**：默认进入对话页是新对话；旧会话从「历史」进入，暂不支持重命名、搜索和置顶。删除会话会级联删除该会话的消息；「清空对话记录」会删除全部会话。旧版本历史消息在 `db:init` 时归入「历史对话」
 - 演示模式（`NEXT_PUBLIC_DEMO_MODE=1`）是内存数据，刷新即重置
 - 线上 Demo 部署在 Vercel Hobby（美东区域），不承诺 SLA 与数据持久性；Supabase 免费项目的邮箱确认受内置 SMTP 额度限制，公开 Demo 的「绑定邮箱」仅作演示（见 [docs/DEPLOY.md](docs/DEPLOY.md)）
@@ -261,6 +267,9 @@ tests/                      # 纯逻辑单元测试
 
 **在另一个浏览器里怎么登录已有账号？**
 打开「设置 → 账号」→ 切到「登录已有账号」，用绑定过的邮箱和密码登录即可（新浏览器会先自动创建游客账号，登录后会切换到你的账号，游客数据不会合并）。如果提示"A user with this email address has already been registered"，说明该邮箱已绑定，直接走登录即可，不必再次绑定。
+
+**怎么把它装成 App（PWA）？**
+桌面 Chrome / Edge：地址栏右侧的安装图标，或「设置 → 安装为应用」。安卓 Chrome：菜单里的「安装应用 / 添加到主屏幕」。iOS Safari：分享 → 添加到主屏幕（装完是独立窗口，没有浏览器地址栏）。装的是 Web 应用，账号和知识图谱仍然在云端；断网时只会看到离线提示页，不会丢数据也不会读到旧数据。
 
 **BYOK 对话报跨域（CORS）错误？**
 把设置里的请求方式切到「代理（推荐）」，由本站 `/api/llm/chat` 转发；如果服务商域名不在默认白名单，可用 `LLM_PROXY_ALLOWED_HOSTS=api.example.com` 环境变量扩展。
