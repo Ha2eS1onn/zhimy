@@ -1,0 +1,19 @@
+{
+  "name": "zhimy-android",
+  "version": "0.1.0",
+  "private": true,
+  "description": "知脉 Android 壳（Capacitor，加载 https://zhimy.kasho.fun）",
+  "scripts": {
+    "sync": "cap sync android",
+    "build:debug": "cap sync android && cd android && gradlew.bat assembleDebug",
+    "build:release": "cap sync android && cd android && gradlew.bat assembleRelease",
+    "open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "7.6.10",
+    "@capacitor/core": "7.6.10"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "7.6.10"
+  }
+}

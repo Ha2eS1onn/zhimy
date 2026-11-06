@@ -171,6 +171,15 @@ NEXT_PUBLIC_DEMO_MODE=1
 >
 > 仓库：<https://github.com/Ha2eS1onn/zhimy> ｜ 部署步骤与回滚见 [docs/DEPLOY.md](docs/DEPLOY.md)
 
+## Android APK（可选）
+
+仓库里的 [`android-app/`](android-app/README.md) 是一个 Capacitor 壳：WebView 直接加载 <https://zhimy.kasho.fun>，APK 只提供图标、启动屏和返回键，**不打包 Web 代码**——站点更新后手机端立刻生效。
+
+- 构建：`cd android-app && npm install && npm run build:release`（需要 JDK 21 + Android SDK 35，步骤见 [android-app/README.md](android-app/README.md)）
+- 产物：`android-app/android/app/build/outputs/apk/release/app-release.apk`（复制到 `android-app/dist/` 便于分发），自签，keystore 不入库
+- 运行环境：Android 6.0+（minSdk 23）；不上架应用商店，手动安装
+- 限制：断网不可用（只显示 Web 的离线提示页）；WebView 里不能下载文件，导出 JSON 会改为复制到剪贴板
+
 ## 目录结构
 
 ```
@@ -211,7 +220,8 @@ docs/insights.sql           # 指标聚合 SQL（Supabase SQL Editor 执行）
 public/sw.js                # Service Worker（静态资源 cache-first；页面 / API 不缓存）
 public/offline.html         # 离线回退页（自包含）
 public/icons/               # PWA 图标（192 / 512 / maskable）
-scripts/                    # db-init / verify-rls / embed-backfill / 无头截图 / PWA 图标
+scripts/                    # db-init / verify-rls / embed-backfill / 无头截图 / PWA 图标 / Android 图标
+android-app/                # Android 壳（Capacitor，加载线上站点；构建见 android-app/README.md）
 .github/workflows/          # CI + Supabase 保活
 tests/                      # 纯逻辑单元测试
 ```
@@ -231,7 +241,7 @@ tests/                      # 纯逻辑单元测试
 
 知脉是个人开源、MIT、非商业项目，线上 Demo 仅用于技术展示，不承诺 SLA、数据持久性或内容准确性。完整声明（定位、数据与隐私、AI 免责、功能边界、删除数据、未成年人）见 [docs/DECLARATIONS.md](docs/DECLARATIONS.md)。
 
-**功能边界（2026-11-06 冻结）**：已实现收编、知识图谱、完整讲解、复习闭环、JSON 导入/导出、PWA 安装（Web 应用的可安装能力，不是独立移动端壳）；**明确不做**分享只读链接、Realtime 跨端同步、应用内删号、移动端编辑壳、3D WebGL 升级、商业化 / 多租户 / 班级共享。
+**功能边界（2026-11-06 冻结）**：已实现收编、知识图谱、完整讲解、复习闭环、JSON 导入/导出、PWA 安装（Web 应用的可安装能力，不是独立移动端壳）、Android APK 壳（Capacitor 加载线上站点，自签安装包）；**明确不做**分享只读链接、Realtime 跨端同步、应用内删号、移动端编辑壳、3D WebGL 升级、商业化 / 多租户 / 班级共享。
 
 ## 路线图
 
@@ -250,7 +260,8 @@ tests/                      # 纯逻辑单元测试
 - 题目图片**不上传云端**：原图只用于当次模型提问（发送前压到 1600px），聊天缩略图仅存在当前浏览器 IndexedDB（最多 200 张，未加密）；换设备、无痕窗口或清站点数据后图片不会出现，只保留文件名提示，属于设计取舍而非故障
 - **图片识图依赖模型能力**：设置里的「视觉模型」留空时会沿用文本模型，纯文本模型（如 `deepseek-chat`）会拒绝图片输入；视觉模型需与 Base URL / Key 属于同一服务商。发图后模型说“没看到图片”，先检查这里
 - 明确不做 Realtime；跨端同步靠重新打开页面刷新
-- **PWA 只是「可安装的壳」**：Service Worker 只缓存静态资源（`/_next/static`、图标、离线页），页面与 `/api/` 刻意不缓存（既是隐私考虑，也让部署更新立即生效），断网时只显示离线页、不能离线读写图谱；不提供桌面 exe / 安卓 apk 原生包，也不做应用商店分发；iOS 只能手动「分享 → 添加到主屏幕」
+- **PWA 只是「可安装的壳」**：Service Worker 只缓存静态资源（`/_next/static`、图标、离线页），页面与 `/api/` 刻意不缓存（既是隐私考虑，也让部署更新立即生效），断网时只显示离线页、不能离线读写图谱；不提供桌面 exe 原生包，也不做应用商店分发；iOS 只能手动「分享 → 添加到主屏幕」
+- **Android APK 也只是壳**：只加载线上站点、断网不可用；自签、不上架应用商店；WebView 里不能下载文件（导出 JSON 改为复制到剪贴板）；需要 Android 6.0+；微信 / QQ 内直接点开 APK 通常装不上（先存到本机再用文件管理器装）
 - **会话**：默认进入对话页是新对话；旧会话从「历史」进入，暂不支持重命名、搜索和置顶。删除会话会级联删除该会话的消息；「清空对话记录」会删除全部会话。旧版本历史消息在 `db:init` 时归入「历史对话」
 - 演示模式（`NEXT_PUBLIC_DEMO_MODE=1`）是内存数据，刷新即重置
 - 线上 Demo 部署在 Vercel Hobby（美东区域），不承诺 SLA 与数据持久性；Supabase 免费项目的邮箱确认受内置 SMTP 额度限制，公开 Demo 的「绑定邮箱」仅作演示（见 [docs/DEPLOY.md](docs/DEPLOY.md)）
@@ -270,6 +281,9 @@ tests/                      # 纯逻辑单元测试
 
 **怎么把它装成 App（PWA）？**
 桌面 Chrome / Edge：地址栏右侧的安装图标，或「设置 → 安装为应用」。安卓 Chrome：菜单里的「安装应用 / 添加到主屏幕」。iOS Safari：分享 → 添加到主屏幕（装完是独立窗口，没有浏览器地址栏）。装的是 Web 应用，账号和知识图谱仍然在云端；断网时只会看到离线提示页，不会丢数据也不会读到旧数据。
+
+**安卓手机怎么装 APK？**
+拿到 `zhimy-0.1.0.apk`（`android-app/dist/` 或 Release 附件），复制到手机后用文件管理器打开安装；首次安装需要在系统里允许该来源「安装未知应用」。装好后图标是薄荷纸卡片「知」，打开即加载线上站点，和浏览器里是同一份云端数据。微信 / QQ 里直接点开通常装不上，先保存到手机再装。
 
 **BYOK 对话报跨域（CORS）错误？**
 把设置里的请求方式切到「代理（推荐）」，由本站 `/api/llm/chat` 转发；如果服务商域名不在默认白名单，可用 `LLM_PROXY_ALLOWED_HOSTS=api.example.com` 环境变量扩展。

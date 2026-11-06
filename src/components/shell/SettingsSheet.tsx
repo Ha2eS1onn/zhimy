@@ -9,6 +9,7 @@ import { isEmbeddingConfigured, testEmbedding } from "@/lib/ai/embeddings";
 import { backfillEmbeddings, type BackfillProgress } from "@/lib/ai/backfill";
 import { EVENTS, track } from "@/lib/analytics";
 import { isDemoMode } from "@/lib/env";
+import { isNativeShell } from "@/lib/platform";
 import { parseGraphJson } from "@/lib/importGraph";
 import { useChatStore } from "@/store/chatStore";
 import { useGraphStore } from "@/store/graphStore";
@@ -630,8 +631,21 @@ function DataSection() {
     }
   };
 
-  const handleExport = () => {
-    const blob = new Blob([exportJson()], { type: "application/json" });
+  const handleExport = async () => {
+    const json = exportJson();
+    const stats = { nodes: nodes.length, relations: relations.length };
+    // Android 壳（WebView）里 blob 下载不会触发系统下载，改为复制到剪贴板。
+    if (isNativeShell()) {
+      try {
+        await navigator.clipboard.writeText(json);
+        toast("已复制 JSON 备份到剪贴板，粘贴到备忘录或文件里即可保存", "success");
+      } catch {
+        toast("复制失败：请用手机浏览器打开 zhimy.kasho.fun 后导出", "error");
+      }
+      track(EVENTS.graphExported, stats);
+      return;
+    }
+    const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -639,7 +653,7 @@ function DataSection() {
     link.click();
     URL.revokeObjectURL(url);
     toast("已导出 JSON 备份", "success");
-    track(EVENTS.graphExported, { nodes: nodes.length, relations: relations.length });
+    track(EVENTS.graphExported, stats);
   };
 
   const embeddingReady = isEmbeddingConfigured(llm);
@@ -740,7 +754,7 @@ function DataSection() {
       </div>
 
       <div className="space-y-2">
-        <button type="button" className="btn-ghost w-full justify-start" onClick={handleExport}>
+        <button type="button" className="btn-ghost w-full justify-start" onClick={() => void handleExport()}>
           <Icon name="download" size={16} /> 导出 JSON 备份
         </button>
         <input

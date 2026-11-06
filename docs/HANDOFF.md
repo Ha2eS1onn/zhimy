@@ -17,6 +17,7 @@
 - 部署方案：**Vercel Hobby（免费）+ GitHub Actions CI + 每日 keepalive**，定位是公开 Demo 与工程完整度；不做 VPS/Docker/备案/商业合规（详见 P1-D 与 `docs/DEPLOY.md`）。
 - 项目状态（2026-11-06）：**P2 功能冻结**——只保留复习闭环与 JSON 导入，分享 / Realtime / 应用内删号 / 移动端壳 / 3D 性能明确不做；边界与声明见 `docs/DECLARATIONS.md`。后续进入维护模式（bugfix、依赖更新、文档、可选验收），不再排新功能。仍可选：配真实 embedding Key 跑「5 种问法 ≥4 命中」与 `docs/insights.sql` 验收、补拍题/公式/思维链专项 E2E。自定义域名与 Supabase Auth 的 Site URL / Redirect URLs 已于 2026-10-24 配置完成。
 - **PWA 可安装（2026-11-06）✅**：新增 `src/app/manifest.ts`（192/512/maskable 图标 + 三个快捷方式）、`public/sw.js`（静态资源 cache-first、页面与 `/api/` 永不缓存）、`public/offline.html` 离线回退页、`src/components/shell/PwaBridge.tsx`（生产环境注册 SW 并桥接安装事件），设置页新增「安装为应用」。说明见 3.13；这是 Web 应用的可安装能力，**不属于**声明里冻结的「移动端编辑壳」。CDP 验收：`Page.getInstallabilityErrors` 为空（可安装）、断网导航回退离线页、Cache Storage 只含图标/chunk/offline.html、390 视口四条路由 overflow 0。
+- **Android APK 壳（2026-11-06）✅**：`android-app/`（Capacitor 7.6.10 的独立子工程，不影响主项目依赖）用 `server.url` 加载线上站点，包名 `fun.kasho.zhimy`、`0.1.0 (1)`、minSdk 23 / targetSdk 35；自签 release APK **2.94 MB**，`apksigner verify` 通过、`aapt2 dump badging` 核对无误。图标/启动屏/深浅色/返回键做了原生定制，Web 端按 UA 的 `ZhimyApp/` 把导出 JSON 改成复制到剪贴板。**未做真机验证**（本机无 Android 设备）。说明见 3.14。
 - 流式体验（2026-10-24）：SSE 支持读取 `reasoning_content` / `reasoning` / `thinking` / `reasoning_details`，聊天里展示可折叠「思考过程」；正文用前端打字机逐字上屏。思维链存入当前账号的 `chat_messages.payload`（上限 2 万字），不写 events。
 - 多会话（2026-10-24）：新增 `conversations`，`chat_messages.conversation_id` 归属；进入 `/chat` 默认新对话（空会话不写库，发第一条消息才建会话），顶部「历史」切换/删除，`?c=` 恢复；每个会话的上下文完全隔离。system prompt 同时放宽到全学科（哲学、编程等）。
 
@@ -228,6 +229,20 @@ P1 子项状态：
 - 验收（Edge headless + CDP，2026-11-06）：`Page.getAppManifest` 解析成功无错误；`Page.getInstallabilityErrors = []`；`navigator.serviceWorker.controller` 为 true；停服后 `GET /` 由 SW 回退到离线页（DOM 含「你现在离线」）；Cache Storage 只有 `zhimy-static-v1`，条目全是 `/_next/static/chunks/*.js` + 图标 + manifest + offline.html，**无 HTML、无 `/api`、无 Supabase 数据**；390 视口 `/`、`/chat`、`/atlas`、`/review` 的 `scrollWidth === 390`、越界元素 0。
 - 截图：`docs/screenshots/pwa/{pwa-home-1280,pwa-home-390,pwa-offline}.png`。
 
+### 3.14 Android APK 壳（Capacitor，2026-11-06 ✅）
+
+- 工程：`android-app/`，独立 npm 包（`package.json` 只有 `@capacitor/{core,android,cli}@7.6.10`），主项目依赖不变；Gradle 8.11.1 / AGP 8.7.2、compileSdk·targetSdk **35**、minSdk 23、包名 `fun.kasho.zhimy`。
+- 形态：`capacitor.config.ts` 的 `server.url: https://zhimy.kasho.fun` 让 WebView 直接加载线上站点，APK 只提供图标、启动屏、返回键——**内容更新不需要重新发版**；UA 追加 `ZhimyApp/0.1.0`，Web 端据此切换 APK 内的行为。
+- 原生定制：
+  - 图标：`scripts/build-android-icons.py` 复用 PWA 的绘制逻辑，生成 legacy `mipmap-*/ic_launcher(_round).png` 与 adaptive `ic_launcher_foreground.png`（透明底、卡片收进 66dp 安全区），背景色 `#E9F2EE`。
+  - 主题：`res/values{,-night}/` 让窗口背景、启动屏底色、状态栏图标跟随系统深浅色（取值与 Web 的 wall 色一致，避免白闪）。
+  - 启动屏：`AppTheme.NoActionBarLaunch`（`Theme.SplashScreen` + `windowSplashScreenBackground` + `@mipmap/ic_launcher_foreground`）。
+  - 返回键：`MainActivity.onBackPressed` 先让 WebView 后退（Next 路由历史），退到底再退出。
+- 签名：release 自签，`android/keystore.properties`（随机密码）+ `android/app/keystore/zhimy-release.jks`，两者都 gitignored；**丢失即无法覆盖升级**。产物 `android-app/dist/zhimy-0.1.0.apk`（`dist/` 也 gitignored）。
+- 构建环境（本机 `D:\Android`）：JDK **21**（Capacitor 7.6 的 `capacitor-android` 用 `sourceCompatibility 21`，JDK 17 会报“无效的源发行版：21”）、SDK platform-tools / `platforms;android-35` / `build-tools;35.0.0`、`GRADLE_USER_HOME=D:\Android\gradle-home`；国内下载靠 `127.0.0.1:7897` 代理（用 `JAVA_TOOL_OPTIONS` 传 `-Dhttp(s).proxyHost`）。
+- 验收：`assembleRelease` 成功；`apksigner verify` 通过（SHA-256 `F054F998BF454098BA1F69ADCF0B987C8205C07888A594AAB6E33B4AFCC2E7E9`）；`aapt2 dump badging` = `fun.kasho.zhimy 0.1.0 (1)`、minSdk 23 / targetSdk 35、权限只有 `INTERNET`、label「知脉」；`assets/capacitor.config.json` 的 `server.url` 正确。
+- **未做真机验证**（本机无 Android 设备）：WebView 内 Service Worker、软键盘、`<input type=file>` 拍照选图、返回键、导出降级都需上机确认，见 `android-app/README.md`。
+
 ## 4. 数据模型与迁移
 
 ### 表
@@ -299,6 +314,7 @@ P1 子项状态：
 - **已上线，主闭环 E2E 通过**：<https://zhimy.kasho.fun> 可访问（证书至 2027-01-22）、`/api/health` 正常、匿名登录可用；Playwright 线上跑通「示例图谱 → 对话 → 收编 → 3D 深链 → 详情生成/保存 → 刷新持久化」14 项。**未覆盖**：拍题缩略图、公式渲染、思维链面板的线上自动化验收。**邮箱绑定注意**：Supabase 当前 `mailer_autoconfirm = false`（需确认邮件），免费版内置 SMTP 额度极低，公开 Demo 的「绑定邮箱」大概率收不到确认信；要在 Demo 演示该流程需配置自有 SMTP 或临时关闭 Confirm email（仅演示项目可接受）。**已支持 PWA 安装（2026-11-06）**：可装到桌面 / 主屏幕、独立窗口打开、有离线回退页；但只是 Web 应用的壳——页面与 `/api/` 刻意不缓存，断网时只能看到离线提示，不能离线读写图谱；iOS 需 Safari「分享 → 添加到主屏幕」，不做 Google Play / 应用商店分发、不做桌面 exe / 安卓 apk 原生壳；Hobby 函数区域美东，国内访问延迟较高
 - 无账号删除/数据删除入口；JSON 导入已支持（仅 v1、≤5 MB、复用优先不覆盖、逐条写入未包事务，失败可能部分落库）；无 JSON 导入预览页（用 confirm 统计）
 - **复习闭环已可用，但仍是 MVP**：只做 SM-2 简化版（不是 FSRS），`again` 固定 10 分钟后重来；不自动把新收编节点加入复习，需要手动或批量加入；没有复习提醒通知、跨端实时刷新和题目自动生成；`due_at` 由客户端计算，设备时钟异常会影响到期判断；复习状态依赖 `db:init` 建表，未迁移的环境 `/review` 会显示加载失败
+- **Android APK 只是「壳」（2026-11-06）**：只加载线上站点，断网只能看到 Web 的离线提示页；自签安装包、不上架应用商店，微信/QQ 内点开通常装不上（要先存到本机再装）；WebView 里 `blob` 下载不生效，导出 JSON 已改为复制到剪贴板；keystore 丢失后无法覆盖升级；本机无 Android 设备，**软键盘、拍照选图、Service Worker、返回键均未真机验证**
 - 跨端同步靠"重新打开/切回页面刷新"，无 Realtime
 - 关系置信度用户端固定 0.8，无滑杆；AI 建议理由不持久化
 - Markdown-lite 不支持表格/图片；公式由 KaTeX 渲染，未安装的扩展（如 mhchem `\ce{}`）会红色高亮；详情正文无版本历史/撤销
@@ -516,6 +532,7 @@ P1 子项状态：
 | **会话 / 上下文隔离** | `supabase/schema.sql`（conversations / conversation_id）、`src/lib/conversations.ts`、`src/store/chatStore.ts`、`src/components/chat/ChatScreen.tsx` |
 | **项目声明 / 隐私 / 免责** | `docs/DECLARATIONS.md`（功能边界、数据与隐私、删号方式、未成年人、许可） |
 | **PWA / 离线 / 图标** | `src/app/manifest.ts`、`public/sw.js`、`public/offline.html`、`src/components/shell/{PwaBridge,PwaInstallRow}.tsx`、`src/lib/site.ts`、`scripts/build-pwa-icons.py`、`docs/screenshots/pwa/` |
+| **Android APK 壳** | `android-app/`（`capacitor.config.ts`、`android/app/build.gradle`、`MainActivity.java`、`res/values{,-night}/`、`README.md`）、`scripts/build-android-icons.py` |
 | **部署 / CI / Demo / 健康检查** | `docs/DEPLOY.md`、`.github/workflows/{ci,keepalive}.yml`、`.nvmrc`、`src/components/shell/AppProviders.tsx`（`?demo=1`）、`src/app/api/health/route.ts` |
 
 ## 12. 决策记录（需要改之前先确认）
@@ -562,3 +579,5 @@ P1 子项状态：
 | 2026-11-06 | **P2 功能冻结**：只保留复习闭环 + JSON 导入，分享 / Realtime / 应用内删号 / 移动端壳 / 3D 性能不再排期；补 `docs/DECLARATIONS.md` | 个人开源非商业 Demo 已覆盖核心闭环；继续加功能收益递减，维护成本与合规风险上升；先把边界和隐私说清楚比继续扩展更重要 |
 | 2026-11-06 | **PWA 用 Next 原生 `app/manifest.ts` + 手写 `public/sw.js`**，不引 `next-pwa`/`serwist`；页面与 `/api/` 一律不缓存 | 保持零运行时依赖；图谱/对话是私有数据，缓存 HTML 会在共享设备残留上一个使用者的界面、也会让部署更新延迟生效；`/_next/static` 是内容哈希命名，cache-first 无冲突 |
 | 2026-11-06 | PWA 图标用 Pillow 脚本（`scripts/build-pwa-icons.py`）离线生成并入库，不在 CI 里渲染 | 图标是资产、不随构建变化；沙箱下浏览器渲染子进程受限，Pillow 更稳定；用系统字体「微软雅黑 Bold」保证中文「知」字质量 |
+| 2026-11-06 | Android 用 **Capacitor 壳 + `server.url` 远程加载**（不打包静态资源），自签 release APK | 项目无法静态导出（POST API + cookie 会话 + Supabase 云端），远程加载让 APK 只承担图标/启动屏/返回键，Web 内容更新无需重新发版；代价是断网不可用、首屏依赖网络 |
+| 2026-11-06 | APK 签名用本机自签 keystore（`android/keystore.properties` + `app/keystore/`，均 gitignored），不提交、不上架 | 个人自用安装包；提交 keystore 等于公开签名身份；不上应用商店也不需要平台签名 |

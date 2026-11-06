@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 深色模式：与 Web 端 wall 的深色值一致 -->
+    <color name="windowBackground">#14232B</color>
+    <color name="splashBackground">#14232B</color>
+</resources>

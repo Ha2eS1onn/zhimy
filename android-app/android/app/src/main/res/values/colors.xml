@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#256B47</color>
+    <color name="colorPrimaryDark">#22303E</color>
+    <color name="colorAccent">#E4572E</color>
+    <!-- 与 Web 端 minty-paper 的 wall 色一致，避免 WebView 加载前的白闪 -->
+    <color name="windowBackground">#E9F2EE</color>
+    <color name="splashBackground">#E9F2EE</color>
+</resources>

@@ -35,11 +35,21 @@ def load_font(size: int) -> ImageFont.FreeTypeFont:
     raise SystemExit("找不到中文字体（msyhbd.ttc / msyh.ttc / simhei.ttf）")
 
 
-def draw_icon(size: int, *, inset: bool, compact: bool) -> Image.Image:
-    img = Image.new("RGB", (size, size), WALL)
+def draw_icon(
+    size: int,
+    *,
+    inset: bool = False,
+    compact: bool = False,
+    background: str | None = WALL,
+    card_ratio: float | None = None,
+    glyph_ratio: float | None = None,
+) -> Image.Image:
+    """绘制一枚图标。background=None 时输出透明底（Android adaptive 前景用）。"""
+    mode = "RGB" if background else "RGBA"
+    img = Image.new(mode, (size, size), background or (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    card_ratio = 0.72 if compact else 0.62
+    card_ratio = card_ratio if card_ratio is not None else (0.72 if compact else 0.62)
     card = round(size * card_ratio)
     left = (size - card) // 2
     top = (size - card) // 2
@@ -62,7 +72,7 @@ def draw_icon(size: int, *, inset: bool, compact: bool) -> Image.Image:
         width=border,
     )
 
-    glyph_ratio = 0.46 if compact else 0.40
+    glyph_ratio = glyph_ratio if glyph_ratio is not None else (0.46 if compact else 0.40)
     font = load_font(round(size * glyph_ratio))
     text = "知"
     bbox = draw.textbbox((0, 0), text, font=font)
@@ -91,7 +101,7 @@ def draw_icon(size: int, *, inset: bool, compact: bool) -> Image.Image:
         # maskable：安卓安全区是中心直径 80% 的圆，内容压到 80% 即可，别缩太小。
         inner = round(size * 0.80)
         scaled = img.resize((inner, inner), Image.LANCZOS)
-        canvas = Image.new("RGB", (size, size), WALL)
+        canvas = Image.new(mode, (size, size), background or (0, 0, 0, 0))
         canvas.paste(scaled, ((size - inner) // 2, (size - inner) // 2))
         return canvas
     return img

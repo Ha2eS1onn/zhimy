@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 浅色背景上用深色状态栏图标 -->
+    <bool name="lightStatusBarIcon">true</bool>
+</resources>
