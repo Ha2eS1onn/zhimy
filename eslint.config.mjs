@@ -16,6 +16,7 @@ const eslintConfig = defineConfig([
     "_acl_recovery/**",
     "_verify/**",
     "_verify-*/**",
+    "android-app/**",
   ]),
   {
     rules: {
