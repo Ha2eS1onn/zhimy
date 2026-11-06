@@ -11,6 +11,7 @@
 - [ ] `.env.local` 未被提交（`git status` 确认；本仓库 `.gitignore` 已忽略）
 - [ ] 已确认使用 Vercel **Hobby（免费、非商业）** 与 Supabase **免费项目**，接受 §8 的限制
 - [ ] 已明确公开 Demo 定位：技术展示，不承诺 SLA 与数据持久性
+- [ ] 已阅读 [项目声明](DECLARATIONS.md)（功能边界、数据与隐私、AI 免责、删号方式）
 
 ## 1. 架构与前提
 

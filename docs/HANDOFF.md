@@ -15,7 +15,7 @@
 - 当前状态（2026-10-24）：**P1 全部改动已提交并推送**（`b659a6b` 向量命中 / `872233b` 会话+埋点+拍题+公式 / `a3654f1` 部署与 CI / `934c6ec` 徽章 / `5e6ecf4`、`4888c28`、`aa7762c` 部署与域名文档 / `9ea959f` 技术债修复）。整体验证：`typecheck` / `lint` 通过、vitest **26 个文件 204 个用例全绿**、`next build` 通过（8 条路由 + Proxy）、CI 在 GitHub 上实跑全绿（2m36s）、`npm run db:init` 47 条语句全部 ok、线上 `/api/health` 返回 `{"ok":true}`、匿名登录 REST 校验通过。**线上 E2E（Playwright / Chromium headless，2026-10-24）**：主流程 **14/14** + 同名收编复用 **5/5**，均 0 console error / 0 page error / 0 failed request。主流程覆盖：`?demo=1` 自动载入 102 节点 → 3D 渲染 → 对话流式回答 → 抽取 2 张收编卡 → 收编写入 → `/atlas?node=` 深链定位 → 详情页 AI 模板生成 → 保存 → 刷新后仍在 → 进入对话页默认新会话；复用覆盖：两张同名建议只产生 1 个节点、无唯一约束报错。**尚未执行**：`verify-rls` 双账号校验、拍题/公式/思维链的线上自动化验收、向量命中「5 种问法」验收（缺真实 embedding Key）。
 - **向量命中的「5 种问法 ≥4 命中」云端验收尚未执行**：需要维护者配置真实 embedding Key 后按第 9 节 checklist 验证；无 Key 时按设计降级关键词，不影响构建与基础使用。
 - 部署方案：**Vercel Hobby（免费）+ GitHub Actions CI + 每日 keepalive**，定位是公开 Demo 与工程完整度；不做 VPS/Docker/备案/商业合规（详见 P1-D 与 `docs/DEPLOY.md`）。
-- 下一步建议：① ✅ 测试环境已修复并跑通全量（2026-11-06，29 文件 / 238 用例；原“Vitest 收集故障”结论作废）；② 配真实 embedding Key 跑「5 种问法 ≥4 命中」与 `docs/insights.sql` 落库验收；③ 补拍题/公式/思维链的线上专项验收（主闭环已 E2E 通过）；④ P2 继续：Realtime 跨端同步 / 分享 / 删号与隐私说明（复习闭环、JSON 导入已完成 ✅）。自定义域名与 Supabase Auth 的 Site URL / Redirect URLs 已于 2026-10-24 配置完成。
+- 项目状态（2026-11-06）：**P2 功能冻结**——只保留复习闭环与 JSON 导入，分享 / Realtime / 应用内删号 / 移动端壳 / 3D 性能明确不做；边界与声明见 `docs/DECLARATIONS.md`。后续进入维护模式（bugfix、依赖更新、文档、可选验收），不再排新功能。仍可选：配真实 embedding Key 跑「5 种问法 ≥4 命中」与 `docs/insights.sql` 验收、补拍题/公式/思维链专项 E2E。自定义域名与 Supabase Auth 的 Site URL / Redirect URLs 已于 2026-10-24 配置完成。
 - 流式体验（2026-10-24）：SSE 支持读取 `reasoning_content` / `reasoning` / `thinking` / `reasoning_details`，聊天里展示可折叠「思考过程」；正文用前端打字机逐字上屏。思维链存入当前账号的 `chat_messages.payload`（上限 2 万字），不写 events。
 - 多会话（2026-10-24）：新增 `conversations`，`chat_messages.conversation_id` 归属；进入 `/chat` 默认新对话（空会话不写库，发第一条消息才建会话），顶部「历史」切换/删除，`?c=` 恢复；每个会话的上下文完全隔离。system prompt 同时放宽到全学科（哲学、编程等）。
 
@@ -83,7 +83,7 @@ $env:NODE_USE_ENV_PROXY="1"
 |---|---|---|---|
 | P0 原型 | 可点击原型、3D 知识库、三端布局 | ✅ 完成 | 额外完成云账号与持久化（原属 P1） |
 | P1 MVP | 账号、真实 AI、数据持久化、三大页面 | ✅ 完成 | 账号✅ 持久化✅ 三大页面✅ 真实 AI✅；P1-A 向量命中✅、P1-B 指标埋点✅、P1-C 拍题缩略图（本地）🟡 浏览器验收待跑、P1-D 部署✅（线上 Demo 已上线） |
-| P2 增强 | 复习、关系编辑、导出、分享 | 🟡 约 65% | 关系编辑✅ 导出 JSON✅ 复习闭环✅ JSON 导入✅；分享、Realtime、删号/隐私说明未做 |
+| P2 增强 | 复习、关系编辑、导出、分享 | 🟡 功能冻结（2026-11-06） | 关系编辑✅ 导出/导入 JSON✅ 复习闭环✅；分享、Realtime、应用内删号、移动端壳、3D 性能明确不做（见 `docs/DECLARATIONS.md`） |
 
 P1 子项状态：
 
@@ -94,7 +94,7 @@ P1 子项状态：
 | P1-C 拍题链路 | 🟡 代码完成，浏览器验收待执行 | 原图只用于当次视觉模型请求，不上传云端；聊天/来源缩略图存本机 IndexedDB（2026-10-24 决策，见第 5 节 #16） |
 | P1-D 部署 + CI | ✅ 完成（2026-10-24） | GitHub 仓库公开 + CI 全绿；Vercel 生产部署 <https://zhimy.kasho.fun>（备用 vercel.app）；keepalive 已配 `vars.SUPABASE_URL` / `secrets.SUPABASE_ANON_KEY` 并手动跑通；已连接 Git（push 自动部署） |
 
-**视觉系统 v2（2026-10-31）✅**：不属于 P2 功能范围，但已作为全站体验升级完成，代码见 `35f0113`，说明见 3.1 / 3.4 / 5 #21–23。**复习闭环（2026-11-06）✅**：P2 第一项功能，说明见 3.11 / 5 #24。**JSON 导入（2026-11-06）✅**：补齐数据管理闭环，说明见 3.12 / 5 #25。P2 功能完成度按上表约 65% 计算。
+**视觉系统 v2（2026-10-31）✅**：不属于 P2 功能范围，但已作为全站体验升级完成，代码见 `35f0113`，说明见 3.1 / 3.4 / 5 #21–23。**复习闭环（2026-11-06）✅**：P2 第一项功能，说明见 3.11 / 5 #24。**JSON 导入（2026-11-06）✅**：补齐数据管理闭环，说明见 3.12 / 5 #25。**P2 功能已冻结**：不再按百分比扩展，具体边界见 `docs/DECLARATIONS.md`。
 
 ## 3. 已实现能力（模块 → 关键文件）
 
@@ -291,6 +291,7 @@ P1 子项状态：
 - 演示模式数据在内存，刷新即重置
 - 移动端手势较密（拖节点 vs 旋转靠"是否按中节点"区分），未做专门的编辑模式
 - **视觉 v2 采用手工 + 截图验收，没有像素基线自动比对**：`scripts/screenshot.mjs` 会输出 overflow / blur / <44px 控件审计，但仍需人工判断层级与气质；截图产物在 `_verify/`（gitignored），仓库只保留 `docs/screenshots/` 的代表图
+- **功能边界已冻结（2026-11-06）**：分享、Realtime、应用内删号、移动端编辑壳、3D 性能不再实现；数据删除方式、隐私与 AI 免责见 `docs/DECLARATIONS.md`
 
 ### 工程/环境
 
@@ -306,11 +307,11 @@ P1 子项状态：
 
 ## 7. 计划与完成情况（按优先级）
 
-> 排序依据：先把技术主线做扎实（真实命中 + 指标），再做拍题链路与 P2 增强。P1-A / P1-B / P1-C（简化版）已完成；剩余优先级：完成 P1-D 实际部署 → P2 增强（复习闭环、Realtime、分享）。部署只做"公开 Demo + 工程完整度"，不阻塞主线。
+> 排序依据：先把技术主线做扎实（真实命中 + 指标），再做拍题链路与 P2 增强。P1-A / P1-B / P1-C（简化版）已完成；P2 增强只保留复习闭环与 JSON 导入，其余已于 2026-11-06 冻结（见下）。部署只做"公开 Demo + 工程完整度"，不阻塞主线。
 >
 > 2026-10-31 追加：视觉系统 v2 已完成（`35f0113`），不改变 P1/P2 功能边界。
 >
-> 2026-11-06 追加：测试环境已修复（29 文件 / 238 用例全绿），原“Vitest 收集故障”结论作废；**P2-1 复习闭环与 JSON 导入已完成**并通过真实写库/截图/RLS/浏览器验收，下一步是真实 Key 验收与 P2 其余项（Realtime、分享、删号/隐私说明）。
+> 2026-11-06 追加：测试环境已修复（29 文件 / 238 用例全绿），原“Vitest 收集故障”结论作废；**P2-1 复习闭环与 JSON 导入已完成**；**P2 功能冻结**，分享 / Realtime / 应用内删号 / 移动端壳 / 3D 性能不再排期，边界见 `docs/DECLARATIONS.md`。
 
 ### P1-A 真实命中：pgvector embedding ✅（2026-10-23 完成）
 
@@ -396,14 +397,22 @@ P1 子项状态：
 
 **不做**：VPS / Docker / 备案 / 限流 / 监控告警 / 多环境 / Sentry 等（非商业 Demo 无收益，需要时再评估）
 
-### P2 增强（验证后再排）
+### P2 增强（2026-11-06 功能冻结）
 
-1. **复习闭环 ✅（2026-11-06）**：`review_state` 表、`/review` 到期页、四档评级、掌握度联动、批量加入与埋点已完成；对话后推荐复习未做（可选）
-2. **Realtime 跨端同步**：Supabase `postgres_changes` 订阅 nodes/relations/messages；冲突 last-write-wins
-3. **合规与数据管理**：JSON 导入 ✅（2026-11-06）；账号/数据删除、隐私说明未做（删号需服务端 service role key，先与维护者确认边界）
-4. **分享与导出**：知识图谱长图/只读链接；复习卡片导出
-5. **移动端打磨**：显式"编辑模式"开关（区分旋转与拖拽）、手势提示、长文阅读优化
-6. **3D 性能**：500 节点压力测试、静态帧渲染优化、WebGL 升级评估
+**已完成并维护：**
+
+1. **复习闭环 ✅（2026-11-06）**：`review_state` 表、`/review` 到期页、四档评级、掌握度联动、批量加入与埋点已完成；对话后推荐复习未做（随功能冻结不再排期）
+2. **JSON 导入 ✅（2026-11-06）**：设置页导入 v1 备份，同 id / 同父同名复用，新节点/来源重生成 UUID；数据管理闭环已补齐
+
+**明确不做（不再排期）：**
+
+- 分享只读链接 / 图谱长图导出
+- Realtime 跨端同步
+- 应用内账号删除（删除方式见 `docs/DECLARATIONS.md` §5）
+- 移动端专用编辑壳、3D 性能 / WebGL 升级
+- 商业化、多租户、班级 / 协作共享
+
+原因：个人开源非商业 Demo 已覆盖「收编 → 归位 → 复习 → 迁移」闭环；继续扩展收益递减，维护成本与合规风险上升。功能边界以 `docs/DECLARATIONS.md` 为准。
 
 ## 8. 本轮任务拆解与状态（2026-10-23）
 
@@ -451,7 +460,7 @@ P1 子项状态：
 5. **向量命中验收（需要真实 embedding Key）**：设置 → 模型 → 向量模型（如 `BAAI/bge-m3` 或 `text-embedding-3-small`）→「测试向量」→「重建向量索引」→ 对同一知识点用 5 种不同说法提问（≥4 次命中正确路径、无关问题不命中）→ 在 Supabase SQL Editor 执行 `docs/insights.sql`，确认 `hit_attempt` / 命中率 / 向量覆盖率有数据
 6. 无 Key / 未配置向量模型时：确认对话仍可用、命中自动降级关键词（这是设计行为，不是 bug）
 7. 浏览关键路径：对话收编 → 3D 定位/拖拽/连线 → 详情页生成与编辑；若已部署，打开 README 里的 Live Demo 跑一遍"提问 → 收编 → 3D 找到"（`?demo=1` 可自动载入示例图谱）。**会话验收**：在 `/chat` 发一条消息 → 新建对话再发另一条，确认两个会话历史互不串；刷新 `/chat?c=<id>` 能恢复；历史面板删除一个会话后消息消失。**拍题验收**：先在设置里填好视觉模型，发图提问确认模型能复述题干；刷新后缩略图仍在（同浏览器）、详情页来源可见；无痕窗口同账号只显示文件名；DevTools Network 不应出现 Supabase Storage 请求。**公式验收**：把截图里的 `\overrightarrow{DE}`、`\left|...\right|`、嵌套分数/根号发进聊天与详情预览，确认不再显示原始 `$$`/反斜杠；`$(1,0,0)$` 能渲染而 `$5` 保持文字。**流式验收**：用 `deepseek-reasoner` 一类支持 reasoning 的模型发问，确认思考面板实时增长、正文逐字出现；刷新后在消息里可展开「思考过程」。**复习验收**：从知识库打开任意节点 → 加入复习 → `/review` 出现卡片 → 四档评级 → 刷新后状态保留、待复习数减少；换账号确认复习状态隔离。**导入验收**：设置 → 数据 → 导出 JSON → 清空图谱 → 导入同一文件，确认节点/关系/来源恢复；再导入一次，确认同父同名复用、不产生重复节点。
-8. 后续按第 7 节执行：先做真实 Key 验收与专项 E2E，再进 P2 增强；P1-C 已按简化方案完成（图片云端持久化与 OCR 不做）。按 `docs/AGENTS.md` 的测试机制：小步改动只跑 `typecheck` / `lint`，全量 `test` 在大环节收尾、提交或交付前跑。
+8. 项目已进入维护模式（2026-11-06 功能冻结）：不再扩展 P2 新功能；后续只做 bugfix、依赖更新、文档与可选验收。功能边界与隐私/免责声明见 `docs/DECLARATIONS.md`。按 `docs/AGENTS.md` 的测试机制：小步改动只跑 `typecheck` / `lint`，全量 `test` 在大环节收尾、提交或交付前跑。
 9. 提交前：`git checkout -- next-env.d.ts`（避免生成文件噪音），确认 `.env.local` 未被提交
 10. **视觉回归**：启动 `npm run dev` 后运行 `SCREENSHOT_THEME=light node scripts/screenshot.mjs http://127.0.0.1:3100 _verify/light`；关注 `audit` 的 overflow / blur / <44px 控件，以及 `_verify` 截图中的墙纸双材质、唯一橙色短词、硬投影和深浅主题可读性。可加 `SCREENSHOT_FILTER=settings-mobile,atlas-seeded-desktop,node-detail-desktop` 只跑关键状态
 
@@ -491,6 +500,7 @@ P1 子项状态：
 | **拍题图片 / 本地缩略图（P1-C）** | `src/lib/media/{imageInputCore,imageThumbnails,localThumbnailStore}.ts`、`src/lib/ai/chatTurns.ts`、`src/components/common/LocalThumbnail.tsx` |
 | **流式思维链 / 打字机** | `src/lib/ai/sse.ts`（reasoning 提取）、`llmClient.ts`、`src/components/chat/ChatScreen.tsx`、`useTypewriter.ts`、`MessageBubble.tsx` |
 | **会话 / 上下文隔离** | `supabase/schema.sql`（conversations / conversation_id）、`src/lib/conversations.ts`、`src/store/chatStore.ts`、`src/components/chat/ChatScreen.tsx` |
+| **项目声明 / 隐私 / 免责** | `docs/DECLARATIONS.md`（功能边界、数据与隐私、删号方式、未成年人、许可） |
 | **部署 / CI / Demo / 健康检查** | `docs/DEPLOY.md`、`.github/workflows/{ci,keepalive}.yml`、`.nvmrc`、`src/components/shell/AppProviders.tsx`（`?demo=1`）、`src/app/api/health/route.ts` |
 
 ## 12. 决策记录（需要改之前先确认）
@@ -534,3 +544,4 @@ P1 子项状态：
 | 2026-11-06 | 测试环境注入内存 `localStorage`（新增 `tests/setup.ts`，`vitest.config.ts` 注册 `setupFiles`），不降级 Vitest | 2026-10-31 的“Vitest 收集故障”实为 Node 无 `window.localStorage` 导致 zustand `persist` 不挂 `api.persist`，仅影响 `tests/settings.test.ts` 3 例；改测试环境比改生产 store 或锁版本更小、更通用，实测 208/208 |
 | 2026-11-06 | 复习闭环用 SM-2 简化版 + 手动/批量加入（不自动入队）；`review_state` 为调度事实来源，评级同步 `nodes.mastery` | 四档固定间隔可解释、可单测，不引入日期/算法依赖；示例图谱 100+ 节点自动入队会瞬间打爆队列；独立表避免 nodes 频繁写调度字段；间隔上限 365 天防止连续 easy 让日期溢出 |
 | 2026-11-06 | JSON 导入采用「复用优先 + 新 id 重生成」，失败不包事务 | 导入是合并而非覆盖，避免冲掉现有讲解/关系；数据库 `uuid` 列要求合法 id，重生成同时规避冲突；未新增 RPC，失败时可能部分落库，UI 提示可重试 |
+| 2026-11-06 | **P2 功能冻结**：只保留复习闭环 + JSON 导入，分享 / Realtime / 应用内删号 / 移动端壳 / 3D 性能不再排期；补 `docs/DECLARATIONS.md` | 个人开源非商业 Demo 已覆盖核心闭环；继续加功能收益递减，维护成本与合规风险上升；先把边界和隐私说清楚比继续扩展更重要 |
