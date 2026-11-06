@@ -30,6 +30,7 @@ export const EVENTS = {
   graphSeeded: "graph_seeded",
   graphCleared: "graph_cleared",
   graphExported: "graph_exported",
+  graphImported: "graph_imported",
   embeddingBackfill: "embedding_backfill",
   llmConnectionTested: "llm_connection_tested",
   reviewDueShown: "review_due_shown",

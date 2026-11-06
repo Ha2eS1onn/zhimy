@@ -11,11 +11,11 @@
 - 这是「知脉」——把 AI 答疑沉淀成**可寻址、可联想、可收纳的个人知识图谱**的 Web 应用（Next.js 16 + Supabase）。
 - **P1-A 真实命中（pgvector 1024 维 + 关键词兜底）与 P1-B 指标埋点（events + insights）已完成 ✅**；**P1-C 拍题链路代码完成 🟡**（原图只喂当次请求的模型、视觉模型优先，不上传云端；聊天缩略图存本机 IndexedDB；浏览器验收待执行）；**P1-D 已完成 ✅**——仓库已公开、CI 首跑全绿、Vercel 生产部署上线（主域名 <https://zhimy.kasho.fun>，备用 <https://zhimy.vercel.app>，Let's Encrypt 证书已签发）、keepalive 已配置并手动验证通过、Git 连接已开启 push 自动部署（2026-10-24）。
 - **全站视觉系统 v2（2026-10-31，commit `35f0113`）已完成 ✅**：从蓝灰新拟态重写为 minty-paper——薄荷墙色 `--wall` + 奶油纸面 `--paper` 双材质、零模糊硬投影、绿色主强调、橙色短词马克笔、扁平线稿插图；覆盖首页、对话、知识图谱、节点详情、登录/配置/错误页、设置与所有抽屉，并同步深浅主题。新增 `Listbox` 与 `MintyIllustration`，设置新增“减少动画”（store v4）。
-- **当前验证（2026-11-06）**：`npm run test` **28 个测试文件 / 227 个用例全绿**（含新增的复习调度、schema、mappers、埋点用例），`npm run typecheck` / `lint` / `build` 通过；`npm run db:init` **52/52 条语句 ok**，`node scripts/verify-rls.mjs --direct` 覆盖复习状态归属并通过；复习页 1440 / 390 / 320 截图 `overflow 0 / blur 0 / <44px 控件 0`，浏览器实测评级后待复习 10 → 9、刷新仍为 9、0 console error。**2026-10-31 记录的“Vitest 5.0.5 在收集阶段报 `config undefined`、27/27 文件失败”已被实测推翻**：真实原因是 Node 测试环境缺少 `window.localStorage`，zustand `persist` 在 storage 不可用时不会挂载 `api.persist`，只影响 `tests/settings.test.ts` 的 3 个用例；已在 `tests/setup.ts` 注入内存 storage、在 `vitest.config.ts` 注册 `setupFiles` 修复，无需降级 Vitest。
+- **当前验证（2026-11-06）**：`npm run test` **29 个测试文件 / 238 个用例全绿**（含复习调度、schema、mappers、埋点与 JSON 导入用例），`npm run typecheck` / `lint` / `build` 通过；`npm run db:init` **52/52 条语句 ok**，`node scripts/verify-rls.mjs --direct` 覆盖复习状态归属并通过；复习页 1440 / 390 / 320 截图 `overflow 0 / blur 0 / <44px 控件 0`，浏览器实测评级后待复习 10 → 9、刷新仍为 9、0 console error。**2026-10-31 记录的“Vitest 5.0.5 在收集阶段报 `config undefined`、27/27 文件失败”已被实测推翻**：真实原因是 Node 测试环境缺少 `window.localStorage`，zustand `persist` 在 storage 不可用时不会挂载 `api.persist`，只影响 `tests/settings.test.ts` 的 3 个用例；已在 `tests/setup.ts` 注入内存 storage、在 `vitest.config.ts` 注册 `setupFiles` 修复，无需降级 Vitest。JSON 导入真实写库验收：测试账号知识点 102 → 104，父子关系与来源正确；清理后恢复 102、0 残留。
 - 当前状态（2026-10-24）：**P1 全部改动已提交并推送**（`b659a6b` 向量命中 / `872233b` 会话+埋点+拍题+公式 / `a3654f1` 部署与 CI / `934c6ec` 徽章 / `5e6ecf4`、`4888c28`、`aa7762c` 部署与域名文档 / `9ea959f` 技术债修复）。整体验证：`typecheck` / `lint` 通过、vitest **26 个文件 204 个用例全绿**、`next build` 通过（8 条路由 + Proxy）、CI 在 GitHub 上实跑全绿（2m36s）、`npm run db:init` 47 条语句全部 ok、线上 `/api/health` 返回 `{"ok":true}`、匿名登录 REST 校验通过。**线上 E2E（Playwright / Chromium headless，2026-10-24）**：主流程 **14/14** + 同名收编复用 **5/5**，均 0 console error / 0 page error / 0 failed request。主流程覆盖：`?demo=1` 自动载入 102 节点 → 3D 渲染 → 对话流式回答 → 抽取 2 张收编卡 → 收编写入 → `/atlas?node=` 深链定位 → 详情页 AI 模板生成 → 保存 → 刷新后仍在 → 进入对话页默认新会话；复用覆盖：两张同名建议只产生 1 个节点、无唯一约束报错。**尚未执行**：`verify-rls` 双账号校验、拍题/公式/思维链的线上自动化验收、向量命中「5 种问法」验收（缺真实 embedding Key）。
 - **向量命中的「5 种问法 ≥4 命中」云端验收尚未执行**：需要维护者配置真实 embedding Key 后按第 9 节 checklist 验证；无 Key 时按设计降级关键词，不影响构建与基础使用。
 - 部署方案：**Vercel Hobby（免费）+ GitHub Actions CI + 每日 keepalive**，定位是公开 Demo 与工程完整度；不做 VPS/Docker/备案/商业合规（详见 P1-D 与 `docs/DEPLOY.md`）。
-- 下一步建议：① ✅ 测试环境已修复并跑通全量（2026-11-06，28 文件 / 227 用例；原“Vitest 收集故障”结论作废）；② 配真实 embedding Key 跑「5 种问法 ≥4 命中」与 `docs/insights.sql` 落库验收；③ 补拍题/公式/思维链的线上专项验收（主闭环已 E2E 通过）；④ P2 继续：Realtime 跨端同步 / 分享 / JSON 导入与删号（复习闭环已完成 ✅）。自定义域名与 Supabase Auth 的 Site URL / Redirect URLs 已于 2026-10-24 配置完成。
+- 下一步建议：① ✅ 测试环境已修复并跑通全量（2026-11-06，29 文件 / 238 用例；原“Vitest 收集故障”结论作废）；② 配真实 embedding Key 跑「5 种问法 ≥4 命中」与 `docs/insights.sql` 落库验收；③ 补拍题/公式/思维链的线上专项验收（主闭环已 E2E 通过）；④ P2 继续：Realtime 跨端同步 / 分享 / 删号与隐私说明（复习闭环、JSON 导入已完成 ✅）。自定义域名与 Supabase Auth 的 Site URL / Redirect URLs 已于 2026-10-24 配置完成。
 - 流式体验（2026-10-24）：SSE 支持读取 `reasoning_content` / `reasoning` / `thinking` / `reasoning_details`，聊天里展示可折叠「思考过程」；正文用前端打字机逐字上屏。思维链存入当前账号的 `chat_messages.payload`（上限 2 万字），不写 events。
 - 多会话（2026-10-24）：新增 `conversations`，`chat_messages.conversation_id` 归属；进入 `/chat` 默认新对话（空会话不写库，发第一条消息才建会话），顶部「历史」切换/删除，`?c=` 恢复；每个会话的上下文完全隔离。system prompt 同时放宽到全学科（哲学、编程等）。
 
@@ -51,7 +51,7 @@ npm run dev:proxy              # 开发服务器（Node 请求走代理；网络
 ```powershell
 npm run typecheck
 npm run lint
-npm run test          # 纯逻辑单测；28 文件 / 227 用例。按 AGENTS.md：小步改动只跑 typecheck / lint，全量 test 在大环节收尾、提交或交付前跑
+npm run test          # 纯逻辑单测；29 文件 / 238 用例。按 AGENTS.md：小步改动只跑 typecheck / lint，全量 test 在大环节收尾、提交或交付前跑
 npm run build         # 生产构建；路由含 /、/chat、/atlas、/node/[id]、/api/llm/chat、/api/llm/embeddings、/api/health
 npm run db:init       # 幂等：建表/索引/RLS/触发器 + pgvector/embedding 列/HNSW/RPC + events 表
 npm run verify:rls    # 双匿名账号验证 RLS（需代理环境变量）
@@ -83,7 +83,7 @@ $env:NODE_USE_ENV_PROXY="1"
 |---|---|---|---|
 | P0 原型 | 可点击原型、3D 知识库、三端布局 | ✅ 完成 | 额外完成云账号与持久化（原属 P1） |
 | P1 MVP | 账号、真实 AI、数据持久化、三大页面 | ✅ 完成 | 账号✅ 持久化✅ 三大页面✅ 真实 AI✅；P1-A 向量命中✅、P1-B 指标埋点✅、P1-C 拍题缩略图（本地）🟡 浏览器验收待跑、P1-D 部署✅（线上 Demo 已上线） |
-| P2 增强 | 复习、关系编辑、导出、分享 | 🟡 约 60% | 关系编辑✅ 导出 JSON✅ 复习闭环✅（`/review` + SM-2 简化调度 + 掌握度）；分享、Realtime、导入/删号未做 |
+| P2 增强 | 复习、关系编辑、导出、分享 | 🟡 约 65% | 关系编辑✅ 导出 JSON✅ 复习闭环✅ JSON 导入✅；分享、Realtime、删号/隐私说明未做 |
 
 P1 子项状态：
 
@@ -94,7 +94,7 @@ P1 子项状态：
 | P1-C 拍题链路 | 🟡 代码完成，浏览器验收待执行 | 原图只用于当次视觉模型请求，不上传云端；聊天/来源缩略图存本机 IndexedDB（2026-10-24 决策，见第 5 节 #16） |
 | P1-D 部署 + CI | ✅ 完成（2026-10-24） | GitHub 仓库公开 + CI 全绿；Vercel 生产部署 <https://zhimy.kasho.fun>（备用 vercel.app）；keepalive 已配 `vars.SUPABASE_URL` / `secrets.SUPABASE_ANON_KEY` 并手动跑通；已连接 Git（push 自动部署） |
 
-**视觉系统 v2（2026-10-31）✅**：不属于 P2 功能范围，但已作为全站体验升级完成，代码见 `35f0113`，说明见 3.1 / 3.4 / 5 #21–23。**复习闭环（2026-11-06）✅**：P2 第一项功能，说明见 3.11 / 5 #24。P2 功能完成度按上表约 60% 计算。
+**视觉系统 v2（2026-10-31）✅**：不属于 P2 功能范围，但已作为全站体验升级完成，代码见 `35f0113`，说明见 3.1 / 3.4 / 5 #21–23。**复习闭环（2026-11-06）✅**：P2 第一项功能，说明见 3.11 / 5 #24。**JSON 导入（2026-11-06）✅**：补齐数据管理闭环，说明见 3.12 / 5 #25。P2 功能完成度按上表约 65% 计算。
 
 ## 3. 已实现能力（模块 → 关键文件）
 
@@ -204,6 +204,16 @@ P1 子项状态：
 - 测试：`tests/reviewSchedule.test.ts`、`tests/schema.test.ts`（复习表/策略）、`tests/mappers.test.ts`、`tests/analytics.test.ts`。
 - 验收：`npm run db:init` 52/52；`verify-rls --direct` 覆盖复习归属；`/review` 三端截图审计通过；浏览器实测评级 10→9、刷新仍 9、0 console error。
 
+### 3.12 JSON 导入（P2 数据管理，2026-11-06 ✅）
+
+- 解析：`src/lib/importGraph.ts` 的 `parseGraphJson(raw, existing)`，只接受 `{ app:"zhimy", version:1 }` 备份；非法 JSON / 非知脉文件 / 未知版本抛 `ImportError`。
+- 冲突策略：节点 id 已存在或同父级同名（大小写不敏感）时复用现有节点；备份内部同父级同名只插入第一个；父级在备份和当前图谱都缺失时提升为顶层并计入 `orphans`；关系只保留两端可解析且非自环的项，无向关系按 id 字典序规范化；来源 id 已存在时复用。
+- id 安全：导入的新节点/来源统一重新生成 UUID（备份里的 id 可能是手改字符串，数据库列是 `uuid`），关系与 `nodeSources` 通过旧 id → 新 id 映射。
+- 写库：`graphStore.importJson` 依次插入 sources → nodes（按深度）→ relations → nodeSources，最后 `loadGraph` 刷新；单批按现有 repo 接口写入，未包事务（失败时可能部分落库，UI 会提示错误）。
+- UI：设置 → 数据 → 「导入 JSON 备份」，选择文件后先预览“知识点/复用/跳过/关系/来源”并 confirm，再写入；限制 5 MB；导入成功 toast 统计；埋点 `graph_imported`。
+- 测试：`tests/importGraph.test.ts` 11 例（解析、版本、id/同名复用、备份内同名、子先于父、父级缺失、孤儿关系、来源复用、脏字段、无向规范化与去重）。
+- 验收：真实 Supabase 测试账号导入 2 节点 + 1 关系 + 1 来源，首页知识点 102 → 104；父子 id 映射、来源与关系落库正确；清理后恢复 102、0 残留；0 console error。
+
 ## 4. 数据模型与迁移
 
 ### 表
@@ -258,6 +268,7 @@ P1 子项状态：
 22. **“减少动画”由用户显式开关控制，不跟随系统 media query（2026-10-31）**：设置中新增 `reducedMotion`，通过 `html[data-reduced-motion]` 同时关闭 CSS 动画、打字机逐字、Sheet 退场等待以及 Canvas 自动旋转/选中脉冲。保留产品统一节奏，同时给需要静止界面的用户可操作入口；设置持久化版本升至 v4。
 23. **深色硬投影必须使用黑色系（2026-10-31）**：浅色下 `--shadow-line` 由 line/ink 混色，深色下显式改为 `rgba(0,0,0,.45/.62)`；不能继续沿用浅色墨混色，否则深色底上的投影会变成发光晕，整套纸感视觉会失真。
 24. **复习调度用 SM-2 简化版，且不自动入队（2026-11-06）**：四档评级映射到固定间隔（`again` 10 分钟、`good` 新卡 1 天、`easy` 新卡 3 天），ease 1.3–2.8、间隔上限 365 天、掌握度 0–1；纯函数便于单测，不引入日期/算法依赖。收编节点不自动加入复习，避免示例图谱 100+ 节点瞬间把队列打爆；由详情页手动加入或复习页批量加入最近 10 个。`review_state` 是调度事实来源，评级时同步 `nodes.mastery` 供图谱/详情展示。
+25. **JSON 导入采用「复用优先 + id 重生成」（2026-11-06）**：导入不是覆盖/恢复，而是把备份合并进当前图谱；同 id 或同父级同名复用现有节点（不覆盖内容），新节点/来源重新生成 UUID（兼容手改 id 与数据库 `uuid` 列），关系与来源引用通过映射落到新 id。选择复用而非覆盖，避免误导入把现有讲解/关系冲掉；代价是重复导入同一备份不会重复创建（同父同名挡住），但也不会更新已有节点内容。
 
 ## 6. 已知限制与技术债
 
@@ -272,7 +283,7 @@ P1 子项状态：
 - **system prompt**：已放宽到全学科，但知识抽取/讲解生成仍以“知识点”为单位；纯代码项目、长篇创作等可能只抽出少量可收编节点，属于产品模型限制
 - **有基础埋点但没有应用内看板**：`events` 只记事件名与少量属性，聚合查询需在 Supabase SQL Editor 手动执行 `docs/insights.sql`
 - **已上线，主闭环 E2E 通过**：<https://zhimy.kasho.fun> 可访问（证书至 2027-01-22）、`/api/health` 正常、匿名登录可用；Playwright 线上跑通「示例图谱 → 对话 → 收编 → 3D 深链 → 详情生成/保存 → 刷新持久化」14 项。**未覆盖**：拍题缩略图、公式渲染、思维链面板的线上自动化验收。**邮箱绑定注意**：Supabase 当前 `mailer_autoconfirm = false`（需确认邮件），免费版内置 SMTP 额度极低，公开 Demo 的「绑定邮箱」大概率收不到确认信；要在 Demo 演示该流程需配置自有 SMTP 或临时关闭 Confirm email（仅演示项目可接受）。无 PWA service worker；Hobby 函数区域美东，国内访问延迟较高
-- 无账号删除/数据删除入口；无 JSON 导入（只有导出）
+- 无账号删除/数据删除入口；JSON 导入已支持（仅 v1、≤5 MB、复用优先不覆盖、逐条写入未包事务，失败可能部分落库）；无 JSON 导入预览页（用 confirm 统计）
 - **复习闭环已可用，但仍是 MVP**：只做 SM-2 简化版（不是 FSRS），`again` 固定 10 分钟后重来；不自动把新收编节点加入复习，需要手动或批量加入；没有复习提醒通知、跨端实时刷新和题目自动生成；`due_at` 由客户端计算，设备时钟异常会影响到期判断；复习状态依赖 `db:init` 建表，未迁移的环境 `/review` 会显示加载失败
 - 跨端同步靠"重新打开/切回页面刷新"，无 Realtime
 - 关系置信度用户端固定 0.8，无滑杆；AI 建议理由不持久化
@@ -286,11 +297,11 @@ P1 子项状态：
 - 开发环境在网络受限时依赖 Clash 代理（`dev:proxy`）；本轮实测 Postgres 5432 可直连（`db:init` / `--direct` 可用），但 HTTPS 到 `*.supabase.co` 会被重置；浏览器端 E2E 需要能访问 Supabase HTTPS 的网络或代理
 - **启动屏卡住的已知环境原因（2026-10-23 实测）**：Clash 7897 在监听但 Windows `ProxyEnable=0`（系统代理未开），`npm run dev` 下浏览器直连 Supabase HTTPS 失败 → 一直停在「正在连接你的知识图谱…」。修复：开启 Clash 系统代理/TUN（浏览器侧）并 `npm run dev:proxy`（Node 侧）；无头 Edge 加 `--proxy-server=http://127.0.0.1:7897` 已实测可访问 Supabase。现在启动 6s 显示提示、15s 转错误页；`next.config.ts` 会自动把本机网卡 IPv4 加入 `allowedDevOrigins`（局域网访问不再拦 HMR）
 - Windows 沙箱/受限终端下 `next build`/`vitest`/无头 Edge 会 `spawn EPERM`（需要正常终端权限）；本轮 `typecheck`/`lint` 在沙箱内跑，`test`/`build` 在完整权限下跑，均通过
-- **测试环境修复（2026-11-06）**：2026-10-31 记录的“Vitest 5.0.5 在 27/27 个测试文件收集阶段报 `config undefined`”已被实测推翻——真实运行结果是 27 个文件 / 208 个用例，只有 `tests/settings.test.ts` 的 3 个用例失败（1 个通过）。根因是 Node 环境没有 `window.localStorage`，zustand `persist` 在 storage 不可用时直接 `return config(...)`、不挂载 `api.persist`（见 `node_modules/zustand/esm/middleware.mjs`）。修复：新增 `tests/setup.ts` 注入内存 `Storage`，`vitest.config.ts` 注册 `setupFiles`；**2026-11-06 复习闭环合入后为 28 文件 / 227 用例全绿**，`typecheck` / `lint` / `build` 通过，**不需要降级 Vitest**。原误判来自受限终端下 Vite 的 `spawn EPERM`（表现为 `failed to load config`），完整权限下重跑即可看到真实失败。
+- **测试环境修复（2026-11-06）**：2026-10-31 记录的“Vitest 5.0.5 在 27/27 个测试文件收集阶段报 `config undefined`”已被实测推翻——真实运行结果是 27 个文件 / 208 个用例，只有 `tests/settings.test.ts` 的 3 个用例失败（1 个通过）。根因是 Node 环境没有 `window.localStorage`，zustand `persist` 在 storage 不可用时直接 `return config(...)`、不挂载 `api.persist`（见 `node_modules/zustand/esm/middleware.mjs`）。修复：新增 `tests/setup.ts` 注入内存 `Storage`，`vitest.config.ts` 注册 `setupFiles`；**2026-11-06 复习闭环与 JSON 导入合入后为 29 文件 / 238 用例全绿**，`typecheck` / `lint` / `build` 通过，**不需要降级 Vitest**。原误判来自受限终端下 Vite 的 `spawn EPERM`（表现为 `failed to load config`），完整权限下重跑即可看到真实失败。
 - `next-env.d.ts` 会在 dev / build 之间自动切换内容，`git status` 常变脏；提交前 `git checkout -- next-env.d.ts` 即可
 - E2E 脚本在 `_verify/`（未提交，依赖本机 Edge 与测试账号 profile）；向量命中的 E2E 额外需要真实 embedding Key
 - 测试账号数据：Supabase 里有一个匿名账号被载入示例图谱、收编了"电路故障分析"、创建过测试关系、详情页有 E2E 标记；用户自己的浏览器账号是独立的，不受影响
-- CI 工作流已在 GitHub 实跑（2026-10-24 首跑 2m36s 全绿）；2026-11-06 测试修复的 run `42222206062` 已确认 typecheck / lint / unit tests / build 全绿；复习闭环合入后本地 227/227 已通过，推送后需再确认一次 Actions（此前 10-31 的失败结论已作废）；`.github/workflows/keepalive.yml` 需要仓库配置 `vars.SUPABASE_URL` + `secrets.SUPABASE_ANON_KEY` 后才生效（未配置时自动跳过）
+- CI 工作流已在 GitHub 实跑（2026-10-24 首跑 2m36s 全绿）；2026-11-06 测试修复的 run `42222206062` 已确认 typecheck / lint / unit tests / build 全绿；复习闭环与 JSON 导入合入后本地 238/238 已通过，推送后需再确认一次 Actions（此前 10-31 的失败结论已作废）；`.github/workflows/keepalive.yml` 需要仓库配置 `vars.SUPABASE_URL` + `secrets.SUPABASE_ANON_KEY` 后才生效（未配置时自动跳过）
 - Supabase 免费项目 7 天不活跃会暂停（数据保留）
 
 ## 7. 计划与完成情况（按优先级）
@@ -299,7 +310,7 @@ P1 子项状态：
 >
 > 2026-10-31 追加：视觉系统 v2 已完成（`35f0113`），不改变 P1/P2 功能边界。
 >
-> 2026-11-06 追加：测试环境已修复（28 文件 / 227 用例全绿），原“Vitest 收集故障”结论作废；**P2-1 复习闭环已完成**并通过统计/截图/RLS/浏览器评级验收，下一步是真实 Key 验收与 P2 其余项（Realtime、分享、导入/删号）。
+> 2026-11-06 追加：测试环境已修复（29 文件 / 238 用例全绿），原“Vitest 收集故障”结论作废；**P2-1 复习闭环与 JSON 导入已完成**并通过真实写库/截图/RLS/浏览器验收，下一步是真实 Key 验收与 P2 其余项（Realtime、分享、删号/隐私说明）。
 
 ### P1-A 真实命中：pgvector embedding ✅（2026-10-23 完成）
 
@@ -389,7 +400,7 @@ P1 子项状态：
 
 1. **复习闭环 ✅（2026-11-06）**：`review_state` 表、`/review` 到期页、四档评级、掌握度联动、批量加入与埋点已完成；对话后推荐复习未做（可选）
 2. **Realtime 跨端同步**：Supabase `postgres_changes` 订阅 nodes/relations/messages；冲突 last-write-wins
-3. **合规与数据管理**：账号/数据删除、JSON 导入、隐私说明（未成年人场景）
+3. **合规与数据管理**：JSON 导入 ✅（2026-11-06）；账号/数据删除、隐私说明未做（删号需服务端 service role key，先与维护者确认边界）
 4. **分享与导出**：知识图谱长图/只读链接；复习卡片导出
 5. **移动端打磨**：显式"编辑模式"开关（区分旋转与拖拽）、手势提示、长文阅读优化
 6. **3D 性能**：500 节点压力测试、静态帧渲染优化、WebGL 升级评估
@@ -426,8 +437,10 @@ P1 子项状态：
 | 26 | reviewStore 与 `/review` 页面 | `src/store/reviewStore.ts`、`src/app/review/page.tsx`、`src/components/review/ReviewScreen.tsx` | 到期队列、显示讲解、四档评级、空态批量加入 | ✅ 完成（截图 + 浏览器验收） |
 | 27 | 复习入口与埋点 | `Sidebar`、`MobileChrome`、`app/page.tsx`、`NodeDetailPage`、`analyticsCore`、`insights.sql` | 导航/首页统计/详情加入；4 个事件与 4 条 insights | ✅ 完成 |
 | 28 | 复习文档与视觉回归 | `README.md`、`docs/HANDOFF.md`、`scripts/screenshot.mjs`、`scripts/verify-rls.mjs` | 三端截图 0 溢出、RLS 覆盖复习 | ✅ 完成 |
+| 29 | JSON 导入纯逻辑 + 测试 | `src/lib/importGraph.ts`、`tests/importGraph.test.ts` | v1 解析、id/同名复用、父级缺失、孤儿关系、UUID 重生成 | ✅ 完成（11 个用例） |
+| 30 | 导入 UI 与埋点 | `SettingsSheet.tsx`、`graphStore.ts`、`analyticsCore.ts` | 设置页导入、预览确认、5 MB 限制、`graph_imported` | ✅ 完成（真实写库 102→104） |
 
-> 1–18 为技术主线，均已落到代码并上线；#11 的部署已于 2026-10-24 完成（GitHub + Vercel + keepalive + 自定义域名 + Supabase Auth URL），剩余仅为真实 Key 的指标验收与拍题/公式专项 E2E。19–23 为 2026-10-31 视觉系统 v2；24–28 为 2026-11-06 复习闭环（P2 第一项）；测试环境修复与全量回归（227/227）也已合入。
+> 1–18 为技术主线，均已落到代码并上线；#11 的部署已于 2026-10-24 完成（GitHub + Vercel + keepalive + 自定义域名 + Supabase Auth URL），剩余仅为真实 Key 的指标验收与拍题/公式专项 E2E。19–23 为 2026-10-31 视觉系统 v2；24–28 为 2026-11-06 复习闭环（P2 第一项）；29–30 为 JSON 导入；测试环境修复与全量回归（238/238）也已合入。
 
 ## 9. 接手第一步 checklist
 
@@ -437,7 +450,7 @@ P1 子项状态：
 4. 跑一遍自检：`typecheck` → `lint` → `test` → `build` → `db:init`（确认语句全部 ok，数量以脚本输出为准）→ `node scripts/verify-rls.mjs --direct`。**2026-11-06 已修复测试环境**：`npm run test` 27 文件 / 208 用例全绿（`tests/setup.ts` 注入内存 localStorage）；`typecheck` 通过。推送后确认 GitHub Actions 的 test 步骤转绿。
 5. **向量命中验收（需要真实 embedding Key）**：设置 → 模型 → 向量模型（如 `BAAI/bge-m3` 或 `text-embedding-3-small`）→「测试向量」→「重建向量索引」→ 对同一知识点用 5 种不同说法提问（≥4 次命中正确路径、无关问题不命中）→ 在 Supabase SQL Editor 执行 `docs/insights.sql`，确认 `hit_attempt` / 命中率 / 向量覆盖率有数据
 6. 无 Key / 未配置向量模型时：确认对话仍可用、命中自动降级关键词（这是设计行为，不是 bug）
-7. 浏览关键路径：对话收编 → 3D 定位/拖拽/连线 → 详情页生成与编辑；若已部署，打开 README 里的 Live Demo 跑一遍"提问 → 收编 → 3D 找到"（`?demo=1` 可自动载入示例图谱）。**会话验收**：在 `/chat` 发一条消息 → 新建对话再发另一条，确认两个会话历史互不串；刷新 `/chat?c=<id>` 能恢复；历史面板删除一个会话后消息消失。**拍题验收**：先在设置里填好视觉模型，发图提问确认模型能复述题干；刷新后缩略图仍在（同浏览器）、详情页来源可见；无痕窗口同账号只显示文件名；DevTools Network 不应出现 Supabase Storage 请求。**公式验收**：把截图里的 `\overrightarrow{DE}`、`\left|...\right|`、嵌套分数/根号发进聊天与详情预览，确认不再显示原始 `$$`/反斜杠；`$(1,0,0)$` 能渲染而 `$5` 保持文字。**流式验收**：用 `deepseek-reasoner` 一类支持 reasoning 的模型发问，确认思考面板实时增长、正文逐字出现；刷新后在消息里可展开「思考过程」。**复习验收**：从知识库打开任意节点 → 加入复习 → `/review` 出现卡片 → 四档评级 → 刷新后状态保留、待复习数减少；换账号确认复习状态隔离。
+7. 浏览关键路径：对话收编 → 3D 定位/拖拽/连线 → 详情页生成与编辑；若已部署，打开 README 里的 Live Demo 跑一遍"提问 → 收编 → 3D 找到"（`?demo=1` 可自动载入示例图谱）。**会话验收**：在 `/chat` 发一条消息 → 新建对话再发另一条，确认两个会话历史互不串；刷新 `/chat?c=<id>` 能恢复；历史面板删除一个会话后消息消失。**拍题验收**：先在设置里填好视觉模型，发图提问确认模型能复述题干；刷新后缩略图仍在（同浏览器）、详情页来源可见；无痕窗口同账号只显示文件名；DevTools Network 不应出现 Supabase Storage 请求。**公式验收**：把截图里的 `\overrightarrow{DE}`、`\left|...\right|`、嵌套分数/根号发进聊天与详情预览，确认不再显示原始 `$$`/反斜杠；`$(1,0,0)$` 能渲染而 `$5` 保持文字。**流式验收**：用 `deepseek-reasoner` 一类支持 reasoning 的模型发问，确认思考面板实时增长、正文逐字出现；刷新后在消息里可展开「思考过程」。**复习验收**：从知识库打开任意节点 → 加入复习 → `/review` 出现卡片 → 四档评级 → 刷新后状态保留、待复习数减少；换账号确认复习状态隔离。**导入验收**：设置 → 数据 → 导出 JSON → 清空图谱 → 导入同一文件，确认节点/关系/来源恢复；再导入一次，确认同父同名复用、不产生重复节点。
 8. 后续按第 7 节执行：先做真实 Key 验收与专项 E2E，再进 P2 增强；P1-C 已按简化方案完成（图片云端持久化与 OCR 不做）。按 `docs/AGENTS.md` 的测试机制：小步改动只跑 `typecheck` / `lint`，全量 `test` 在大环节收尾、提交或交付前跑。
 9. 提交前：`git checkout -- next-env.d.ts`（避免生成文件噪音），确认 `.env.local` 未被提交
 10. **视觉回归**：启动 `npm run dev` 后运行 `SCREENSHOT_THEME=light node scripts/screenshot.mjs http://127.0.0.1:3100 _verify/light`；关注 `audit` 的 overflow / blur / <44px 控件，以及 `_verify` 截图中的墙纸双材质、唯一橙色短词、硬投影和深浅主题可读性。可加 `SCREENSHOT_FILTER=settings-mobile,atlas-seeded-desktop,node-detail-desktop` 只跑关键状态
@@ -468,6 +481,7 @@ P1 子项状态：
 | **向量命中（P1-A）** | `src/lib/ai/{embeddings,semanticSearch,semanticClient,hit,nodeIndex,backfill}.ts`、`src/app/api/llm/embeddings/route.ts`、`scripts/embed-backfill.mjs` |
 | **指标埋点（P1-B）** | `src/lib/analytics.ts`（+ `analyticsCore.ts`）、`docs/insights.sql`、`supabase/schema.sql` 的 events 表 |
 | **复习闭环（P2）** | `src/lib/review/schedule.ts`、`src/store/reviewStore.ts`、`src/components/review/ReviewScreen.tsx`、`src/app/review/page.tsx`、`supabase/schema.sql` 的 `review_state`、`docs/insights.sql` §7 |
+| **JSON 导入（P2）** | `src/lib/importGraph.ts`、`src/store/graphStore.ts` 的 `importJson`、`SettingsSheet.tsx` 的数据页、`tests/importGraph.test.ts` |
 | 路径/检索/关系规则 | `src/lib/{path,search,relations}.ts` |
 | 账号与设置 | `src/store/sessionStore.ts`、`src/components/shell/SettingsSheet.tsx`、`src/lib/authErrors.ts` |
 | **视觉系统 / Token / 公共样式** | `src/app/globals.css`（wall/paper、硬投影、art 色板、reducedMotion、公共原语）、`src/components/shell/Theme.tsx` |
@@ -519,3 +533,4 @@ P1 子项状态：
 | 2026-10-31 | 扩展 `scripts/screenshot.mjs` 作为视觉回归入口，不引入 Playwright/图片差异依赖 | 现有项目已经用 Edge CDP 做截图；扩展审计 + 多状态截图成本低，符合零额外依赖策略。缺点是仍需人工判断气质 |
 | 2026-11-06 | 测试环境注入内存 `localStorage`（新增 `tests/setup.ts`，`vitest.config.ts` 注册 `setupFiles`），不降级 Vitest | 2026-10-31 的“Vitest 收集故障”实为 Node 无 `window.localStorage` 导致 zustand `persist` 不挂 `api.persist`，仅影响 `tests/settings.test.ts` 3 例；改测试环境比改生产 store 或锁版本更小、更通用，实测 208/208 |
 | 2026-11-06 | 复习闭环用 SM-2 简化版 + 手动/批量加入（不自动入队）；`review_state` 为调度事实来源，评级同步 `nodes.mastery` | 四档固定间隔可解释、可单测，不引入日期/算法依赖；示例图谱 100+ 节点自动入队会瞬间打爆队列；独立表避免 nodes 频繁写调度字段；间隔上限 365 天防止连续 easy 让日期溢出 |
+| 2026-11-06 | JSON 导入采用「复用优先 + 新 id 重生成」，失败不包事务 | 导入是合并而非覆盖，避免冲掉现有讲解/关系；数据库 `uuid` 列要求合法 id，重生成同时规避冲突；未新增 RPC，失败时可能部分落库，UI 提示可重试 |

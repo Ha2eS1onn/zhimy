@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { buildSeedGraph } from "@/data/seed";
 import { newId, nowIso } from "@/lib/ids";
+import { parseGraphJson, type ImportStats } from "@/lib/importGraph";
 import { reindexNode } from "@/lib/ai/nodeIndex";
 import { findChildByTitle, reparentError, validatePathSegments } from "@/lib/path";
 import { getRepo } from "@/lib/repo";
@@ -80,6 +81,8 @@ interface GraphState {
   seedExample: () => Promise<void>;
   clearGraph: () => Promise<void>;
   exportJson: () => string;
+  /** 导入 v1 JSON 备份；已存在/同名节点复用，返回导入统计。 */
+  importJson: (text: string) => Promise<ImportStats>;
 }
 
 function currentUserId(): string {
@@ -609,5 +612,42 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
       null,
       2,
     );
+  },
+
+  importJson: async (text) => {
+    const userId = currentUserId();
+    const plan = parseGraphJson(text, {
+      nodes: get().nodes,
+      relations: get().relations,
+      sources: get().sources,
+      nodeSources: get().nodeSources,
+    });
+    const hasWork =
+      plan.nodes.length > 0 ||
+      plan.relations.length > 0 ||
+      plan.sources.length > 0 ||
+      plan.nodeSources.length > 0;
+    if (!hasWork) return plan.stats;
+
+    set({ loading: true, error: null });
+    try {
+      for (const source of plan.sources) {
+        await getRepo().insertSource(userId, source);
+      }
+      if (plan.nodes.length > 0) await getRepo().insertNodes(userId, plan.nodes);
+      if (plan.relations.length > 0) await getRepo().insertRelations(userId, plan.relations);
+      if (plan.nodeSources.length > 0) {
+        await getRepo().insertNodeSources(userId, plan.nodeSources);
+      }
+      const graph = await getRepo().loadGraph(userId);
+      set({ ...applyGraph(graph), loading: false, loadedFor: userId });
+      return plan.stats;
+    } catch (error) {
+      set({
+        loading: false,
+        error: error instanceof Error ? error.message : "导入失败",
+      });
+      throw error;
+    }
   },
 }));

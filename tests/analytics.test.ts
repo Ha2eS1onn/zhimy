@@ -19,6 +19,7 @@ const EXPECTED_EVENT_NAMES = [
   "embedding_backfill",
   "graph_cleared",
   "graph_exported",
+  "graph_imported",
   "graph_seeded",
   "hit_attempt",
   "llm_connection_tested",

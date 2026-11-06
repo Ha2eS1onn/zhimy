@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { describeAuthError } from "@/lib/authErrors";
 import { LLM_PRESETS } from "@/lib/ai/types";
@@ -9,6 +9,7 @@ import { isEmbeddingConfigured, testEmbedding } from "@/lib/ai/embeddings";
 import { backfillEmbeddings, type BackfillProgress } from "@/lib/ai/backfill";
 import { EVENTS, track } from "@/lib/analytics";
 import { isDemoMode } from "@/lib/env";
+import { parseGraphJson } from "@/lib/importGraph";
 import { useChatStore } from "@/store/chatStore";
 import { useGraphStore } from "@/store/graphStore";
 import { useSessionStore } from "@/store/sessionStore";
@@ -16,7 +17,6 @@ import { useSettingsStore } from "@/store/settingsStore";
 import { toast } from "@/store/toastStore";
 import { useUIStore, type SettingsTab } from "@/store/uiStore";
 import { Icon } from "../shell/Icon";
-import { useMemo } from "react";
 import { Sheet } from "@/components/common/Sheet";
 
 const TABS: Array<{ id: SettingsTab; label: string }> = [
@@ -593,6 +593,7 @@ function DataSection() {
   const nodes = useGraphStore((state) => state.nodes);
   const relations = useGraphStore((state) => state.relations);
   const sources = useGraphStore((state) => state.sources);
+  const nodeSources = useGraphStore((state) => state.nodeSources);
   const messages = useChatStore((state) => state.messages);
   const loading = useGraphStore((state) => state.loading);
   const seedExample = useGraphStore((state) => state.seedExample);
@@ -600,10 +601,13 @@ function DataSection() {
   const refresh = useGraphStore((state) => state.refresh);
   const clearChat = useChatStore((state) => state.clear);
   const exportJson = useGraphStore((state) => state.exportJson);
+  const importJson = useGraphStore((state) => state.importJson);
   const llm = useSettingsStore((state) => state.llm);
   const [busy, setBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
   const [progress, setProgress] = useState<BackfillProgress | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const stats = useMemo(() => {
     const inbox = nodes.filter((node) => node.status === "inbox").length;
@@ -637,6 +641,52 @@ function DataSection() {
   };
 
   const embeddingReady = isEmbeddingConfigured(llm);
+
+  const handleImportFile = async (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast("备份文件不能超过 5 MB", "error");
+      return;
+    }
+    const raw = await file.text();
+    let plan;
+    try {
+      plan = parseGraphJson(raw, { nodes, relations, sources, nodeSources });
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "备份文件格式不正确", "error");
+      return;
+    }
+    if (plan.nodes.length === 0 && plan.relations.length === 0 && plan.sources.length === 0) {
+      toast("备份里没有可导入的新内容（已存在的节点会复用）", "info");
+      return;
+    }
+    const detail = [
+      `知识点 ${plan.nodes.length}`,
+      plan.stats.reused > 0 ? `复用 ${plan.stats.reused}` : "",
+      plan.stats.skipped > 0 ? `跳过 ${plan.stats.skipped}` : "",
+      `关系 ${plan.relations.length}`,
+      `来源 ${plan.sources.length}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    if (!window.confirm(`将导入：${detail}。\n已存在的知识点会复用，不覆盖现有内容。继续？`)) {
+      return;
+    }
+    setImporting(true);
+    try {
+      const stats = await importJson(raw);
+      track(EVENTS.graphImported, {
+        nodes: stats.nodes,
+        reused: stats.reused,
+        relations: stats.relations,
+        sources: stats.sources,
+      });
+      toast(`已导入 ${stats.nodes} 个知识点、${stats.relations} 条关系`, "success");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "导入失败", "error");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const handleBackfill = async () => {
     if (backfilling) return;
@@ -690,6 +740,26 @@ function DataSection() {
       <div className="space-y-2">
         <button type="button" className="btn-ghost w-full justify-start" onClick={handleExport}>
           <Icon name="download" size={16} /> 导出 JSON 备份
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) void handleImportFile(file);
+          }}
+        />
+        <button
+          type="button"
+          className="btn-ghost w-full justify-start"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={busy || importing}
+          title="仅支持知脉 v1 JSON 备份；已存在或同名的知识点会复用"
+        >
+          <Icon name="download" size={16} className="rotate-180" /> 导入 JSON 备份
         </button>
         <button
           type="button"
