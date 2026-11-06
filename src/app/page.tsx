@@ -7,7 +7,9 @@ import { PositionPicker } from "@/components/common/PositionPicker";
 import { MintyIllustration } from "@/components/common/MintyIllustration";
 import { Icon } from "@/components/shell/Icon";
 import { buildPath, pathLabel } from "@/lib/path";
+import { isDue } from "@/lib/review/schedule";
 import { useGraphStore } from "@/store/graphStore";
+import { useReviewStore } from "@/store/reviewStore";
 import { useSessionStore } from "@/store/sessionStore";
 import { toast } from "@/store/toastStore";
 import { useUIStore } from "@/store/uiStore";
@@ -38,18 +40,25 @@ export default function HomePage() {
   const reparent = useGraphStore((state) => state.reparent);
   const setStatus = useGraphStore((state) => state.setStatus);
   const createPath = useGraphStore((state) => state.createPath);
+  const reviewStates = useReviewStore((state) => state.states);
   const user = useSessionStore((state) => state.user);
   const openSettings = useUIStore((state) => state.openSettings);
+  const [now] = useState(() => Date.now());
 
   const derived = useMemo(() => {
     const active = nodes.filter((node) => node.status === "active");
     const inbox = nodes.filter((node) => node.status === "inbox");
-    const subjects = nodes.filter((node) => !node.parentId && node.status === "active");
     const recent = [...active]
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
       .slice(0, 3);
-    return { active, inbox, subjects, recent };
+    return { active, inbox, recent };
   }, [nodes]);
+
+  const dueReview = useMemo(
+    () =>
+      Object.values(reviewStates).filter((state) => isDue(state, new Date(now))).length,
+    [reviewStates, now],
+  );
 
   const ask = (text: string) => {
     const value = text.trim();
@@ -122,7 +131,7 @@ export default function HomePage() {
       <section className="card mt-5 grid grid-cols-3 divide-x divide-line overflow-hidden">
         <StatCard label="待处理" value={derived.inbox.length} href="/chat" />
         <StatCard label="知识点" value={derived.active.length} href="/atlas" />
-        <StatCard label="学科" value={derived.subjects.length} href="/atlas" />
+        <StatCard label="待复习" value={dueReview} href="/review" />
       </section>
 
       {nodes.length === 0 && !loading ? (

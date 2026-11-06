@@ -8,7 +8,10 @@ import {
   nodeToRow,
   relationFromRow,
   relationToRow,
+  reviewStateFromRow,
+  reviewStateToRow,
   type NodeRow,
+  type ReviewStateRow,
 } from "@/lib/repo/mappers";
 
 describe("数据库行 ↔ 领域对象映射", () => {
@@ -113,5 +116,38 @@ describe("数据库行 ↔ 领域对象映射", () => {
     const row = conversationToRow("u1", conversation);
     expect(row.user_id).toBe("u1");
     expect(conversationFromRow(row)).toEqual(conversation);
+  });
+
+  it("review_state 往返一致", () => {
+    const state = {
+      nodeId: "n1",
+      dueAt: "2026-11-06T00:00:00.000Z",
+      intervalDays: 2.5,
+      ease: 2.5,
+      lapses: 1,
+      mastery: 0.4,
+      lastGrade: "good" as const,
+      lastReviewedAt: "2026-11-05T00:00:00.000Z",
+      updatedAt: "2026-11-06T00:00:00.000Z",
+    };
+    const row = reviewStateToRow("u1", state);
+    expect(row.user_id).toBe("u1");
+    expect(reviewStateFromRow(row)).toEqual(state);
+  });
+
+  it("review_state 的非法 last_grade 归一为 null", () => {
+    const row: ReviewStateRow = {
+      node_id: "n1",
+      user_id: "u1",
+      due_at: "2026-11-06T00:00:00.000Z",
+      interval_days: 0,
+      ease: 2.5,
+      lapses: 0,
+      mastery: 0,
+      last_grade: "weird",
+      last_reviewed_at: null,
+      updated_at: "2026-11-06T00:00:00.000Z",
+    };
+    expect(reviewStateFromRow(row).lastGrade).toBeNull();
   });
 });

@@ -10,6 +10,7 @@ import type {
   NodeIndexTarget,
   NodeSource,
   Relation,
+  ReviewState,
   Source,
   VectorMatch,
 } from "@/types";
@@ -25,6 +26,8 @@ import {
   nodeToRow,
   relationFromRow,
   relationToRow,
+  reviewStateFromRow,
+  reviewStateToRow,
   sourceFromRow,
   sourceToRow,
   type ConversationRow,
@@ -32,6 +35,7 @@ import {
   type NodeRow,
   type NodeSourceRow,
   type RelationRow,
+  type ReviewStateRow,
   type SourceRow,
 } from "./mappers";
 
@@ -217,6 +221,7 @@ export function createSupabaseRepo(getClient: GetClient): DataRepo {
       if (patch.status !== undefined) row.status = patch.status;
       if (patch.detail !== undefined) row.detail = patch.detail;
       if (patch.manualPosition !== undefined) row.manual_position = patch.manualPosition;
+      if (patch.mastery !== undefined) row.mastery = patch.mastery;
       ensure(await client.from("nodes").update(row).eq("id", nodeId).eq("user_id", userId));
     },
 
@@ -382,6 +387,45 @@ export function createSupabaseRepo(getClient: GetClient): DataRepo {
         title: row.title,
         summary: row.summary ?? "",
       }));
+    },
+
+    async loadReviewStates(userId: string): Promise<ReviewState[]> {
+      const client = getClient();
+      if (!client) throw new Error("Supabase 未配置");
+      const result = await client
+        .from("review_state")
+        .select(
+          "node_id,user_id,due_at,interval_days,ease,lapses,mastery,last_grade,last_reviewed_at,updated_at",
+        )
+        .eq("user_id", userId)
+        .order("due_at", { ascending: true });
+      return rows<ReviewStateRow>(result).map(reviewStateFromRow);
+    },
+
+    async upsertReviewStates(userId: string, states: ReviewState[]): Promise<void> {
+      const client = getClient();
+      if (!client) throw new Error("Supabase 未配置");
+      if (states.length === 0) return;
+      ensure(
+        await client
+          .from("review_state")
+          .upsert(
+            states.map((state) => reviewStateToRow(userId, state)),
+            { onConflict: "node_id" },
+          ),
+      );
+    },
+
+    async deleteReviewState(userId: string, nodeId: string): Promise<void> {
+      const client = getClient();
+      if (!client) throw new Error("Supabase 未配置");
+      ensure(
+        await client
+          .from("review_state")
+          .delete()
+          .eq("node_id", nodeId)
+          .eq("user_id", userId),
+      );
     },
 
     async insertEvent(userId: string, event: AppEvent): Promise<void> {

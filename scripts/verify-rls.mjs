@@ -185,6 +185,7 @@ async function runViaDirect() {
 
   const vectorText = JSON.stringify(SYNTHETIC_VECTOR);
   const nodeId = crypto.randomUUID();
+  const nodeA2 = crypto.randomUUID();
   const eventId = crypto.randomUUID();
   const conversationId = crypto.randomUUID();
   const conversationMessageId = crypto.randomUUID();
@@ -331,7 +332,52 @@ async function runViaDirect() {
     }
     console.log("✓ 会话与消息归属隔离生效");
 
-    console.log("\nRLS / 向量 / 埋点 / 会话直连校验通过 ✅");
+    // 7) 复习状态归属隔离（P2）：读不到、改不动、也挂不到别人的节点上
+    await asUser(userA, async (tx) => {
+      await tx`
+        insert into public.review_state (node_id, user_id, due_at, interval_days, ease, lapses, mastery, updated_at)
+        values (${nodeId}, ${userA}, ${stamp}, 0, 2.5, 0, 0.2, ${stamp})
+      `;
+    });
+    const reviewByA = await asUser(userA, (tx) =>
+      tx`select node_id from public.review_state where node_id = ${nodeId}`,
+    );
+    const reviewByB = await asUser(userB, (tx) =>
+      tx`select node_id from public.review_state where node_id = ${nodeId}`,
+    );
+    if (reviewByA.length !== 1) throw new Error("A 读取不到自己的复习状态");
+    if (reviewByB.length !== 0) throw new Error("B 能读到 A 的复习状态：RLS 未生效！");
+
+    const crossUpdate = await asUser(userB, (tx) =>
+      tx`update public.review_state set due_at = ${stamp} where node_id = ${nodeId} returning node_id`,
+    );
+    if (crossUpdate.length !== 0) throw new Error("B 能修改 A 的复习状态：RLS 未生效！");
+
+    let reviewCrossDenied = false;
+    try {
+      await asUser(userA, async (tx) => {
+        await tx`
+          insert into public.nodes (id, user_id, parent_id, title, summary, status, aliases, created_at, updated_at)
+          values (${nodeA2}, ${userA}, null, 'RLS 复习归属校验', '', 'active', '{}', ${stamp}, ${stamp})
+        `;
+      });
+      await asUser(userB, async (tx) => {
+        await tx`
+          insert into public.review_state (node_id, user_id, due_at, updated_at)
+          values (${nodeA2}, ${userB}, ${stamp}, ${stamp})
+        `;
+      });
+    } catch (error) {
+      reviewCrossDenied = /row-level security|new row violates|42501|permission|权限/i.test(
+        error.message,
+      );
+    }
+    if (!reviewCrossDenied) {
+      throw new Error("B 能把复习状态挂到 A 的节点：review_state 归属策略未生效！");
+    }
+    console.log("✓ 复习状态归属隔离生效");
+
+    console.log("\nRLS / 向量 / 埋点 / 会话 / 复习直连校验通过 ✅");
   } catch (error) {
     if (/function .* does not exist|42883/i.test(error.message)) {
       console.error("\nRLS 校验失败 ✗：缺少向量/事件相关函数，请先执行 npm run db:init");
@@ -344,7 +390,8 @@ async function runViaDirect() {
     await sql`delete from public.chat_messages where id in (${conversationMessageId}, ${crossMessageId})`.catch(() => {});
     await sql`delete from public.conversations where id = ${conversationId}`.catch(() => {});
     await sql`delete from public.events where id = ${eventId}`.catch(() => {});
-    await sql`delete from public.nodes where id = ${nodeId}`.catch(() => {});
+    await sql`delete from public.review_state where node_id in (${nodeId}, ${nodeA2})`.catch(() => {});
+    await sql`delete from public.nodes where id in (${nodeId}, ${nodeA2})`.catch(() => {});
     await sql.end({ timeout: 5 }).catch(() => {});
     process.exit(exitCode);
   }

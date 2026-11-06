@@ -6,6 +6,7 @@ import { EVENTS, track } from "@/lib/analytics";
 import { clearThumbnails } from "@/lib/media/localThumbnailStore";
 import { useChatStore } from "@/store/chatStore";
 import { useGraphStore } from "@/store/graphStore";
+import { useReviewStore } from "@/store/reviewStore";
 import { useSessionStore } from "@/store/sessionStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { toast } from "@/store/toastStore";
@@ -39,15 +40,19 @@ export function AppProviders({ children }: { children: ReactNode }) {
     if (previousUserIdRef.current && previousUserIdRef.current !== user.id) {
       useGraphStore.getState().resetLocal();
       useChatStore.getState().resetLocal();
+      useReviewStore.getState().resetLocal();
       // 本地缩略图跟着账号走，避免下一个账号在同浏览器里看到上一账号的图片。
       void clearThumbnails();
     }
     previousUserIdRef.current = user.id;
     void useGraphStore.getState().ensureLoaded();
     void useChatStore.getState().ensureLoaded();
+    void useReviewStore.getState().ensureLoaded();
     const refreshOnVisible = () => {
       if (document.visibilityState === "visible") {
         void useGraphStore.getState().refresh();
+        const liveUser = useSessionStore.getState().user;
+        if (liveUser) void useReviewStore.getState().load(liveUser.id);
       }
     };
     document.addEventListener("visibilitychange", refreshOnVisible);

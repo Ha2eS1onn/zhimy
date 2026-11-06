@@ -57,6 +57,8 @@ interface GraphState {
   setStatus: (nodeId: string, status: NodeStatus) => Promise<void>;
   /** 修改知识点名称 / 摘要 / 完整讲解（详情页与面板里的编辑功能）。 */
   updateDetails: (nodeId: string, patch: { title?: string; summary?: string; detail?: string }) => Promise<void>;
+  /** 复习评级后写回掌握度（0–1），不触发向量重算。 */
+  setMastery: (nodeId: string, mastery: number) => Promise<void>;
   /** 拖动节点：一次更新父级与手动位置。 */
   moveNode: (
     nodeId: string,
@@ -415,6 +417,23 @@ export const useGraphStore = create<GraphState>()((set, get) => ({
     if (clean.title !== undefined || clean.summary !== undefined) {
       const updated = get().nodes.find((node) => node.id === nodeId);
       if (updated) reindexNode(updated);
+    }
+  },
+
+  setMastery: async (nodeId, mastery) => {
+    const userId = currentUserId();
+    const value = Math.max(0, Math.min(1, mastery));
+    const previous = get().nodes;
+    set({
+      nodes: previous.map((node) =>
+        node.id === nodeId ? { ...node, mastery: value, updatedAt: nowIso() } : node,
+      ),
+    });
+    try {
+      await getRepo().updateNode(userId, nodeId, { mastery: value });
+    } catch (error) {
+      set({ nodes: previous });
+      throw error;
     }
   },
 

@@ -32,6 +32,10 @@ export const EVENTS = {
   graphExported: "graph_exported",
   embeddingBackfill: "embedding_backfill",
   llmConnectionTested: "llm_connection_tested",
+  reviewDueShown: "review_due_shown",
+  reviewGraded: "review_graded",
+  reviewCompleted: "review_completed",
+  reviewEnqueued: "review_enqueued",
 } as const;
 
 export type AnalyticsEventName = (typeof EVENTS)[keyof typeof EVENTS];

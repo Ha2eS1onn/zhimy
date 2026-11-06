@@ -97,6 +97,39 @@ describe("schema.sql · events 埋点表", () => {
   });
 });
 
+describe("schema.sql · 复习闭环", () => {
+  it("review_state 表与到期索引齐备", () => {
+    const table = findStatement("create table if not exists public.review_state");
+    expect(table).toContain("node_id uuid primary key");
+    expect(table).toContain("references public.nodes(id) on delete cascade");
+    expect(table).toContain("due_at timestamptz");
+    expect(table).toContain("interval_days real");
+    expect(table).toContain("ease real");
+    expect(table).toContain("mastery real");
+    expect(table).toContain("last_grade text check");
+    expect(findStatement("review_state_due_idx")).toContain("user_id, due_at");
+  });
+
+  it("review_state 纳入表级授权与 RLS 批量策略", () => {
+    const grant = findStatement("grant select, insert, update, delete");
+    expect(grant).toContain("public.review_state");
+    expect(schema).toContain("'events', 'review_state'");
+  });
+
+  it("写入时校验节点归属，避免引用他人节点", () => {
+    const insert = findStatement("review_state_owner_insert on public.review_state");
+    expect(insert).toContain("public.nodes n");
+    expect(insert).toContain("n.user_id = auth.uid()");
+    const update = findStatement("review_state_owner_update on public.review_state");
+    expect(update).toContain("public.nodes n");
+  });
+
+  it("updated_at 触发器复用 set_updated_at", () => {
+    expect(schema).toContain("drop trigger if exists review_state_set_updated_at");
+    expect(schema).toContain("before update on public.review_state");
+  });
+});
+
 describe("schema.sql · 会话隔离", () => {
   it("conversations 表与 chat_messages.conversation_id 齐备", () => {
     const table = findStatement("create table if not exists public.conversations");

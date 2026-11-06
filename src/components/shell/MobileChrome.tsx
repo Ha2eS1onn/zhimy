@@ -9,6 +9,7 @@ import { ThemeToggle } from "./Theme";
 const TABS: Array<{ href: string; label: string; icon: IconName }> = [
   { href: "/", label: "首页", icon: "home" },
   { href: "/chat", label: "对话", icon: "chat" },
+  { href: "/review", label: "复习", icon: "refresh" },
   { href: "/atlas", label: "知识库", icon: "atlas" },
 ];
 

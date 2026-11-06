@@ -15,6 +15,7 @@ import { relationsOf } from "@/lib/relations";
 import { buildTemplateDetail, generateDetailWithLlm } from "@/lib/ai/detail";
 import { useChatStore } from "@/store/chatStore";
 import { useGraphStore } from "@/store/graphStore";
+import { useReviewStore } from "@/store/reviewStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { toast } from "@/store/toastStore";
 import { DetailEditor } from "./DetailEditor";
@@ -39,8 +40,12 @@ export function NodeDetailPage() {
   const createPath = useGraphStore((state) => state.createPath);
   const messages = useChatStore((state) => state.messages);
   const llm = useSettingsStore((state) => state.llm);
+  const reviewStates = useReviewStore((state) => state.states);
+  const enqueueReview = useReviewStore((state) => state.enqueue);
+  const removeReview = useReviewStore((state) => state.remove);
 
   const node = nodes.find((item) => item.id === nodeId);
+  const reviewState = node ? reviewStates[node.id] : undefined;
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -193,6 +198,25 @@ export function NodeDetailPage() {
     }
   };
 
+  const handleEnqueueReview = async () => {
+    try {
+      await enqueueReview(node.id);
+      track(EVENTS.reviewEnqueued, { count: 1, source: "detail" });
+      toast("已加入复习", "success");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "加入复习失败", "error");
+    }
+  };
+
+  const handleRemoveReview = async () => {
+    try {
+      await removeReview(node.id);
+      toast("已移出复习", "success");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "移出复习失败", "error");
+    }
+  };
+
   const handleReparent = async (parentId: string | null) => {
     try {
       await reparent(node.id, parentId);
@@ -291,6 +315,26 @@ export function NodeDetailPage() {
                         恢复自动位置
                       </button>
                     ) : null}
+                    {reviewState ? (
+                      <>
+                        <span className="chip">下次复习 {formatDateTime(reviewState.dueAt)}</span>
+                        <button
+                          type="button"
+                          className="btn-ghost btn-sm"
+                          onClick={() => void handleRemoveReview()}
+                        >
+                          移出复习
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-ghost btn-sm"
+                        onClick={() => void handleEnqueueReview()}
+                      >
+                        <Icon name="refresh" size={13} /> 加入复习
+                      </button>
+                    )}
                     <Link
                       href={`/chat?q=${encodeURIComponent(node.title)}`}
                       className="btn-ghost btn-sm"
@@ -453,6 +497,12 @@ export function NodeDetailPage() {
             <section className="card p-4 text-[11px] text-muted">
               <h2 className="text-base font-[750] tracking-[-0.02em] text-ink">信息</h2>
               <dl className="mt-2 space-y-1">
+                <div className="flex justify-between gap-2">
+                  <dt>掌握度</dt>
+                  <dd className="text-ink">
+                    {node.mastery != null ? `${Math.round(node.mastery * 100)}%` : "—"}
+                  </dd>
+                </div>
                 <div className="flex justify-between gap-2">
                   <dt>收编时间</dt>
                   <dd className="text-ink">{formatDateTime(node.createdAt)}</dd>

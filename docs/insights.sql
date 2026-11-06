@@ -215,3 +215,89 @@ select
 from public.nodes
 group by embedding_model
 order by node_count desc;
+
+
+-- ----------------------------------------------------------------------------
+-- 7) 复习闭环（P2）
+-- 事件口径：
+--   - review_due_shown：每次进入复习页、队列非空时记一条，props.count=当时到期数；
+--   - review_graded：每评一张卡记一条，props.grade / props.interval_days；
+--   - review_completed：队列清空时记一条，props.reviewed / props.again；
+--   - review_enqueued：加入复习记一条，props.count / props.source。
+-- 注意：完成率按「页面展示次数」分母，不是按卡数；跨天队列会落到不同日期。
+-- ----------------------------------------------------------------------------
+
+-- 7.1 每日复习动作与完成率
+select
+  (created_at at time zone 'Asia/Shanghai')::date as day,
+  count(*) filter (where name = 'review_due_shown') as page_visits,
+  count(*) filter (where name = 'review_graded') as graded,
+  count(*) filter (where name = 'review_completed') as completed,
+  round(
+    100.0 * count(*) filter (where name = 'review_completed')
+      / nullif(count(*) filter (where name = 'review_due_shown'), 0),
+    1
+  ) as completion_pct
+from public.events
+where name in ('review_due_shown', 'review_graded', 'review_completed')
+group by 1
+order by 1 desc;
+
+-- 7.2 评级分布与平均间隔
+select
+  coalesce(props ->> 'grade', '(unknown)') as grade,
+  count(*) as reviews,
+  round(avg((props ->> 'interval_days')::numeric), 2) as avg_interval_days
+from public.events
+where name = 'review_graded'
+group by 1
+order by reviews desc;
+
+-- 7.3 到期积压（普通用户只能看自己的；全量需 service role）
+select
+  count(*) as total_cards,
+  count(*) filter (where due_at <= now()) as due_now,
+  count(*) filter (where due_at > now()) as upcoming,
+  round(
+    100.0 * count(*) filter (where due_at <= now()) / nullif(count(*), 0),
+    1
+  ) as due_pct
+from public.review_state;
+
+-- 7.4 复习留存：首次复习日 vs 次日 / 第 7 日再次复习
+with first_review as (
+  select
+    user_id,
+    min((created_at at time zone 'Asia/Shanghai')::date) as cohort_day
+  from public.events
+  where name = 'review_graded'
+  group by user_id
+),
+flags as (
+  select
+    f.cohort_day,
+    f.user_id,
+    exists (
+      select 1 from public.events e
+      where e.user_id = f.user_id
+        and e.name = 'review_graded'
+        and (e.created_at at time zone 'Asia/Shanghai')::date = f.cohort_day + 1
+    ) as d1,
+    exists (
+      select 1 from public.events e
+      where e.user_id = f.user_id
+        and e.name = 'review_graded'
+        and (e.created_at at time zone 'Asia/Shanghai')::date = f.cohort_day + 7
+    ) as d7
+  from first_review f
+)
+select
+  cohort_day,
+  count(*) as users,
+  count(*) filter (where d1) as d1_users,
+  round(100.0 * count(*) filter (where d1) / nullif(count(*), 0), 1) as d1_pct,
+  count(*) filter (where d7) as d7_users,
+  round(100.0 * count(*) filter (where d7) / nullif(count(*), 0), 1) as d7_pct
+from flags
+group by cohort_day
+order by cohort_day desc;

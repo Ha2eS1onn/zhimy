@@ -5,6 +5,9 @@ export type RelationOrigin = "seed" | "ai" | "user";
 export type NodeStatus = "active" | "inbox";
 export type ChatRole = "user" | "assistant";
 
+/** 复习评级：again=忘记 / hard=困难 / good=一般 / easy=简单。 */
+export type ReviewGrade = "again" | "hard" | "good" | "easy";
+
 /** 知识点节点。id 是身份，parentId 决定地址；路径不落库，运行时沿父链拼装。 */
 export interface KnowledgeNode {
   id: string;
@@ -20,6 +23,26 @@ export interface KnowledgeNode {
   mastery: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** 一个知识点的间隔重复调度状态（review_state 一行）。 */
+export interface ReviewState {
+  nodeId: string;
+  dueAt: string;
+  /** 距下次复习的间隔（天，浮点）；again 用 10/1440 天。 */
+  intervalDays: number;
+  ease: number;
+  lapses: number;
+  mastery: number;
+  lastGrade: ReviewGrade | null;
+  lastReviewedAt: string | null;
+  updatedAt: string;
+}
+
+/** 复习页卡片：节点与其调度状态的组合。 */
+export interface ReviewCard {
+  node: KnowledgeNode;
+  state: ReviewState;
 }
 
 /** 四类关系；related / contrast 无向，入库前按 id 规范化方向。 */

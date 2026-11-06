@@ -7,6 +7,8 @@ import type {
   Relation,
   RelationOrigin,
   RelationType,
+  ReviewGrade,
+  ReviewState,
   Source,
 } from "@/types";
 
@@ -215,5 +217,50 @@ export function conversationToRow(userId: string, conversation: Conversation): C
     title: conversation.title,
     created_at: conversation.createdAt,
     updated_at: conversation.updatedAt,
+  };
+}
+
+export interface ReviewStateRow {
+  node_id: string;
+  user_id: string;
+  due_at: string;
+  interval_days: number;
+  ease: number;
+  lapses: number;
+  mastery: number;
+  last_grade: string | null;
+  last_reviewed_at: string | null;
+  updated_at: string;
+}
+
+const REVIEW_GRADES = new Set<ReviewGrade>(["again", "hard", "good", "easy"]);
+
+export function reviewStateFromRow(row: ReviewStateRow): ReviewState {
+  const grade = row.last_grade as ReviewGrade | null;
+  return {
+    nodeId: row.node_id,
+    dueAt: row.due_at,
+    intervalDays: row.interval_days,
+    ease: row.ease,
+    lapses: row.lapses,
+    mastery: row.mastery,
+    lastGrade: grade && REVIEW_GRADES.has(grade) ? grade : null,
+    lastReviewedAt: row.last_reviewed_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function reviewStateToRow(userId: string, state: ReviewState): ReviewStateRow {
+  return {
+    node_id: state.nodeId,
+    user_id: userId,
+    due_at: state.dueAt,
+    interval_days: state.intervalDays,
+    ease: state.ease,
+    lapses: state.lapses,
+    mastery: state.mastery,
+    last_grade: state.lastGrade,
+    last_reviewed_at: state.lastReviewedAt,
+    updated_at: state.updatedAt,
   };
 }

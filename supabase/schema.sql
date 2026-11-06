@@ -278,6 +278,25 @@ grant execute on function public.set_node_embedding(uuid, vector, text) to anon,
 grant execute on function public.list_nodes_missing_embedding(text) to anon, authenticated;
 
 -- STATEMENT
+-- 复习闭环：一个知识点一行，存间隔重复的调度状态；节点删除时级联清理。
+create table if not exists public.review_state (
+  node_id uuid primary key references public.nodes(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  due_at timestamptz not null default now(),
+  interval_days real not null default 0,
+  ease real not null default 2.5,
+  lapses integer not null default 0,
+  mastery real not null default 0,
+  last_grade text check (last_grade in ('again', 'hard', 'good', 'easy')),
+  last_reviewed_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+-- STATEMENT
+create index if not exists review_state_due_idx
+  on public.review_state (user_id, due_at);
+
+-- STATEMENT
 -- 指标埋点：只记事件名、小体量属性与时间，不存问题/答案正文。
 create table if not exists public.events (
   id uuid primary key default gen_random_uuid(),
@@ -325,6 +344,12 @@ create trigger conversations_set_updated_at
   for each row execute function public.set_updated_at();
 
 -- STATEMENT
+drop trigger if exists review_state_set_updated_at on public.review_state;
+create trigger review_state_set_updated_at
+  before update on public.review_state
+  for each row execute function public.set_updated_at();
+
+-- STATEMENT
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -348,7 +373,7 @@ grant usage on schema public to anon, authenticated;
 
 -- STATEMENT
 grant select, insert, update, delete
-  on public.profiles, public.nodes, public.relations, public.sources, public.node_sources, public.conversations, public.chat_messages, public.events
+  on public.profiles, public.nodes, public.relations, public.sources, public.node_sources, public.conversations, public.chat_messages, public.events, public.review_state
   to anon, authenticated;
 
 -- STATEMENT
@@ -357,7 +382,7 @@ declare
   target text;
 begin
   foreach target in array array[
-    'profiles', 'nodes', 'relations', 'sources', 'node_sources', 'conversations', 'chat_messages', 'events'
+    'profiles', 'nodes', 'relations', 'sources', 'node_sources', 'conversations', 'chat_messages', 'events', 'review_state'
   ] loop
     execute format('alter table public.%I enable row level security', target);
     execute format('drop policy if exists %I on public.%I', target || '_owner_select', target);
@@ -415,5 +440,33 @@ create policy chat_messages_owner_update on public.chat_messages
         where c.id = conversation_id
           and c.user_id = auth.uid()
       )
+    )
+  );
+
+-- STATEMENT
+-- review_state 必须指向当前用户自己的节点：外键只能保证节点存在，归属要额外校验。
+drop policy if exists review_state_owner_insert on public.review_state;
+create policy review_state_owner_insert on public.review_state
+  for insert
+  with check (
+    user_id = auth.uid()
+    and exists (
+      select 1 from public.nodes n
+      where n.id = review_state.node_id
+        and n.user_id = auth.uid()
+    )
+  );
+
+-- STATEMENT
+drop policy if exists review_state_owner_update on public.review_state;
+create policy review_state_owner_update on public.review_state
+  for update
+  using (user_id = auth.uid())
+  with check (
+    user_id = auth.uid()
+    and exists (
+      select 1 from public.nodes n
+      where n.id = review_state.node_id
+        and n.user_id = auth.uid()
     )
   );

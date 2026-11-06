@@ -12,6 +12,7 @@ import type {
   NodeIndexTarget,
   NodeSource,
   Relation,
+  ReviewState,
   Source,
   VectorMatch,
 } from "@/types";
@@ -28,10 +29,32 @@ export class MemoryRepo implements DataRepo {
   private graph: GraphData;
   private messages: ChatMessage[] = [];
   private conversations: Conversation[] = [];
+  private reviewStates = new Map<string, ReviewState>();
 
   constructor() {
     this.graph = buildSeedGraph();
     this.seedDemoConversation();
+    this.seedReviewStates();
+  }
+
+  /** 演示模式预置一批到期卡片，让 /review 打开就有内容。 */
+  private seedReviewStates(): void {
+    this.reviewStates.clear();
+    const now = new Date();
+    const dueAt = new Date(now.getTime() - 60_000).toISOString();
+    for (const node of this.graph.nodes.filter((item) => item.status === "active").slice(0, 10)) {
+      this.reviewStates.set(node.id, {
+        nodeId: node.id,
+        dueAt,
+        intervalDays: 0,
+        ease: 2.5,
+        lapses: 0,
+        mastery: node.mastery ?? 0.2,
+        lastGrade: null,
+        lastReviewedAt: null,
+        updatedAt: now.toISOString(),
+      });
+    }
   }
 
   private seedDemoConversation(): void {
@@ -172,12 +195,14 @@ export class MemoryRepo implements DataRepo {
       (relation) => !descendants.has(relation.fromId) && !descendants.has(relation.toId),
     );
     this.graph.nodeSources = this.graph.nodeSources.filter((link) => !descendants.has(link.nodeId));
+    for (const id of descendants) this.reviewStates.delete(id);
   }
 
   async deleteAllNodes(): Promise<void> {
     this.graph.nodes = [];
     this.graph.relations = [];
     this.graph.nodeSources = [];
+    this.reviewStates.clear();
   }
 
   async deleteAllSources(): Promise<void> {
@@ -253,6 +278,18 @@ export class MemoryRepo implements DataRepo {
     return [];
   }
 
+  async loadReviewStates(): Promise<ReviewState[]> {
+    return [...this.reviewStates.values()];
+  }
+
+  async upsertReviewStates(_userId: string, states: ReviewState[]): Promise<void> {
+    for (const state of states) this.reviewStates.set(state.nodeId, { ...state });
+  }
+
+  async deleteReviewState(_userId: string, nodeId: string): Promise<void> {
+    this.reviewStates.delete(nodeId);
+  }
+
   async insertEvent(_userId: string, _event: AppEvent): Promise<void> {
     // 内存模式不落库；analytics 在演示模式自行 console.debug。
   }
@@ -261,6 +298,7 @@ export class MemoryRepo implements DataRepo {
   resetToSeed(): void {
     this.graph = buildSeedGraph();
     this.seedDemoConversation();
+    this.seedReviewStates();
   }
 
   /** 演示用的示例关系（测试与调试）。 */

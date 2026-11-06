@@ -30,6 +30,10 @@ const EXPECTED_EVENT_NAMES = [
   "relation_deleted",
   "relation_suggestion_adopted",
   "relation_updated",
+  "review_completed",
+  "review_due_shown",
+  "review_enqueued",
+  "review_graded",
 ];
 
 describe("sanitizeProps", () => {

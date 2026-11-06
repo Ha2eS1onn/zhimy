@@ -73,6 +73,30 @@ const TARGETS = [
     panelNode: "物理",
     openDetail: true,
   },
+  {
+    name: "review-desktop",
+    route: "/review",
+    width: 1440,
+    height: 900,
+    demoSeed: true,
+    enqueueReview: true,
+  },
+  {
+    name: "review-mobile",
+    route: "/review",
+    width: 390,
+    height: 844,
+    demoSeed: true,
+    enqueueReview: true,
+  },
+  {
+    name: "review-mobile-sm",
+    route: "/review",
+    width: 320,
+    height: 568,
+    demoSeed: true,
+    enqueueReview: true,
+  },
 ];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -215,6 +239,14 @@ async function capture(target) {
   await cdp.send("Page.navigate", { url: `${baseUrl}${target.route}` });
   await sleep(target.route.includes("atlas") ? 3600 : 2600);
 
+  if (target.demoSeed) {
+    // 借首页的 ?demo=1 自动载入示例图谱，再回到目标页；/review 本身没有“载入示例”按钮。
+    await cdp.send("Page.navigate", { url: `${baseUrl}/?demo=1` });
+    await sleep(6000);
+    await cdp.send("Page.navigate", { url: `${baseUrl}${target.route}` });
+    await sleep(3000);
+  }
+
   if (target.seed) {
     const seeded = await waitForValue(
       cdp,
@@ -229,6 +261,22 @@ async function capture(target) {
       20000,
     );
     await sleep(seeded ? 2500 : 500);
+  }
+
+  if (target.enqueueReview) {
+    const clicked = await waitForValue(
+      cdp,
+      `(() => {
+        const button = [...document.querySelectorAll("button")].find(
+          (item) => item.textContent?.trim() === "加入最近 10 个",
+        );
+        if (!button || button.disabled) return false;
+        button.click();
+        return true;
+      })()`,
+      10000,
+    );
+    await sleep(clicked ? 1800 : 400);
   }
 
   if (target.panelNode) {
@@ -359,6 +407,7 @@ const browser = spawn(
     "--no-first-run",
     "--no-default-browser-check",
     "--hide-scrollbars",
+    ...(process.env.EDGE_PROXY ? [`--proxy-server=${process.env.EDGE_PROXY}`] : []),
     `--user-data-dir=${path.join(outDir, "edge-profile")}`,
     `--remote-debugging-port=${debugPort}`,
     "about:blank",

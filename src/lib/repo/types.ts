@@ -8,6 +8,7 @@ import type {
   NodeIndexTarget,
   NodeSource,
   Relation,
+  ReviewState,
   Source,
   VectorMatch,
 } from "@/types";
@@ -16,7 +17,7 @@ import type {
 export type NodeUpdatePatch = Partial<
   Pick<
     KnowledgeNode,
-    "parentId" | "title" | "summary" | "status" | "detail" | "manualPosition"
+    "parentId" | "title" | "summary" | "status" | "detail" | "manualPosition" | "mastery"
   >
 >;
 
@@ -75,6 +76,11 @@ export interface DataRepo {
   }): Promise<void>;
   /** 缺向量或向量模型不一致的节点（回填用）。 */
   listNodesMissingEmbedding(model: string): Promise<NodeIndexTarget[]>;
+  /** 复习调度状态（每个知识点最多一行）。 */
+  loadReviewStates(userId: string): Promise<ReviewState[]>;
+  /** 批量 upsert：单条也走这里，减少调用分支。 */
+  upsertReviewStates(userId: string, states: ReviewState[]): Promise<void>;
+  deleteReviewState(userId: string, nodeId: string): Promise<void>;
   /** 指标埋点事件。 */
   insertEvent(userId: string, event: AppEvent): Promise<void>;
 }
