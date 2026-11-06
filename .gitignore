@@ -35,6 +35,10 @@ Thumbs.db
 
 # vercel
 .vercel/
-
 .vercel
+
+# 临时提交信息文件（git commit -F 用，避免误提交）
+commit-msg*.tmp
+msg.tmp.txt
+
 .env*
